@@ -42,6 +42,13 @@ FORBIDDEN = [
     ("evaluation", "UPDATE inferred_claims SET accepted_as_item_id = 1"),
     ("user", "UPDATE inferred_claims SET statement = 'x'"),
     ("evaluation", "DELETE FROM experience_items"),
+    # Posting analysis (P1.6): requirements are written once by evaluation; nobody rewrites a reading.
+    ("discovery", "INSERT INTO requirements (posting_analysis_id, text, jd_quote, quote_found, final_class, interpretation_status) VALUES (1, 'x', 'x', 1, 'hard', 'confirmed')"),
+    ("user", "INSERT INTO requirements (posting_analysis_id, text, jd_quote, quote_found, final_class, interpretation_status) VALUES (1, 'x', 'x', 1, 'hard', 'confirmed')"),
+    ("evaluation", "UPDATE requirements SET final_class = 'hard'"),
+    ("user", "UPDATE requirements SET interpretation_status = 'confirmed'"),
+    ("discovery", "UPDATE model_configs SET tested_at_ms = 1"),
+    ("evaluation", "UPDATE model_configs SET tested_at_ms = 1"),
     # Deletes are rare and explicit.
     ("user", "DELETE FROM jobs"),
     ("discovery", "DELETE FROM raw_postings"),

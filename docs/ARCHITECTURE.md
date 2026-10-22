@@ -620,6 +620,10 @@ only by the Rust host.**
 - **Handshake and version skew:** host calls `GET /v1/health`, which returns
   agent version and `protocol_version`. Mismatch (old agent still running
   after an update) -> host requests `/v1/shutdown` and spawns the bundled agent.
+- **Posting analysis (P1.6):** model-config routes (6.8), `GET /v1/analysis/status` (counts by
+  status, pending work waiting on a disabled config, gate state per config),
+  `GET /v1/analyses/{id}` and `GET /v1/jobs/{id}/analysis` (sections plus every requirement
+  with both readings and flags). Profile routes: 4.2; filter routes: 3.3.
 - **Implemented so far (P1.1-P1.2):** `GET /v1/health`, `POST /v1/shutdown`,
   `POST /v1/discovery/pause|resume`, `GET /v1/events` (SSE; resumes after `Last-Event-ID`;
   new subscribers get only future events; woken by the committing code, 2 s fallback poll,
@@ -728,8 +732,8 @@ cannot reference it and it can never cover a requirement.
 
 | Stage | Who | Input -> output | Guards |
 |---|---|---|---|
-| **E0 Segment** | Code | Raw description -> sections with labels (requirements / preferred / responsibilities / benefits / about / eeo / unknown) from headings via a lexicon, and sentences | Postings without headings get one `unknown` section; that lowers confidence, it does not fail |
-| **E1 Extract** | LLM (full original text) | Requirements: `{text, jd_quote, importance (hard/required/preferred), polarity (required/negated), subject (candidate/company/team/benefit), eligibility_type?, min_years?}` | Schema-validated; one retry, then `failed` with raw response kept |
+| **E0 Segment** | Code | Raw description -> sections with labels (requirements / preferred / responsibilities / benefits / about / eeo / privacy / unknown) from headings via a lexicon, and sentences | Postings without headings get one `unknown` section; that lowers confidence, it does not fail |
+| **E1 Extract** | LLM (full original text) | Requirements: `{text, jd_quote, importance (hard/required/preferred), polarity (affirmative/negated), subject (candidate/company/team/benefit), eligibility_type (incl. program_status, or none), min_years?}` | Schema-validated; one retry, then `failed` with raw response kept |
 | **E2 Interpret** | Code | Each requirement -> quote location, section, sentence, cue reading, `final_class`, `interpretation_status` | See "interpretation checks" below |
 | **E3 Match** | LLM | Requirements with class != context/negated, profile snapshot items with ids and status -> per requirement `{match_type, cited_item_ids, bridge?, transfer_limits?, gap_detail?}`; optional inferred claims | Hard requirements with an eligibility type that maps to a declared fact are matched by code, not the model |
 | **E4 Validate** | Code | Model matches -> validated matches | Citations inserted through `match_citations` (FK to the snapshot); `basis` from item status; transferable needs >= 1 citation and a non-empty bridge, else downgraded to unknown; a "direct" citing only items unrelated by kind is flagged; gap size and materiality computed |
@@ -752,8 +756,11 @@ compares it to the model's:
    "minimum" vs "preferred", "nice to have", "a plus", "bonus", "ideally",
    and equivalence clauses ("or equivalent", "or related experience",
    "or X years in lieu of"). An equivalence clause caps the class at negotiable.
-   A "must" inside a Preferred section, or "preferred" inside Requirements, is
-   a conflict.
+   A "must" inside a Preferred section is a conflict. Downgrading wording inside
+   a Requirements section ("X is a plus" under "Qualifications") is not: the
+   wording wins and is flagged `wording_overrides_section` (corrected in P1.6;
+   the spike reference labels the Vultr line preferred, and calling every such
+   line a conflict would push routine postings toward INSUFFICIENT fit).
 4. **Subject.** Requirement text found in about / benefits / eeo sections, or
    a sentence whose subject is the company or team ("our customers", "we use",
    "you will mentor engineers with 10+ years") -> context. Model said candidate
@@ -774,12 +781,83 @@ compares it to the model's:
    requirement cannot be `hard`.
 7. **Eligibility recall scan** (added after spike P1.0b, where the best model
    missed the SkillBridge active-duty condition). The same lexicon runs over
-   every sentence of the posting, excluding EEO/benefits/privacy sections
-   identified by E0. Any eligibility-cue sentence that no extracted
+   every sentence of the posting, excluding EEO and privacy sections
+   identified by E0 and EEO/privacy sentences anywhere (corrected in P1.6:
+   benefits sections are scanned; see "Posting analysis E0-E2" below). Any eligibility-cue sentence that no extracted
    requirement overlaps becomes an `unextracted_eligibility` row
    (`interpretation_status = unverifiable`, quote = the sentence). It makes
    eligibility UNKNOWN and produces a REVIEW question; it can never produce
    SKIP. This turns a silent model miss into a visible one.
+
+**Posting analysis E0-E2 (implemented in P1.6,** `agent/src/jobforge_agent/analysis/`**).**
+- **E0** (`segment.py`): input is `raw_postings.description_text`, the same text E1 sees. A
+  heading is a short standalone line (<= 70 chars, <= 8 words, starts with a letter, no
+  terminal punctuation, no `field: value` colon). A lexicon heading gets its label; any other
+  heading-shaped line after a blank line starts an `unknown` section (except a list lead-in: a
+  line ending in ':' with more than 4 words or ending in "of", "with", "in", ...), so text under a heading the
+  lexicon does not know ("Logistics", which in Anthropic's postings holds the visa and office
+  rules) is never swallowed by the benefits section before it. Inside `eeo` and `privacy` only a
+  lexicon heading ends the section (legal notices have their own sub-headings). Labels add
+  `privacy` to the list above, because check 7 excludes privacy text. Context labels (about,
+  benefits, eeo, privacy) are given only for unambiguous headings ("Join Vultr" is that
+  posting's role description, so it stays `unknown`). Stored in `posting_analyses.sections` as
+  `{version, headings, sections: [{label, heading, sentences}]}`; `headings = 0` is the
+  low-confidence case. P1.6 dry run on the 42 queued real postings: 8 labels, 0-11 headings
+  each, every posting with a requirements or preferred section except one.
+- **E1** (`extract.py`, prompt `e1-v1`): the spike prompt e1-draft-2 plus `program_status` and
+  the "quote the bullet, never its heading" rule. Polarity values are
+  `affirmative`/`negated` (the table above said `required/negated`, the exact shared-enum
+  defect spike P1.0b found; corrected here). Output is validated with Pydantic whatever the
+  server's structured-output mode claims.
+- **E2** (`interpret.py`, lexicons in `cues.py`): quotes are matched after `norm()` (lowercase,
+  straight quotes, plain hyphens, bullets and whitespace collapsed) with trailing punctuation
+  dropped. Negation and modality are read on the quote's **clause** (split at `;`, "but",
+  "however", ...), so "Clearance not required, but must be able to obtain a Secret clearance"
+  reads the second clause as affirmative; subject is read on the whole sentence. The lexicon
+  for check 6 runs on the **quote**, not the sentence, so "5+ years of Linux; must be a US
+  citizen" does not give the Linux requirement a work-authorization type. Parenthesised text is
+  ignored for modality ("(preferably Ruby or Bash)" qualifies a choice). "Secret" counts as a
+  clearance cue only next to clearance wording (P1.6 dry run: Supabase's "our secret weapon").
+  `requirements.flags` is a JSON list of `{flag, ...}`: the `conflict` flag carries
+  `fields: [{field, model, cue}]`, i.e. both readings of every disagreement; other flags:
+  `equivalence`, `years` (`values` = every branch), `years_disagree`, `ability_to_obtain`,
+  `clearance_held`, `wording_overrides_section`, `required_wording_in_preferred_section`,
+  `modality_mixed`, `context_section`, `eeo_text`, `privacy_text`, `company_statement`,
+  `years_about_others`, `model_eligibility_hint_only`, `model_hard_without_eligibility_type`,
+  `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
+  `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
+  `quote_not_found`, `unextracted_eligibility`.
+- **Benefits and about text can hold eligibility conditions** (P1.6 live, 5 of the first 8
+  real postings: Vultr's state-residency list under "Compensation", Lyft's "must be based in the
+  US" under "Benefits:"). A quote with an eligibility cue in a benefits or about section keeps the
+  candidate subject (flag `eligibility_in_context_section`), and the recall scan reads those
+  sections. Only EEO and privacy text is exempt. The first P1.6 design (benefits = context,
+  not scanned, as D15 said) turned those blockers into `context`: a silent ELIGIBLE.
+- **List lead-in joined to a bullet** (flag `heading_joined_quote`): Gemma quoted
+  "Demonstrated understanding of:" + a later bullet on 7 of 15 items of Vultr's Linux
+  Systems Administrator posting despite the prompt rule. Located when the lead-in is its own
+  line and the nearest preceding ':' line in the same section; the lead-in's wording is read
+  for modality. A bullet under a different lead-in stays unverifiable. Every bullet also
+  inherits its lead-in's wording (E0 records `Sentence.lead`): Bitwarden lists 18 tools under
+  "Familiarity with several of the following ... is preferred:" inside its requirements section,
+  which otherwise read as 18 importance conflicts.
+- **Context rows ignore other disagreements:** when both readings say a line is not about the
+  candidate, an importance or polarity disagreement is recorded
+  (`disagreement_ignored_for_context`) but is not a conflict.
+- **Two rules added in P1.6** (not in the checks above, each pinned by a layer-A fixture):
+  (a) a requirement whose quote has an eligibility cue and whose subject is disputed (model says
+  candidate, cue says company, outside EEO/privacy text) stays a requirement with status
+  `conflict` instead of becoming `context`: "more permissive" would otherwise make a misplaced
+  residency rule vanish, a silent ELIGIBLE. (b) A recall-scan sentence counts as covered only
+  if an overlapping requirement carries that sentence's code-assigned type, so "Bachelor's
+  degree and US citizenship required" with only the degree extracted still yields a
+  work-authorization row. Recall rows store the code's own reading (`cue_polarity`, class)
+  so P1.7 can tell "We do not offer visa sponsorship" from "No clearance required".
+- **Worker** (`worker.py`, `store.py`): claim (one transaction) -> model call (none open) ->
+  persist (one transaction), pinned by a fake server that records `in_transaction` on every
+  agent connection during each call. Outcomes and attempt accounting are in the module
+  docstring; `analysis_done` / `analysis_failed` change events carry ids and counts.
+  `inference_available` / `inference_unavailable` are logged on gate transitions.
 
 Reconciliation: where model and cues agree, `confirmed`. Where they disagree,
 the more permissive reading is used for fit (a possible preferred is not
@@ -939,6 +1017,15 @@ database (exportable), never in the repo.
   2.5x slower and not more accurate; gpt-oss's did not engage under a JSON
   schema. Every call sets `max_tokens`, and `finish_reason = length` is
   recorded as `failed: budget_exhausted`, never parsed.
+- **Implemented in P1.6** (`inference/`): `GET /v1/model-configs`, `POST
+  /v1/model-configs/{id}/test` (lists `/v1/models`, runs E1 + E2 on a fixed synthetic snippet;
+  passes only if the model is listed, `finish_reason = stop`, output schema-valid and every
+  quote found; only a pass sets `tested_at_ms`), `POST .../enable` (409 before a passing test)
+  and `.../disable`. The model call runs with no transaction open. Context overflow measured
+  on LM Studio with Gemma loaded at 16,384: an 18,216-token prompt got HTTP 400
+  `exceed_context_size_error` in 0.3 s, no silent truncation; the client maps it to
+  `failed: context_overflow`. The agent does not check which context LM Studio actually loaded
+  a model with (DEFERRED_COMPLEXITY.md).
 - **Model availability is checked, not assumed.** A model listed by
   `/v1/models` may still fail to load (spike: qwen3.5-9b-tuned, runtime
   incompatibility). The "test this model config" action loads it and runs one

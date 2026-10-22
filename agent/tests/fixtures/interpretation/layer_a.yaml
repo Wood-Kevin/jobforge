@@ -1,0 +1,404 @@
+# ARCHITECTURE 6.6 layer A: interpreter (E0 + E2) cases, no model.
+# Each case: a posting snippet, the E1 reading a model plausibly produces (several are the
+# actual errors models made in spike P1.0b, Appendix A), and the expected E2 output.
+#   model:  E1 items. Defaults: importance required, polarity affirmative, subject candidate,
+#           eligibility_type none, min_years null, text = quote.
+#   expect: per model quote, fields of the stored requirement row ("flags" = flag names that must
+#           be present, "no_flags" = names that must be absent).
+#   recall: eligibility types of the expected unextracted_eligibility rows, in sentence order.
+# Synthetic text only: no personal data.
+
+- id: neg_cloud
+  area: negation
+  text: "Requirements:\n- No prior cloud experience required."
+  model: [{quote: "No prior cloud experience required", polarity: negated}]
+  expect: {"No prior cloud experience required": {final_class: negated, interpretation_status: confirmed, cue_polarity: negated}}
+
+- id: neg_cloud_model_misses_negation
+  area: negation
+  text: "Requirements:\n- No prior cloud experience required."
+  model: [{quote: "No prior cloud experience required"}]
+  expect: {"No prior cloud experience required": {final_class: negated, interpretation_status: conflict,
+           model_polarity: affirmative, cue_polarity: negated, flags: [conflict]}}
+
+- id: neg_degree
+  area: negation
+  text: "Qualifications:\n- A degree is not required."
+  model: [{quote: "A degree is not required", polarity: negated}]
+  expect: {"A degree is not required": {final_class: negated, interpretation_status: confirmed}}
+
+- id: neg_k8s
+  area: negation
+  text: "What you'll need:\n- You don't need Kubernetes on day one; we'll train you."
+  model: [{quote: "You don't need Kubernetes on day one", polarity: negated}]
+  expect: {"You don't need Kubernetes on day one": {final_class: negated, interpretation_status: confirmed, section_label: requirements}}
+
+- id: neg_mixed_clearance
+  area: negation
+  # Spike: every model labeled this hard.
+  text: "Requirements:\n- Clearance not required, but must be able to obtain a Secret clearance."
+  model: [{quote: "must be able to obtain a Secret clearance", importance: hard, eligibility_type: clearance}]
+  expect: {"must be able to obtain a Secret clearance": {final_class: negotiable, interpretation_status: confirmed,
+           eligibility_type: clearance, cue_polarity: affirmative, flags: [ability_to_obtain], no_flags: [clearance_held]}}
+
+- id: imp_ccna_required
+  area: importance
+  text: "Requirements:\n- CCNA certification required."
+  model: [{quote: "CCNA certification required"}]
+  expect: {"CCNA certification required": {final_class: negotiable, interpretation_status: confirmed, cue_importance: required}}
+
+- id: imp_ccna_plus
+  area: importance
+  text: "Nice to have:\n- CCNA certification is a plus."
+  model: [{quote: "CCNA certification is a plus", importance: preferred}]
+  expect: {"CCNA certification is a plus": {final_class: preferred, interpretation_status: confirmed, section_label: preferred}}
+
+- id: imp_ccna_equivalent
+  area: importance
+  text: "Requirements:\n- CCNA or equivalent experience."
+  model: [{quote: "CCNA or equivalent experience"}]
+  expect: {"CCNA or equivalent experience": {final_class: negotiable, interpretation_status: confirmed, flags: [equivalence]}}
+
+- id: imp_must_in_nice_to_have
+  area: importance
+  # Spike: every model read this as required.
+  text: "Nice to have:\n- Must have AWS experience."
+  model: [{quote: "Must have AWS experience"}]
+  expect: {"Must have AWS experience": {final_class: preferred, interpretation_status: conflict,
+           flags: [required_wording_in_preferred_section, conflict]}}
+
+- id: imp_plus_under_qualifications
+  area: importance
+  # Spike reference (Vultr): wording beats the heading; not a conflict when the model agrees.
+  text: "Qualifications:\n- Experience with virtualization, networking, or software development is a plus."
+  model: [{quote: "Experience with virtualization, networking, or software development is a plus", importance: preferred}]
+  expect: {"Experience with virtualization, networking, or software development is a plus":
+           {final_class: preferred, interpretation_status: confirmed, flags: [wording_overrides_section]}}
+
+- id: imp_parenthetical_preference
+  area: importance
+  # Spike reference (GitLab): "preferably" qualifies the language, not the requirement.
+  text: "Requirements:\n- Ability to use scripting languages (preferably Ruby or Bash)."
+  model: [{quote: "Ability to use scripting languages (preferably Ruby or Bash)"}]
+  expect: {"Ability to use scripting languages (preferably Ruby or Bash)": {final_class: negotiable, interpretation_status: confirmed}}
+
+- id: imp_degree_or_years
+  area: importance
+  text: "Requirements:\n- Bachelor's degree or 4 additional years of relevant experience."
+  model: [{quote: "Bachelor's degree or 4 additional years of relevant experience"}]
+  expect: {"Bachelor's degree or 4 additional years of relevant experience": {final_class: negotiable,
+           interpretation_status: confirmed, flags: [equivalence, years]}}
+
+- id: years_two_branches
+  area: years
+  text: "Requirements:\n- 5 years of experience with a degree or 7 without."
+  model: [{quote: "5 years of experience with a degree or 7 without", min_years: 5}]
+  expect: {"5 years of experience with a degree or 7 without": {final_class: negotiable, interpretation_status: confirmed,
+           min_years: 5, years: [5, 7]}}
+
+- id: years_word_number
+  area: years
+  text: "Requirements:\n- Four or more years of experience in software development."
+  model: [{quote: "Four or more years of experience in software development", min_years: 4}]
+  expect: {"Four or more years of experience in software development": {min_years: 4, years: [4], no_flags: [years_disagree]}}
+
+- id: subj_customers
+  area: subject
+  text: "About us:\nOur customers include Fortune 500 banks."
+  model: [{quote: "Our customers include Fortune 500 banks"}]
+  expect: {"Our customers include Fortune 500 banks": {final_class: context, interpretation_status: conflict, cue_subject: company}}
+
+- id: subj_customers_model_agrees
+  area: subject
+  text: "About us:\nOur customers include Fortune 500 banks."
+  model: [{quote: "Our customers include Fortune 500 banks", subject: company}]
+  expect: {"Our customers include Fortune 500 banks": {final_class: context, interpretation_status: confirmed}}
+
+- id: subj_stack
+  area: subject
+  # Spike: Gemma read the stack line as three required skills.
+  text: "About the team:\nOur stack: Terraform, Ansible, Datadog."
+  model: [{quote: "Terraform"}, {quote: "Ansible"}, {quote: "Datadog"}]
+  expect:
+    Terraform: {final_class: context, interpretation_status: conflict, section_label: about}
+    Ansible: {final_class: context, interpretation_status: conflict}
+    Datadog: {final_class: context, interpretation_status: conflict}
+
+- id: subj_stack_no_heading
+  area: subject
+  text: "Our stack: Terraform, Ansible, Datadog."
+  model: [{quote: "Our stack: Terraform, Ansible, Datadog"}]
+  expect: {"Our stack: Terraform, Ansible, Datadog": {final_class: context, interpretation_status: conflict, flags: [company_statement]}}
+
+- id: subj_mentor_years
+  area: subject
+  text: "Responsibilities:\n- You'll mentor engineers with 10+ years of experience."
+  model: [{quote: "mentor engineers with 10+ years of experience", min_years: 10}]
+  expect: {"mentor engineers with 10+ years of experience": {final_class: context, interpretation_status: conflict,
+           cue_subject: team, flags: [years_about_others]}}
+
+- id: subj_benefit_cert
+  area: subject
+  text: "Benefits:\n- We pay for AWS certifications."
+  model: [{quote: "We pay for AWS certifications"}]
+  expect: {"We pay for AWS certifications": {final_class: context, interpretation_status: conflict, cue_subject: benefit}}
+
+- id: eeo_section
+  area: eeo
+  text: "Equal opportunity:\nWe do not discriminate on the basis of race, religion, citizenship, or veteran status."
+  model: []
+  recall: []
+
+- id: eeo_model_extracts_citizenship
+  area: eeo
+  text: "Equal opportunity:\nWe do not discriminate on the basis of race, religion, citizenship, or veteran status."
+  model: [{quote: "citizenship", importance: hard, eligibility_type: work_authorization}]
+  expect: {"citizenship": {final_class: context, interpretation_status: conflict, flags: [context_section], no_flags: [subject_conflict_kept_for_eligibility]}}
+  recall: []
+
+- id: eeo_without_heading
+  area: eeo
+  text: "We are an equal opportunity employer and do not discriminate based on citizenship or protected veteran status."
+  model: []
+  recall: []
+
+- id: elig_citizen
+  area: eligibility
+  text: "Requirements:\n- Must be a US citizen."
+  model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: work_authorization}]
+  expect: {"Must be a US citizen": {final_class: hard, interpretation_status: confirmed, eligibility_type: work_authorization}}
+
+- id: elig_citizen_model_says_clearance
+  area: eligibility
+  # Spike: gpt-oss and qwen-think read GitLab's citizenship line as clearance.
+  text: "Requirements:\n- Must be a US citizen."
+  model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: clearance}]
+  expect: {"Must be a US citizen": {final_class: hard, interpretation_status: conflict, eligibility_type: work_authorization,
+           model_eligibility_type: clearance}}
+
+- id: elig_tssci_held
+  area: eligibility
+  text: "Requirements:\n- Active TS/SCI clearance required."
+  model: [{quote: "Active TS/SCI clearance required", importance: hard, eligibility_type: clearance}]
+  expect: {"Active TS/SCI clearance required": {final_class: hard, interpretation_status: confirmed, eligibility_type: clearance,
+           flags: [clearance_held]}}
+
+- id: elig_obtain_secret
+  area: eligibility
+  text: "Requirements:\n- Ability to obtain a Secret clearance."
+  model: [{quote: "Ability to obtain a Secret clearance", importance: hard, eligibility_type: clearance}]
+  expect: {"Ability to obtain a Secret clearance": {final_class: negotiable, eligibility_type: clearance, flags: [ability_to_obtain]}}
+
+- id: elig_reside
+  area: eligibility
+  text: "Requirements:\n- Must reside in Northern California."
+  model: [{quote: "Must reside in Northern California", importance: hard, eligibility_type: residency}]
+  expect: {"Must reside in Northern California": {final_class: hard, interpretation_status: confirmed, eligibility_type: residency}}
+
+- id: elig_reside_model_says_work_authorization
+  area: eligibility
+  # Spike: Gemma read both residency blockers (Vultr, Keeper) as work_authorization.
+  text: "Requirements:\n- Must reside within reasonable commuting distance of our Los Angeles office."
+  model: [{quote: "Must reside within reasonable commuting distance of our Los Angeles office", importance: hard,
+           eligibility_type: work_authorization}]
+  expect: {"Must reside within reasonable commuting distance of our Los Angeles office": {final_class: hard,
+           interpretation_status: conflict, eligibility_type: residency}}
+
+- id: elig_sponsor
+  area: eligibility
+  text: "Requirements:\n- We are unable to sponsor visas for this role."
+  model: [{quote: "We are unable to sponsor visas for this role", importance: hard, eligibility_type: sponsorship}]
+  expect: {"We are unable to sponsor visas for this role": {final_class: hard, interpretation_status: confirmed,
+           eligibility_type: sponsorship, cue_subject: candidate}}
+
+- id: elig_sponsor_not_a_negation
+  area: eligibility
+  text: "Requirements:\n- Candidates who do not require visa sponsorship now or in the future."
+  model: [{quote: "Candidates who do not require visa sponsorship now or in the future", importance: hard, eligibility_type: sponsorship}]
+  expect: {"Candidates who do not require visa sponsorship now or in the future": {final_class: hard, cue_polarity: affirmative,
+           interpretation_status: confirmed}}
+
+- id: elig_lift
+  area: eligibility
+  # Spike: gpt-oss and qwen-fast labeled the lift line required / none.
+  text: "Requirements:\n- Ability to lift 50 lbs."
+  model: [{quote: "Ability to lift 50 lbs"}]
+  expect: {"Ability to lift 50 lbs": {final_class: hard, interpretation_status: conflict, eligibility_type: physical}}
+
+- id: elig_travel
+  area: eligibility
+  text: "Requirements:\n- Willingness to travel up to 25%."
+  model: [{quote: "Willingness to travel up to 25%", eligibility_type: travel}]
+  expect: {"Willingness to travel up to 25%": {final_class: hard, interpretation_status: confirmed, eligibility_type: travel}}
+
+- id: elig_model_hard_skill
+  area: eligibility
+  # D6: however strongly worded, a skill is at most negotiable.
+  text: "Requirements:\n- Must have 5+ years of Linux administration."
+  model: [{quote: "Must have 5+ years of Linux administration", importance: hard, min_years: 5}]
+  expect: {"Must have 5+ years of Linux administration": {final_class: negotiable, interpretation_status: confirmed,
+           eligibility_type: null, flags: [model_hard_without_eligibility_type]}}
+
+- id: quote_not_found
+  area: quote
+  text: "Requirements:\n- 3+ years of Linux experience."
+  model: [{quote: "5+ years of Windows Server experience", min_years: 5}]
+  expect: {"5+ years of Windows Server experience": {quote_found: false, interpretation_status: unverifiable,
+           final_class: negotiable, section_label: null, flags: [quote_not_found]}}
+
+- id: quote_not_found_never_hard
+  area: quote
+  text: "Requirements:\n- 3+ years of Linux experience."
+  model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: work_authorization}]
+  expect: {"Must be a US citizen": {quote_found: false, interpretation_status: unverifiable, final_class: negotiable,
+           eligibility_type: null}}
+  recall: []
+
+- id: quote_with_curly_apostrophe
+  area: quote
+  text: "Requirements:\n- You’ll need hands‑on Linux experience."
+  model: [{quote: "You'll need hands-on Linux experience"}]
+  expect: {"You'll need hands-on Linux experience": {quote_found: true, interpretation_status: confirmed}}
+
+- id: quote_two_sections_disagree
+  area: quote
+  text: "Requirements:\n- AWS certification\n\nBenefits:\n- AWS certification"
+  model: [{quote: "AWS certification"}]
+  expect: {"AWS certification": {quote_found: true, quote_occurrences: 2, interpretation_status: unverifiable, flags: [ambiguous_location]}}
+
+- id: quote_two_sections_agree
+  area: quote
+  text: "Requirements:\n- Linux administration\n\nResponsibilities:\n- Linux administration"
+  model: [{quote: "Linux administration"}]
+  expect: {"Linux administration": {quote_occurrences: 2, interpretation_status: confirmed, section_label: requirements,
+           flags: [ambiguous_location]}}
+
+- id: recall_skillbridge_missed
+  area: recall
+  # Spike: Gemma missed the SkillBridge active-duty condition entirely.
+  text: "Requirements:\n- Active-duty military service member approved to participate in the DoD SkillBridge program.\n- Working knowledge of networking fundamentals."
+  model: [{quote: "Working knowledge of networking fundamentals"}]
+  expect: {"Working knowledge of networking fundamentals": {final_class: negotiable, interpretation_status: confirmed}}
+  recall: [program_status]
+
+- id: recall_skillbridge_extracted
+  area: recall
+  text: "Requirements:\n- Active-duty military service member approved to participate in the DoD SkillBridge program."
+  model: [{quote: "Active-duty military service member approved to participate in the DoD SkillBridge program", importance: hard,
+           eligibility_type: work_authorization}]
+  expect: {"Active-duty military service member approved to participate in the DoD SkillBridge program":
+           {final_class: hard, eligibility_type: program_status, interpretation_status: conflict}}
+  recall: []
+
+- id: recall_covers_only_the_extracted_type
+  area: recall
+  text: "Requirements:\n- Bachelor's degree and US citizenship required."
+  model: [{quote: "Bachelor's degree"}]
+  expect: {"Bachelor's degree": {final_class: negotiable, eligibility_type: null}}
+  recall: [work_authorization]
+
+- id: recall_after_unknown_heading
+  area: recall
+  # E0: a heading the lexicon does not know still ends the benefits section before it.
+  text: "Compensation\n\nThe annual salary is $100,000.\n\nLogistics\n\nVisa sponsorship: We do sponsor visas for this role."
+  model: []
+  recall: [sponsorship]
+
+- id: privacy_notice_subheadings
+  area: recall
+  text: "Candidate Privacy Notice\n\nInformation you provide:\n\nEmployment history, qualifications, work eligibility and citizenship status."
+  model: []
+  recall: []
+
+- id: benefits_perk_is_context
+  area: subject
+  text: "Benefits:\n- Gym membership reimbursement up to $50 per month."
+  model: [{quote: "Gym membership reimbursement up to $50 per month"}]
+  expect: {"Gym membership reimbursement up to $50 per month": {final_class: context, interpretation_status: conflict, cue_subject: benefit}}
+
+- id: benefits_section_residency_extracted
+  area: eligibility
+  # P1.6 live (Lyft): the location rule sits under "Benefits:". It must stay a requirement.
+  text: "Benefits:\n- Medical, dental and vision.\n- This role is fully remote; candidates for this role must be based in the US."
+  model: [{quote: "candidates for this role must be based in the US", importance: hard, eligibility_type: residency}]
+  expect: {"candidates for this role must be based in the US": {final_class: hard, interpretation_status: confirmed,
+           eligibility_type: residency, cue_subject: candidate, flags: [eligibility_in_context_section]}}
+
+- id: compensation_section_residency_missed
+  area: recall
+  # P1.6 live (Vultr): the state list sits under "Compensation"; the recall scan must see it.
+  text: "Compensation\n\nThe salary range is $80,000 to $100,000.\n\nWe are currently accepting applications from candidates residing in the following states: Florida, Texas."
+  model: []
+  recall: [residency]
+
+- id: no_headings
+  area: segment
+  text: "Must be a US citizen. You will monitor the network."
+  model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: work_authorization}]
+  expect: {"Must be a US citizen": {final_class: hard, interpretation_status: confirmed, section_label: unknown}}
+  headings: 0
+
+- id: secret_as_ordinary_word
+  area: recall
+  # P1.6 dry run on 42 real postings: Supabase's "secret weapon" read as a clearance.
+  text: "About Supabase\n\nWe believe our globally distributed team is our secret weapon.\n\nRequirements:\n- Experience with secrets management."
+  model: []
+  recall: []
+
+- id: secret_clearance_still_detected
+  area: recall
+  text: "Requirements:\n- Active Secret clearance.\n- Secret or higher preferred for the second shift."
+  model: []
+  recall: [clearance, clearance]
+
+- id: quote_joins_lead_in_and_bullet
+  area: quote
+  # P1.6 live (Vultr, Gemma): lead-in line joined to one of its bullets, across a blank line.
+  text: "Qualifications\n\nDemonstrated understanding of:\n\n - Load balancing concepts\n\n - Core networking concepts"
+  model: [{quote: "Demonstrated understanding of:\n\n - Core networking concepts"}]
+  expect: {"Demonstrated understanding of:\n\n - Core networking concepts": {quote_found: true, interpretation_status: confirmed,
+           final_class: negotiable, section_label: requirements, flags: [heading_joined_quote]}}
+
+- id: quote_joins_lead_in_inline
+  area: quote
+  # Spike P1.0b (gpt-oss): the same join on one line.
+  text: "Requirements:\n- 3+ years of IT support.\n\nHands-on experience configuring and supporting:\n- Firewalls\n- Load balancers"
+  model: [{quote: "Hands-on experience configuring and supporting: Firewalls"}, {quote: "Hands-on experience configuring and supporting: Load balancers"}]
+  expect:
+    # Directly after the lead-in the joined text is verbatim; a later bullet needs the join rule.
+    "Hands-on experience configuring and supporting: Firewalls": {quote_found: true, no_flags: [heading_joined_quote]}
+    "Hands-on experience configuring and supporting: Load balancers": {quote_found: true, section_label: requirements, flags: [heading_joined_quote]}
+
+- id: quote_joins_lead_in_with_its_modality
+  area: quote
+  # The second bullet needs the join rule; the lead-in's "must" is then read (the bullet alone has
+  # no wording): a must inside a Preferred section is a conflict, preferred for fit (check 3).
+  text: "Nice to have:\n- Python.\n\nYou must hold one of:\n- An active TS/SCI clearance\n- An active Secret clearance"
+  model: [{quote: "You must hold one of:\n- An active Secret clearance", importance: hard, eligibility_type: clearance}]
+  expect: {"You must hold one of:\n- An active Secret clearance": {final_class: preferred, interpretation_status: conflict,
+           eligibility_type: clearance, flags: [heading_joined_quote, required_wording_in_preferred_section]}}
+
+- id: quote_joins_lead_in_from_another_list
+  area: quote
+  # The bullet is under a different lead-in: not located.
+  text: "Demonstrated understanding of:\n- Virtualization\n\nNice to have:\n\nFamiliarity with:\n- Core networking concepts"
+  model: [{quote: "Demonstrated understanding of: Core networking concepts"}]
+  expect: {"Demonstrated understanding of: Core networking concepts": {quote_found: false, interpretation_status: unverifiable}}
+
+- id: context_rows_ignore_importance_disagreement
+  area: subject
+  # P1.6 live (Vultr): a perk the model called required with subject benefit.
+  text: "Benefits:\n- Increased PTO at 3 year anniversary + Anniversary Bonus each year"
+  model: [{quote: "Increased PTO at 3 year anniversary + Anniversary Bonus each year", subject: benefit}]
+  expect: {"Increased PTO at 3 year anniversary + Anniversary Bonus each year": {final_class: context, interpretation_status: confirmed,
+           flags: [disagreement_ignored_for_context]}}
+
+- id: bullets_inherit_lead_in_wording
+  area: importance
+  # P1.6 live (Bitwarden): a preferred list inside the Requirements section.
+  text: "What you bring\n\n- Excellent problem-solving skills\n\nFamiliarity with several of the following areas is preferred:\n\n- NGINX\n\n- SQL\n\nAbility to work remotely."
+  model: [{quote: "NGINX", importance: preferred}, {quote: "Excellent problem-solving skills"}, {quote: "Ability to work remotely"}]
+  expect:
+    NGINX: {final_class: preferred, interpretation_status: confirmed, flags: [wording_overrides_section]}
+    "Excellent problem-solving skills": {final_class: negotiable, interpretation_status: confirmed}
+    "Ability to work remotely": {final_class: negotiable, interpretation_status: confirmed}

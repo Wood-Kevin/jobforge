@@ -147,6 +147,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pypdf" },
     { name = "pyyaml" },
     { name = "structlog" },
@@ -155,7 +156,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pyinstaller" },
     { name = "pytest" },
 ]
@@ -163,6 +163,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.159.1" },
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pypdf", specifier = ">=6.21.2" },
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "structlog", specifier = ">=26.1.0" },
@@ -171,7 +172,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28.1" },
     { name = "pyinstaller", specifier = ">=6.22.3" },
     { name = "pytest", specifier = ">=9.1.1" },
 ]

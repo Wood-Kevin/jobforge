@@ -161,3 +161,18 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **What:** Uploading the same file again creates a second `resumes` row (P1.5 live: two of the 14 PDFs were byte-identical copies in different folders, stored as two rows with one sha256).
 - **Why deferred:** Harmless at this size (~30 KB each) and the UI does not exist yet to say "already uploaded as ...". Refusing silently, or deduping by sha256, would both hide something from Kevin.
 - **Trigger:** P1.8 resume view; return the existing id with a `duplicate_of` field instead of inserting.
+
+## Loaded context length is not checked (P1.6)
+- **What:** The default config says `context_length: 16384`, but the agent cannot see what context LM Studio actually loaded the model with (the OpenAI-compatible API does not report it). If LM Studio JIT-loads Gemma with a smaller default context, long postings fail as `context_overflow` (measured: HTTP 400 `exceed_context_size_error`, never silent truncation), visible per analysis but not explained.
+- **Why deferred:** Checking needs LM Studio's own REST API (`/api/v0/models`), a provider-specific path the single-client design (6.8) avoids. Failures are already visible, not wrong.
+- **Trigger:** Any `context_overflow` failure in practice, or a second provider (Ollama) whose load behavior differs.
+
+## Model config edits do not reset the test (P1.6)
+- **What:** `tested_at_ms` is set by a passing load-and-snippet test. There is no route to edit a config's params or model yet; when one is added it must clear `tested_at_ms` and `enabled`, or an untested combination would run.
+- **Why deferred:** Configs are seeded by migration and only enabled/disabled in Phase 1 so far; editing comes with the P1.8 settings view.
+- **Trigger:** The first route or UI that changes `model_configs.params`, `model_id` or `base_url`.
+
+## Recall rows are stored for every uncovered eligibility sentence (P1.6)
+- **What:** The recall scan (D15) stores an `unextracted_eligibility` row for each eligibility-cue sentence the model did not cover, including good news ("We do sponsor visas!", Anthropic) and negations ("No clearance required"). Each row carries the code's reading (`cue_polarity`, class), but E2 does not decide which ones should make eligibility UNKNOWN.
+- **Why deferred:** That is an assessment decision (P1.7, 6.5): e.g. a sponsorship sentence matters only if the profile says sponsorship is needed. Dropping rows in E2 would hide model misses, the failure D15 exists for.
+- **Trigger:** P1.7 eligibility rules; the golden-set REVIEW share (Q16) shows how many REVIEWs come from recall rows.

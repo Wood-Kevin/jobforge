@@ -249,7 +249,10 @@ accepted, not owned.
 ### D15: Eligibility recall scan turns missed blockers into REVIEW
 - **Tier:** consequential (error-cost tradeoff). Accepted by Kevin 2026-10-21.
 - **Choice:** E2 runs the eligibility lexicon over every posting sentence
-  outside EEO/benefits/privacy sections; any cue sentence not covered by an
+  outside EEO/privacy text (corrected in P1.6: benefits sections are scanned,
+  because real postings put residency rules there: Vultr's state list under
+  "Compensation", Lyft's "must be based in the US" under "Benefits:"); any cue
+  sentence not covered by an
   extracted requirement becomes `unextracted_eligibility`, which makes
   eligibility UNKNOWN (REVIEW with a question), never SKIP.
 - **Why:** Spike P1.0b: the best-scoring model missed the SkillBridge
@@ -477,10 +480,13 @@ PowerShell for process, registry and ACL probes.
 | SKIP only from positive evidence | SQL SKIPs with a decisive rule other than blocker/weak/stretch-low-value | Zero rows |
 | Invented quotes and conflicts excluded | SQL unverifiable/conflict requirements and their use | None counted; no conflict as a blocker |
 | Missed blockers surface | SQL `unextracted_eligibility` rows, 7 days, and the recommendations they produced | Rows listed with sentence; each maps to REVIEW, none to SKIP |
-| Eligibility type from code | SQL hard requirements where model type != lexicon type | Listed; all `conflict`, none `hard` |
-| Schema lint | `pytest agent/tests/unit/test_schema_lint.py -q` | Pass/fail |
+| Eligibility type from code | SQL requirements where model type != lexicon type | Listed; all `conflict` (a `hard` class is allowed and makes eligibility UNKNOWN, never a block; corrected in P1.6) |
+| Schema lint | `uv run pytest tests/test_analysis.py -k schema_lint -q` (from `agent/`) | Pass/fail |
 | Model budget failures | SQL analyses/evaluations with `failed: budget_exhausted` or `context_overflow`, 7 days | Counts per model config |
-| Interpretation suite | `pytest agent/tests/unit/test_interpretation.py -q` | Pass/fail counts |
+| Interpretation suite | `uv run pytest tests/test_interpretation.py -q` (from `agent/`; fixtures `tests/fixtures/interpretation/layer_a.yaml`) | Pass/fail counts |
+| Conflicts keep both readings | SQL `requirements` with status conflict: `model_*` vs `cue_*` columns and the `conflict` flag | Every row has both readings and at least one `{field, model, cue}` |
+| Model config tested before use | SQL `model_configs` enabled with `tested_at_ms` NULL; `POST /v1/model-configs/{id}/test` report | Zero rows (CHECK); report with listed, finish_reason, quotes found |
+| Analysis independent of the profile | After a profile edit: `/v1/analysis/status` counts, `analysis_done` log lines | Counts and line count unchanged |
 | Interpretation report | `jobforge-agent golden --suite interpretation` | Per-area agreement numbers |
 | Golden-set agreement | `jobforge-agent golden` | False SKIP, false APPLY, REVIEW share, confusion table |
 | Lifecycle and migration suites | `pytest agent/tests/lifecycle -q` | Pass/fail counts (kill/restart, migration interrupt, refuse-newer, restore) |
@@ -517,6 +523,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-10-22 | P1.6 implemented (posting analysis E0-E2): segmenter with heading lexicon (`privacy` label added), E1 prompt `e1-v1`, E2 interpreter with checks 1-7, analysis worker with health gate, model-config test/enable. Spec corrections: E1 polarity values are affirmative/negated (6.4 still showed the spike's defective `required/negated`); preferred wording inside a Requirements section is not a conflict (6.4 check 3); the "Eligibility type from code" verification row allowed no `hard` conflict rows, which contradicts 6.5 (conflicting hard -> UNKNOWN); test paths in section 6. D15 corrected: benefits sections are scanned and can hold eligibility conditions (live run: Vultr and Lyft put residency rules there, which the first design turned into `context`). E2 rules added from real model output: list lead-in joined to a bullet is located, context rows ignore importance disagreements, eligibility conditions with a disputed subject stay requirements (ARCHITECTURE 6.4). `httpx` moved from dev to runtime dependencies (discovery already imported it). Evidence: `docs/evidence/p1_6_analysis_live.txt` | Implementation |
 | 2026-10-22 | P1.5 implemented (profile): resume upload as raw bytes with text extraction (Markdown, text, DOCX via standard library, PDF via pypdf), experience item CRUD, verify/unverify (edit of a verified item clears it), typed eligibility facts per E2 eligibility type, completeness flags, inferred-claims inbox, `profile_changed` events carrying ids only. Verify-only rule pinned by an AST source scan (planned `ipc/routes/` grep test adapted to the real layout). Evidence: `docs/evidence/p1_5_profile_live.txt` (14 real resumes byte-identical, 0 resume text in logs) | Implementation |
 | 2026-10-22 | P1.4 implemented (filter + retention): scanner rules ported rule for rule (edd1528) with home area as profile data; every failed rule recorded beside the deciding one; filtering inside the poll transaction; versioned profile save with validation (422 naming the field) and CLI import of the scanner config.yaml; re-filter of every job's current posting in 300-job transactions; evaluate-anyway; default model seeded (migration 0003); user grants for overrides and pending analyses. Scanner `CLOSED` rule replaced by job closure. Docs corrected: writes are serialized by the event loop, not an asyncio lock (ARCHITECTURE 3.4). Evidence: `docs/evidence/p1_4_filter_live.txt` (13,205 postings, scanner differential 0 disagreements) | Implementation; drift fix (re-filter covers closed jobs per the P1.4 acceptance row) |
 | 2026-10-22 | P1.3 implemented (discovery): ported Greenhouse/Lever/Ashby parsers and robots handling (edd1528), ETag polling, change detection with closure and reopen, lease-based scheduler with jitter, per-host spacing and hourly budget, Retry-After host backoff, exponential employer backoff, dead/blocked marking, respread after downtime, watchlist import over IPC, discovery status route. Migration 0002 adds `jobs.employer_id` and seeds the three reviewed sources; Greenhouse budget 300/h (watchlist of 58 Greenhouse employers needs ~232/h at 15 min) | Implementation; budget sized from the real watchlist |

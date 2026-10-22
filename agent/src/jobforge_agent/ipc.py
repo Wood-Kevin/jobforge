@@ -23,6 +23,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from jobforge_agent import PROTOCOL_VERSION
 from jobforge_agent.filtering.profile import ProfileError
+from jobforge_agent.inference import configs as model_configs
 from jobforge_agent.profile import items, resumes
 
 if TYPE_CHECKING:
@@ -272,6 +273,48 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
             runtime.profile_action("claim_rejected", items.reject_claim, claim_id, ref={"claim_id": claim_id})
             return {"rejected": claim_id}
         return _profile_call(go)
+
+    # ----- model configs and posting analysis (E0-E2) -----
+
+    def _config_toggle(config_id: int, enabled: bool):
+        try:
+            runtime.set_model_config_enabled(config_id, enabled)
+        except LookupError:
+            return JSONResponse({"error": "unknown model config"}, status_code=404)
+        except model_configs.ConfigError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
+        return {"model_config_id": config_id, "enabled": enabled}
+
+    @app.get("/v1/model-configs")
+    async def list_model_configs():
+        return runtime.model_configs()
+
+    @app.post("/v1/model-configs/{config_id}/test")
+    async def test_model_config(config_id: int):
+        report = await runtime.test_model_config(config_id)
+        return report if report is not None else JSONResponse({"error": "unknown model config"}, status_code=404)
+
+    @app.post("/v1/model-configs/{config_id}/enable")
+    async def enable_model_config(config_id: int):
+        return _config_toggle(config_id, True)
+
+    @app.post("/v1/model-configs/{config_id}/disable")
+    async def disable_model_config(config_id: int):
+        return _config_toggle(config_id, False)
+
+    @app.get("/v1/analysis/status")
+    async def analysis_status():
+        return runtime.analysis_status()
+
+    @app.get("/v1/analyses/{analysis_id}")
+    async def get_analysis(analysis_id: int):
+        a = runtime.analysis_view(analysis_id)
+        return a if a is not None else JSONResponse({"error": "unknown analysis"}, status_code=404)
+
+    @app.get("/v1/jobs/{job_id}/analysis")
+    async def get_job_analysis(job_id: int):
+        a = runtime.job_analysis(job_id)
+        return a if a is not None else JSONResponse({"error": "no finished analysis for this job"}, status_code=404)
 
     @app.get("/v1/events")
     async def events(request: Request):

@@ -15,6 +15,8 @@ from dataclasses import dataclass
 import uvicorn
 
 from jobforge_agent import PROTOCOL_VERSION, __version__, ipc, logs, winutil
+from jobforge_agent.analysis import store as analysis_store
+from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
 from jobforge_agent.discovery import admin as discovery_admin
@@ -23,6 +25,8 @@ from jobforge_agent.discovery.service import DiscoveryService
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
 from jobforge_agent.filtering.profile import compile_profile
+from jobforge_agent.inference import configs as model_configs
+from jobforge_agent.inference.client import InferenceClient, load_config
 from jobforge_agent.paths import Paths
 from jobforge_agent.profile import resumes as profile_resumes
 
@@ -58,6 +62,10 @@ class AgentRuntime:
         self.discovery_conn: AgentConnection | None = None
         self.discovery: DiscoveryService | None = None
         self.reader: AgentConnection | None = None
+        self.evaluation_conn: AgentConnection | None = None
+        self.inference: InferenceClient | None = None
+        self.inference_transport = None  # tests inject a fake inference server here
+        self.analysis: AnalysisWorker | None = None
         self.elevated = winutil.is_elevated()
         self.last_maintenance_error: str | None = None
         # Woken after each commit that adds change_events, so the event stream pushes at once
@@ -82,6 +90,7 @@ class AgentRuntime:
         self.lifecycle = open_connection(self.paths.db, "lifecycle")
         self.user = open_connection(self.paths.db, "user")
         self.discovery_conn = open_connection(self.paths.db, "discovery")
+        self.evaluation_conn = open_connection(self.paths.db, "evaluation")
         self.reader = open_connection(self.paths.db, "readonly", readonly=True)
         report = recovery.recover(self.lifecycle, now_ms())
         self.run_id = self.lifecycle.execute(
@@ -102,10 +111,10 @@ class AgentRuntime:
         # Read-only first, a writer last: only a read-write connection can checkpoint and remove
         # the WAL on close. Closing the read-only one last left committed rows in jobforge.db-wal
         # (found in the P1.2 lifecycle run), which a plain file copy would miss.
-        for c in (self.reader, self.user, self.discovery_conn, self.lifecycle):
+        for c in (self.reader, self.user, self.discovery_conn, self.evaluation_conn, self.lifecycle):
             if c is not None:
                 c.close()
-        self.lifecycle = self.user = self.reader = self.discovery_conn = None
+        self.lifecycle = self.user = self.reader = self.discovery_conn = self.evaluation_conn = None
 
     # ----- used by IPC handlers (event-loop thread) -----
 
@@ -323,10 +332,79 @@ class AgentRuntime:
                              error=result["extraction_error"])
         return result
 
+    # ----- model configs and posting analysis -----
+
+    def inference_client(self) -> InferenceClient:
+        if self.inference is None:
+            self.inference = InferenceClient(self.inference_transport)
+        return self.inference
+
+    def model_configs(self) -> list[dict]:
+        assert self.reader is not None
+        return model_configs.listing(self.reader)
+
+    async def test_model_config(self, config_id: int) -> dict | None:
+        """User action: load-and-snippet test (ARCHITECTURE 6.8). The model call runs with no
+        transaction open; the result is written afterwards in its own short transaction."""
+        assert self.user is not None
+        cfg = load_config(self.user, config_id)
+        if cfg is None:
+            return None
+        report = await model_configs.run_test(self.inference_client(), cfg)
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            if report["ok"]:
+                model_configs.record_tested(self.user, config_id, now_ms())
+            self.user.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('model_config_tested', ?, ?)",
+                              (json.dumps({"model_config_id": config_id, "ok": report["ok"]}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("model_config_tested", model_config_id=config_id, ok=report["ok"], seconds=report.get("seconds"),
+                      error=None if report["ok"] else (report.get("error") or "")[:200])
+        self.notify_events()
+        return report
+
+    def set_model_config_enabled(self, config_id: int, enabled: bool) -> None:
+        """User action. Raises LookupError (unknown) or ConfigError (enable before a passing test)."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            model_configs.set_enabled(self.user, config_id, enabled)
+            self.user.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES (?, ?, ?)",
+                              ("model_config_enabled" if enabled else "model_config_disabled",
+                               json.dumps({"model_config_id": config_id}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("model_config_enabled" if enabled else "model_config_disabled", model_config_id=config_id)
+        self.notify_events()  # also wakes the analysis worker
+
+    def analysis_status(self) -> dict:
+        if self.analysis is not None:
+            return self.analysis.status()
+        assert self.reader is not None
+        ready, waiting = analysis_store.pending_config_ids(self.reader)
+        return {"counts": analysis_store.counts(self.reader), "pending_waiting_for_disabled_config": waiting,
+                "configs_with_work": ready, "inference": {}}
+
+    def analysis_view(self, analysis_id: int) -> dict | None:
+        assert self.reader is not None
+        return analysis_store.analysis_view(self.reader, analysis_id)
+
+    def job_analysis(self, job_id: int) -> dict | None:
+        assert self.reader is not None
+        aid = analysis_store.latest_for_job(self.reader, job_id)
+        return None if aid is None else analysis_store.analysis_view(self.reader, aid)
+
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""
         if self._events_signal is not None:
             self._events_signal.set()
+        if self.analysis is not None:
+            self.analysis.wake()  # newly queued analyses or an enabled config: no 10 s idle wait
 
     def events_after(self, last_id: int, limit: int = 200) -> list[dict]:
         assert self.reader is not None
@@ -413,6 +491,7 @@ class AgentRuntime:
         server_task = asyncio.create_task(server.serve(sockets=[sock]))
         http = HttpClient()
         self.discovery = DiscoveryService(self.discovery_conn, http, on_events=self.notify_events)
+        self.analysis = AnalysisWorker(self.evaluation_conn, self.inference_client(), on_events=self.notify_events)
         # Publish the endpoint only once uvicorn is accepting connections.
         while not server.started and not server_task.done():
             await asyncio.sleep(0.01)
@@ -423,7 +502,7 @@ class AgentRuntime:
         self.log.info("ipc_ready", port=endpoint.port)
 
         tasks = [asyncio.create_task(self.heartbeat()), asyncio.create_task(self.maintenance()),
-                 asyncio.create_task(self.discovery.run(self.stop_event))]
+                 asyncio.create_task(self.discovery.run(self.stop_event)), asyncio.create_task(self.analysis.run(self.stop_event))]
         stop_task = asyncio.create_task(self.stop_event.wait())
         done, _ = await asyncio.wait({server_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
         if server_task in done and not self.stop_event.is_set():
@@ -437,4 +516,5 @@ class AgentRuntime:
                 self.log.error("task_failed_on_stop", error=f"{type(r).__name__}: {r}")
         stop_task.cancel()
         await http.aclose()
+        await self.inference_client().aclose()
         self.paths.ipc.unlink(missing_ok=True)
