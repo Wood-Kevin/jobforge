@@ -195,7 +195,7 @@ evaluations lives in Python, where the scanner code and the tests already are.
 | Host crashes | — | Unaffected; keeps working. Tray gone until JobForge is reopened. |
 | Agent crashes or is killed | Watchdog (health every 5 s) sees 2 failures; respawns with backoff; after 3 restarts in 5 minutes, tray turns red and shows the last log lines instead of looping. **Reads the child's exit code:** 3 (already running) -> attach, do not respawn; 4 (database newer than this version) -> stop respawning and show the restore screen (spike: the watchdog respawned a refusing agent); 5 (refused elevated) -> stop respawning and show the D16 message. | On restart: lock is free (OS released it), recovery resets interrupted work. Spike: respawn in 13.6 s, previous run recorded `crash_recovered`, persisted pause survived. |
 | Agent hangs (alive, not answering) | **Never spawns a second agent while its last child is still alive** (spike: a hung agent plus respawn produced 8 hung agents). Tray shows "agent not responding" and offers Restart (kill + spawn). | An internal watchdog task logs `event_loop_stalled` if the loop misses ticks for > 30 s. |
-| Launched elevated (Run as administrator) | **D16 (Kevin, Q28):** compare the token's user SID with the interactive shell user's (Explorer's process owner). Same user -> relaunch itself at medium integrity through the shell (Explorer's token), log `relaunched_unelevated`, exit. Different user, or relaunch fails -> message "JobForge must run as you, without administrator rights", exit, start nothing. | Run mode or `--restore` while elevated -> exit 5, log `refused_elevated` (an elevated agent would create Administrators-owned files in the user's data root). `--shutdown` and `--status` are allowed elevated, because installer hooks need them. Logs `elevated` on every start. Spike: the autostart plugin wrote machine-wide `HKLM\...\Run` when elevated, so JobForge writes `HKCU\...\Run` itself (7.2). |
+| Launched elevated (Run as administrator) | **D16 (Kevin, Q28):** compare the token's user SID with the interactive shell user's (Explorer's process owner). Same user -> relaunch itself at medium integrity through the shell (Explorer's token), log `relaunched_unelevated`, exit. Different user, or relaunch fails -> message "JobForge must run as you, without administrator rights", exit, start nothing. | Run mode, `--backup` or `--restore` while elevated -> exit 5, log `refused_elevated` (an elevated agent would create Administrators-owned files in the user's data root). `--shutdown` and `--status` are allowed elevated, because installer hooks need them. Logs `elevated` on every start. Spike: the autostart plugin wrote machine-wide `HKLM\...\Run` when elevated, so JobForge writes `HKCU\...\Run` itself (7.2). |
 | Sleep / resume | Nothing special. | Scheduler sees a monotonic-clock tick gap > 2 min and re-spreads overdue employers (3.3). HTTP calls that were in flight fail and are retried by normal backoff. |
 | Sign-out / shutdown | Exits on session end. | Handles `CTRL_SHUTDOWN_EVENT`/`CTRL_LOGOFF_EVENT` (and a hidden message window for `WM_QUERYENDSESSION`) with the same graceful shutdown; anything unfinished is recovered on next start. |
 | Update / uninstall | See 7.2. | `--shutdown` from the installer hook. |
@@ -371,6 +371,14 @@ environment strings, and are overridable with `JOBFORGE_DATA_DIR` for tests.
 
 ### 4.2 Schema (SQLite, STRICT tables)
 
+Implemented as `agent/src/jobforge_agent/db/migrations/0001_init.sql` (P1.1), which is the
+column-level source of truth; the tables below summarize it. P1.1 added columns the design
+implied: `requirements.origin` (`model` / `unextracted_eligibility`, 6.4 check 7) and
+`requirements.model_eligibility_type` beside the code-derived `eligibility_type` (check 6);
+`model_configs.tested_at_ms` with `CHECK (enabled = 0 OR tested_at_ms IS NOT NULL)` (6.8 load
+test); `sources` `CHECK (enabled = 0 OR terms_reviewed_on IS NOT NULL)` (8); `agent_runs.elevated`;
+`created_at_ms` on `posting_analyses`, `filter_results`, `evaluations`, `inferred_claims`.
+
 Conventions: `INTEGER PRIMARY KEY`; times as UTC epoch milliseconds
 (`*_ms` INTEGER); JSON as TEXT with `CHECK (json_valid(col))`; enums as TEXT
 with `CHECK (col IN (...))`; every table `STRICT`.
@@ -442,8 +450,9 @@ a named replacement and a test, or it silently disappears.
   the version kept in `PRAGMA user_version`. Each migration runs in one
   transaction (SQLite DDL is transactional), so a migration killed halfway
   leaves the previous version intact. Forward-only.
-- **Before any migration:** online backup (`VACUUM INTO backups\pre-migrate-v<old>-<timestamp>.db`)
-  and an integrity check of the copy. No backup, no migration.
+- **Before any migration:** online backup with SQLite's backup API (consistent under WAL)
+  to `backups\pre-migrate-v<old>-<timestamp>.db`, then an integrity check of the copy. No
+  backup, no migration. Implemented in `agent/src/jobforge_agent/db/backup.py`.
 - **Newer database than the agent** (user rolled back the app): the agent
   refuses to start, exits 4, and the tray shows which backup matches this
   version. It never runs on a schema it does not know.
@@ -451,7 +460,7 @@ a named replacement and a test, or it silently disappears.
   `jobforge-agent --restore <pre-migrate backup>` (also a button in the host's
   error screen). Restore takes the agent lock first, so it cannot run under a
   live agent.
-- **Daily backup:** `VACUUM INTO`, keep 7, integrity-checked.
+- **Daily backup:** backup API, keep 7, integrity-checked; manual `--backup` keeps `manual-*.db`.
 - Rejected: Alembic. Good on Postgres, but on SQLite most real changes are
   hand-written table rebuilds anyway, and the autogenerate value is small;
   plain SQL files are easier to review and package.

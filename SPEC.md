@@ -60,7 +60,7 @@ matter"). Stays at the top level of `claude-projects`; no career-lane gate.
 - Explicit per-user behavior regardless of token (D16, Kevin 2026-10-21):
   autostart written by JobForge to `HKCU\...\Run` (no autostart plugin); the
   agent refuses to run elevated (exit 5; `--shutdown`/`--status` allowed,
-  `--restore` refused); an elevated host relaunches itself unelevated through
+  `--backup`/`--restore` refused because they create files in the data root); an elevated host relaunches itself unelevated through
   the shell and exits, and refuses with a message when that cannot be
   guaranteed (relaunch fails, or the elevated token's user differs from the
   signed-in shell user). The agent logs its elevation on every start.
@@ -510,6 +510,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-10-21 | P1.1 implemented (agent core). Clarified: `--backup` is also refused elevated; backups use SQLite's backup API; schema columns implied by checks 6-7, the model load test and source terms gate added to 0001 (ARCHITECTURE 4.2) | Implementation detail; no behavior change to agreed decisions |
 | 2026-10-21 | Status DRAFT to AGREED. Defaults applied: Q3 copy adapters (origin `edd1528`), Q10 no notifications, Q18 contractual certs negotiable, Q22 unsigned while single user, Q23 localhost HTTP + token; Cloudflare deferral accepted; adversarial pass after P1.8; source terms review recorded (ARCHITECTURE Appendix A); all remaining ARCHITECTURE questions closed with their proposed defaults | Kevin: "go" |
 | 2026-10-21 | Lane and own-words restatement waived for this project; D1-D16 marked accepted | Kevin: "lane doesn't matter nor does me restating. this is just slowing development" |
 | 2026-10-21 | Kevin's answers: Q4 default model gemma-4-12b-qat with reasoning disabled; Q27 spike labels provisional for testing, misses reviewed independently before any golden-set use; Q28 explicit per-user behavior, refuse elevation when safety cannot be guaranteed. D16 added (autostart plugin dropped, agent exit 5 when elevated, host unelevated relaunch or refusal); verification rows added | Kevin's decisions |
