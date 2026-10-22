@@ -22,6 +22,8 @@ packages = ["src/jobforge_agent"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# -rs: print every skip reason (a skipped regression suite must be visible, not just an "s")
+addopts = "-rs"
 markers = [
   "integration: starts real agent processes (unelevated through explorer.exe when the test shell is elevated)",
 ]

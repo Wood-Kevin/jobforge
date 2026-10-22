@@ -19,6 +19,7 @@ from jobforge_agent.discovery import adapters, changes, scheduler
 from jobforge_agent.discovery.http import USER_AGENT, HttpClient, RobotsRules
 from jobforge_agent.discovery.models import Employer
 from jobforge_agent.discovery.scheduler import Claim, FetchRecord
+from jobforge_agent.filtering import pipeline
 
 ROBOTS_TTL_MS = 24 * 3600 * 1000
 
@@ -112,6 +113,11 @@ def _close(conn, claim, rec: FetchRecord, now: int, rng, raws, employer) -> Poll
             else:
                 rec.new_count, rec.changed_count, rec.closed_count = counts.new, counts.changed, counts.closed
                 events = counts.events
+                # Filter new/changed postings in the same transaction: a posting is never stored
+                # without its filter verdict once a search profile exists.
+                stats = pipeline.filter_jobs(conn, counts.touched, now)
+                if stats is not None:
+                    events += stats.queued
         elif rec.outcome == "NOT_MODIFIED":
             changes.touch_unchanged_board(conn, claim.employer_id, now)
         next_at = scheduler.finish(conn, claim, rec, now, rng)

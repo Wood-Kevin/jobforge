@@ -10,6 +10,7 @@ Usage:
   jobforge-agent --backup        write a backup now (agent must not be running)
   jobforge-agent --restore FILE  replace the database with FILE (agent must not be running)
   jobforge-agent --import-watchlist FILE  add Greenhouse/Lever/Ashby employers from a watchlist YAML (agent running)
+  jobforge-agent --import-search-profile FILE  save a new search profile version from YAML (scanner config.yaml accepted; agent running)
   jobforge-agent --version
 """
 from __future__ import annotations
@@ -153,6 +154,27 @@ def cmd_import_watchlist(paths: Paths, source: str) -> int:
         return EXIT_ERROR
 
 
+def cmd_import_search_profile(paths: Paths, source: str) -> int:
+    """Send a profile YAML to the running agent as a new version. A job-scanner config.yaml is
+    converted (jax_metro -> home_metro, FL/GA made explicit); otherwise the YAML is the rules."""
+    import yaml
+
+    from jobforge_agent.filtering.profile import from_scanner_config
+
+    with open(source, encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+    rules = from_scanner_config(raw) if "jax_metro" in (raw.get("location") or {}) else raw
+    try:
+        print(json.dumps(_request(paths, "POST", "/v1/search-profile", timeout=30, body={"rules": rules}), indent=2))
+        return EXIT_OK
+    except urllib.error.HTTPError as exc:
+        print(f"rejected: {exc.read().decode('utf-8', 'replace')}", file=sys.stderr)
+        return EXIT_ERROR
+    except (OSError, urllib.error.URLError, ConnectionError) as exc:
+        print(f"agent not reachable (is JobForge running?): {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+
 def _with_agent_stopped(paths: Paths, action) -> int:
     lock = InstanceLock(paths.lock)
     if not lock.try_acquire():
@@ -187,7 +209,8 @@ def main(argv: list[str] | None = None) -> int:
     mode = "run"
     if args:
         mode = {"--shutdown": "shutdown", "--status": "status", "--backup": "backup",
-                "--restore": "restore", "--version": "version", "--import-watchlist": "import"}.get(args[0], "unknown")
+                "--restore": "restore", "--version": "version", "--import-watchlist": "import",
+                "--import-search-profile": "import_profile"}.get(args[0], "unknown")
     if mode == "unknown":
         print(__doc__, file=sys.stderr)
         return EXIT_ERROR
@@ -211,6 +234,11 @@ def main(argv: list[str] | None = None) -> int:
             print("--import-watchlist needs a file", file=sys.stderr)
             return EXIT_ERROR
         return cmd_import_watchlist(paths, args[1])
+    if mode == "import_profile":
+        if len(args) < 2:
+            print("--import-search-profile needs a file", file=sys.stderr)
+            return EXIT_ERROR
+        return cmd_import_search_profile(paths, args[1])
     if len(args) < 2:
         print("--restore needs a file", file=sys.stderr)
         return EXIT_ERROR

@@ -22,6 +22,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from jobforge_agent import PROTOCOL_VERSION
+from jobforge_agent.filtering.profile import ProfileError
 
 if TYPE_CHECKING:
     from jobforge_agent.agent import AgentRuntime
@@ -108,6 +109,38 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         if not runtime.poll_now(employer_id):
             return JSONResponse({"error": "unknown employer"}, status_code=404)
         return {"due": True}
+
+    @app.get("/v1/search-profile")
+    async def get_search_profile():
+        profile = runtime.search_profile()
+        if profile is None:
+            return JSONResponse({"error": "no search profile yet"}, status_code=404)
+        return profile
+
+    @app.post("/v1/search-profile")
+    async def save_search_profile(request: Request):
+        body = await request.json()
+        rules = body.get("rules") if isinstance(body, dict) else None
+        try:
+            return runtime.save_search_profile(rules)
+        except ProfileError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
+    @app.post("/v1/admin/refilter")
+    async def refilter():
+        return {"refilter": runtime.start_refilter()}
+
+    @app.get("/v1/filter/summary")
+    async def filter_summary():
+        return runtime.filter_summary()
+
+    @app.post("/v1/jobs/{job_id}/evaluate-anyway")
+    async def evaluate_anyway(job_id: int, request: Request):
+        body = await request.json() if request.headers.get("content-length", "0") not in ("", "0") else {}
+        result = runtime.evaluate_anyway(job_id, (body or {}).get("note"))
+        if result is None:
+            return JSONResponse({"error": "unknown job"}, status_code=404)
+        return result
 
     @app.get("/v1/events")
     async def events(request: Request):

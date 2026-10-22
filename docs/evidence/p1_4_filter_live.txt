@@ -1,0 +1,79 @@
+P1.4 live filter evidence, 2026-10-22. Real agent, unelevated, on a copy of the P1.3 evidence database
+(%LOCALAPPDATA%\jobforge-evidence-p1_4; P1.3 copy untouched). Profile: job-scanner config.yaml (edd1528) via --import-search-profile.
+
+== Session 1: import profile v1 (CLI), re-filter, 8 min of live polling
+00:42:42 health: {"version": "0.1.0", "protocol_version": 1, "pid": 32060, "run_id": 3, "schema": 3, "db": "ok", "elevated": false, "discovery_paused": false, "uptime_s": 3, "last_maintenance_error": null, "data_dir": "C:\\Users\\kevin\\AppData\\Local\\jobforge-evidence-p1_4"}
+00:42:43 --import-search-profile exit code: 0 (2.0s)
+00:42:43 search-profile: {"id": 1, "version": 1, "created_at_ms": 1792644162722}
+00:42:49 summary: {"profile_version": 1, "ruleset": "rules-1", "verdicts": {"pass": 19, "reject": 5381}, "rejected_by_primary_category": {"title_family": 5122, "seniority": 130, "location": 129}, "clearance_mentions": 175, "analyses_pending": 19}
+00:42:56 summary: {"profile_version": 1, "ruleset": "rules-1", "verdicts": {"pass": 41, "reject": 12559}, "rejected_by_primary_category": {"title_family": 11813, "location": 310, "seniority": 436}, "clearance_mentions": 243, "analyses_pending": 41}
+00:42:58 summary: {"profile_version": 1, "ruleset": "rules-1", "verdicts": {"pass": 42, "reject": 13162}, "rejected_by_primary_category": {"title_family": 12363, "location": 328, "seniority": 471}, "clearance_mentions": 247, "analyses_pending": 42}
+00:42:58 summary: {"profile_version": 1, "ruleset": "rules-1", "verdicts": {"pass": 42, "reject": 13162}, "rejected_by_primary_category": {"title_family": 12363, "location": 328, "seniority": 471}, "clearance_mentions": 247, "analyses_pending": 42}
+00:43:58 summary: {"profile_version": 1, "ruleset": "rules-1", "verdicts": {"pass": 42, "reject": 13163}, "rejected_by_primary_category": {"title_family": 12364, "location": 328, "seniority": 471}, "clearance_mentions": 247, "analyses_pending": 42}
+00:50:59 discovery: {"paused": false, "sources": [{"kind": "greenhouse", "host": "boards-api.greenhouse.io", "enabled": true, "backoff_until_ms": null, "backoff_reason": null, "requests_last_hour": 201, "max_requests_per_hour": 300, "bytes_last_hour": 38348403, "polls_last_hour": 201, "not_modified_last_hour": 145}, {"kind": "lever", "host": "api.lever.co", "enabled": true, "backoff_until_ms": null, "backoff_reason": null, "requests_last_hour": 31, "max_requests_per_hour": 120, "bytes_last_hour": 18870905, "polls_last_hour": 31, "not_modified_last_hour": 24}, {"kind": "ashby", "host": "api.ashbyhq.com", "enabled": true, "backoff_until_ms": null, "backoff_reason": null, "requests_last_hour": 55, "max_requests_per_hour": 120, "bytes_last_hour": 3558601, "polls_last_hour": 55, "not_modified_last_hour": 41}], "employers": [{"id": 1, "source": "greenhouse", "slug": "cloudflare", "name": "Cloudflare", "enabled": true, "status": "active", "interval_s": 900, "next_poll_in_s": 363, "last_success_age_s": 486, "last_attempt_age_s": 497, "consecutive_failures": 0, "last_outcome": "NOT_MODIFIED", "last_error": null}, {"id": 2, "source": "greenhouse", "slug": "datadog", "name": "Datadog", "enabl
+00:50:59 --shutdown exit code: 0
+
+== Live posting discovered in session 1: stored and filtered in one transaction (same ms)
+  job_id, first_seen_at_ms, verdict created_at_ms, profile version, verdict, primary: (13205, 1792644229090, 1792644229090, 1, 'reject', 'TITLE_NO_MATCH')
+  job_id, first_seen_at_ms, verdict created_at_ms, profile version, verdict, primary: (13205, 1792644229090, 1792644686889, 2, 'reject', 'TITLE_NO_MATCH')
+
+== Session 2: import again as profile v2 (same rules); v1 rows fingerprinted before/after
+00:51:11 before: v1 rows, v1 sha256, (jobs, closed jobs): (13205, 'f4f6a0427cbea41b', (13205, 0))
+00:51:12 health: {"version": "0.1.0", "protocol_version": 1, "pid": 32832, "run_id": 4, "schema": 3, "db": "ok", "elevated": false, "discovery_paused": false, "uptime_s": 0, "last_maintenance_error": null, "data_dir": "C:\Users\kevin\AppData\Local\jobforge-evidence-p1_4"}
+00:51:12 --import-search-profile exit code: 0
+00:51:26 refilter events after the v2 save: ['{"profile_version": 2, "ruleset": "rules-1", "jobs": 13205, "new_results": 13205, "already_filtered": 0, "passed": 42, "rejected": 13163, "queued": 0, "seconds": 13.3}']
+00:51:26 summary: {"profile_version": 2, "ruleset": "rules-1", "verdicts": {"pass": 42, "reject": 13163}, "rejected_by_primary_category": {"title_family": 12364, "location": 328, "seniority": 471}, "clearance_mentions": 247, "analyses_pending": 42}
+00:51:26 --shutdown exit code: 0
+00:51:30 after: v1 rows, v1 sha256, (jobs, closed jobs): (13205, 'f4f6a0427cbea41b', (13205, 0))
+00:51:30 after: v2 rows, v2 sha256, (jobs, closed jobs): (13205, 'd2146586d2f47af9', (13205, 0))
+  (copied from the driver's terminal output; this database has 0 closed jobs, so closed-job coverage is shown by
+   test_saving_a_profile_versions_it_and_refilters_everything, not here)
+
+== scripts/verify_filter.py with the scanner differential (run with job-scanner\.venv python, after session 2)
+database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_4\data\jobforge.db
+schema: 3  profiles: 2  active profile: 2
+rulesets with results for the active profile: ['rules-1']
+
+== Coverage: open jobs with a verdict on their current posting for the active profile
+  open jobs: 13205  with verdict: 13205  without: 0
+
+== History kept: filter_results rows per profile version (old rows are never rewritten)
+  profile v1: rows=13205 pass=42
+  profile v2: rows=13205 pass=42
+
+== Verdicts on open jobs (active profile)
+  pass=42  reject=13163
+
+== Rejections by primary reason category, then by rule
+  category title_family   12364
+  category seniority      471
+  category location       328
+  rule     TITLE_NO_MATCH           12343
+  rule     TITLE_SENIORITY          471
+  rule     LOCATION_NOT_ELIGIBLE    285
+  rule     REMOTE_EXCLUDES_HOME     41
+  rule     TITLE_NON_IT             21
+  rule     REMOTE_ANCHORED          2
+
+== Secondary failures (rules failed besides the primary; recorded, not deciding)
+  LOCATION_NOT_ELIGIBLE    9736
+  TITLE_SENIORITY          7633
+  REMOTE_EXCLUDES_HOME     1037
+  REMOTE_ANCHORED          467
+  SALARY_BELOW_FLOOR       40
+
+  open jobs whose text mentions a clearance (diagnostic only, never a rejection): 247
+
+== Analysis queue
+  pending     42
+  overrides: 0
+  pending analyses with neither a pass nor an override: 0
+
+== Refilter runs (change_events)
+  1792644176157  {"profile_version": 1, "ruleset": "rules-1", "jobs": 13204, "new_results": 13204, "already_filtered": 0, "passed": 42, "rejected": 13162, "queued": 42, "seconds": 13.4}
+  1792644686890  {"profile_version": 2, "ruleset": "rules-1", "jobs": 13205, "new_results": 13205, "already_filtered": 0, "passed": 42, "rejected": 13163, "queued": 0, "seconds": 13.3}
+
+== Differential: job-scanner pass2 on the same stored postings (C:\Users\kevin\Desktop\claude-projects\job-scanner)
+  postings compared: 13205
+  same verdict: 13205  different verdict: 0
+  same deciding rule: 13205  different: 0

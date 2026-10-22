@@ -364,11 +364,11 @@ triggers and constraints that apply to every connection.
 | raw_postings | global | Insert only | Append-only triggers + unique (source_job_id, material_sha256) |
 | jobs | global | Discovery writes | Authorizer |
 | change_events | global | Any writer component inserts; delete only rows > 7 days | Trigger |
-| posting_analyses, requirements | global | Evaluation writes; discovery inserts pending analyses | Authorizer + partial unique index (one pending per job) |
+| posting_analyses, requirements | global | Evaluation writes; discovery and user action (evaluate anyway) insert pending analyses and may only change `status` (supersede) | Authorizer (column-level for discovery and user) + partial unique index (one pending per job) |
 | settings | personal | User action only | Authorizer |
 | search_profiles | personal | Insert-only versions by user action | Append-only triggers |
-| filter_results | personal | Discovery inserts | Authorizer + unique key |
-| filter_overrides | personal | User action | Authorizer |
+| filter_results | personal | Discovery inserts (poll and re-filter); never updated | Authorizer + unique (raw_posting_id, search_profile_id, ruleset_version) |
+| filter_overrides | personal | User action inserts only | Authorizer |
 | resumes | personal | User action writes; others read | Authorizer |
 | experience_items, profile_completeness | personal | User action only; `verified` only via the verify handler | Authorizer (discovery/evaluation denied) + CHECK (status <> 'verified' OR verified_at_ms IS NOT NULL) + grep test on connection factory imports |
 | inferred_claims | personal | Evaluation inserts; user action changes state | Authorizer |
@@ -459,6 +459,10 @@ PowerShell for process, registry and ACL probes.
 | Bounded catch-up | SQL requests per host in the first interval after each `agent_runs` start or detected gap | Printed numbers vs budget |
 | Change detection | SQL 24 h new / changed / closed per source; raw rows vs fetches | Raw rows only for new/changed |
 | Rejected postings retained | SQL raw_postings with only `reject` results | Count > 0, growing |
+| Every stored posting has a verdict | `scripts/verify_filter.py` coverage section | Open jobs without a verdict for the active profile: printed count (0 after a re-filter) |
+| Re-filter keeps history | `scripts/verify_filter.py` history section | One row set per profile version; older versions' counts unchanged after a new save |
+| Filter port matches the scanner | `scanner\.venv\Scripts\python scripts/verify_filter.py DB --scanner ..\job-scanner` | Same-verdict and same-rule counts; each disagreement listed with both reasons |
+| Only passes and overrides queue analysis | `scripts/verify_filter.py` analysis queue section | Pending analyses with neither a pass nor an override: printed count (0) |
 | One pending analysis per job | SQL jobs with > 1 pending analysis | Zero rows |
 | Evaluation history preserved | SQL jobs with > 1 raw version and their evaluations | Old evaluations present, pointing at old raw rows |
 | Discovery independent of inference | SQL freshness during the most recent inference-down window (from `agent.jsonl`) | Max age unchanged |
@@ -510,6 +514,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-10-22 | P1.4 implemented (filter + retention): scanner rules ported rule for rule (edd1528) with home area as profile data; every failed rule recorded beside the deciding one; filtering inside the poll transaction; versioned profile save with validation (422 naming the field) and CLI import of the scanner config.yaml; re-filter of every job's current posting in 300-job transactions; evaluate-anyway; default model seeded (migration 0003); user grants for overrides and pending analyses. Scanner `CLOSED` rule replaced by job closure. Docs corrected: writes are serialized by the event loop, not an asyncio lock (ARCHITECTURE 3.4). Evidence: `docs/evidence/p1_4_filter_live.txt` (13,205 postings, scanner differential 0 disagreements) | Implementation; drift fix (re-filter covers closed jobs per the P1.4 acceptance row) |
 | 2026-10-22 | P1.3 implemented (discovery): ported Greenhouse/Lever/Ashby parsers and robots handling (edd1528), ETag polling, change detection with closure and reopen, lease-based scheduler with jitter, per-host spacing and hourly budget, Retry-After host backoff, exponential employer backoff, dead/blocked marking, respread after downtime, watchlist import over IPC, discovery status route. Migration 0002 adds `jobs.employer_id` and seeds the three reviewed sources; Greenhouse budget 300/h (watchlist of 58 Greenhouse employers needs ~232/h at 15 min) | Implementation; budget sized from the real watchlist |
 | 2026-10-22 | P1.2 implemented (desktop shell): Tauri host with tray, close-to-tray, attach-or-spawn, watchdog with exit codes 3/4/5, HKCU autostart, D16 unelevated relaunch, SSE event relay, minimal React window; agent gained pause/resume, `/v1/events`, sign-out handling, WAL-safe close order. Evidence: `docs/evidence/p1_2_desktop_lifecycle.log`, `docs/evidence/p1_2_window.png`. Q26 one-time close notice deferred | Implementation |
 | 2026-10-21 | P1.1 implemented (agent core). Clarified: `--backup` is also refused elevated; backups use SQLite's backup API; schema columns implied by checks 6-7, the model load test and source terms gate added to 0001 (ARCHITECTURE 4.2) | Implementation detail; no behavior change to agreed decisions |

@@ -31,6 +31,7 @@ class CollisionError(Exception):
 
 @dataclass
 class ChangeCounts:
+    touched: list = None  # job ids that are new, materially changed or reopened: they get filtered
     new: int = 0
     changed: int = 0
     payload_only: int = 0
@@ -106,7 +107,7 @@ def _job_fields(r: RawJob) -> tuple:
 def apply_listing(conn: sqlite3.Connection, employer: Employer, raws: list[RawJob], fetch_id: int, now: int) -> ChangeCounts:
     """Apply one successful, complete listing. The caller holds the write transaction."""
     listing = _dedupe(raws)
-    counts = ChangeCounts()
+    counts = ChangeCounts(touched=[])
     for sid, r in listing.items():
         material, payload = material_sha256(r), payload_sha256(r.item)
         row = conn.execute(
@@ -121,11 +122,13 @@ def apply_listing(conn: sqlite3.Connection, employer: Employer, raws: list[RawJo
                 (sid, employer.id, raw_id, payload, *_job_fields(r), now, now)).fetchone()[0]
             _event(conn, "posting_new", job_id, employer.id, now)
             counts.new += 1
+            counts.touched.append(job_id)
             continue
         job_id, last_payload, closed_at, current_material = row[0], row[1], row[2], row[3]
         if closed_at is not None:
             _event(conn, "job_reopened", job_id, employer.id, now)
             counts.reopened += 1
+            counts.touched.append(job_id)
         if current_material != material:
             raw_id = _insert_raw(conn, employer, r, fetch_id, now, material, payload)
             conn.execute(
@@ -135,6 +138,8 @@ def apply_listing(conn: sqlite3.Connection, employer: Employer, raws: list[RawJo
                 (raw_id, payload, *_job_fields(r), now, job_id))
             _event(conn, "posting_changed", job_id, employer.id, now)
             counts.changed += 1
+            if job_id not in counts.touched:
+                counts.touched.append(job_id)
         elif last_payload != payload:
             conn.execute("UPDATE jobs SET last_payload_sha256 = ?, last_seen_at_ms = ?, missing_polls = 0, closed_at_ms = NULL WHERE id = ?",
                          (payload, now, job_id))

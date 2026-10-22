@@ -85,7 +85,6 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "employers": full(),
         "employer_poll_state": _merge(ins(), upd("next_poll_at_ms")),
         "search_profiles": ins(),
-        "filter_overrides": ins(),
         "resumes": full(delete=True),
         "experience_items": full(delete=True),
         "profile_completeness": full(),
@@ -94,6 +93,9 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "profile_snapshot_items": ins(),
         "model_configs": full(),
         "evaluations": ins(),
+        # "Evaluate anyway" queues analysis of an override (supersedes an older pending one).
+        "posting_analyses": _merge(ins(), upd("status")),
+        "filter_overrides": ins(),
         "applications": full(),
         "application_events": ins(),
         "change_events": ins(),

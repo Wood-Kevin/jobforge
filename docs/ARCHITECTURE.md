@@ -333,6 +333,50 @@ two-hash design stays because that observation covers seconds, not days.
 of an older version `superseded`: at most one pending analysis per job, so a
 long inference outage cannot grow the queue beyond the number of qualifying jobs.
 
+**Filter stage (implemented in P1.4,** `agent/src/jobforge_agent/filtering/`**).**
+- Rules are `ats_scanner/filters.py` + `salary.py` at `edd1528`, ported rule for rule; the
+  scanner's own regression suite runs against the port with a real profile
+  (`agent/tests/test_filter_rules.py`, skipped with a printed reason when the scanner's
+  `config.yaml` is absent, since the profile is personal data and not in the repo).
+- What the scanner hard-coded becomes profile data: `jax_metro` -> `location.home_metro`,
+  Florida/Georgia -> `home_state_codes` / `home_state_names`, `florida_*_markers` ->
+  `home_*_markers`. Reason names follow: `REMOTE_EXCLUDES_FL` -> `REMOTE_EXCLUDES_HOME`,
+  `FL_OK` -> `HOME_OK`. Work modes are lower case.
+- One evaluation returns the deciding reason (title, then location, then staleness, then
+  salary, as the scanner's pass1/pass2 order) **and every other rule the posting fails**, so
+  the rejected view can show "also below the salary floor" without re-running anything.
+- The scanner's `CLOSED` rule is not ported: closure is `jobs.closed_at_ms` (3.3).
+- Clearance wording is recorded (`clearance_mention`) and never rejects.
+- `RULESET_VERSION` (`rules-1`) names the code's behavior; a rule change bumps it, so old
+  verdicts stay distinguishable. Results are keyed (raw posting, profile version, ruleset).
+- **In the poll transaction:** new, materially changed and reopened jobs are filtered inside
+  the same transaction that stores them, so once a profile exists a posting is never stored
+  without a verdict. With no profile yet, postings are stored unfiltered and the first
+  profile save filters them.
+- **Queueing:** a pass (or an override) on an open job queues one pending analysis of its
+  current posting with the default model (`settings.default_model_config_id`, migration
+  0003), superseding an older pending one. An analysis already present for the same posting
+  version and analysis versions is not queued again (D10). Closed jobs get a verdict for the
+  record and are never queued. No default model -> counted as `skipped_no_model`, not an error.
+- **Profile save** (`POST /v1/search-profile`, CLI `--import-search-profile FILE`, which also
+  converts a scanner `config.yaml`) validates by compiling (bad regex, missing `(?P<place>)`
+  group, wrong types -> 422 naming the field, nothing saved), inserts the next version and
+  starts a re-filter.
+- **Re-filter** (`POST /v1/admin/refilter`, and after every profile save) walks **every**
+  job's current posting, open or closed, on the discovery connection in transactions of 300
+  jobs with a yield between them, so polls and user actions interleave (P1.4 live: 13,204
+  postings in 13.4 s, about 0.3 s per transaction). One run at a time: requests that arrive
+  before a run reads its job list share it; a request after that gets exactly one follow-up
+  run. It ends with a `refilter_done` change event carrying counts; a failure logs
+  `refilter_failed` (error level) and emits the same-named event.
+- **Evaluate anyway** (`POST /v1/jobs/{id}/evaluate-anyway`, optional `note`) records a
+  `filter_overrides` row and queues analysis of the current posting on the user-action
+  connection. The reject verdict stays as it was; later re-filters keep queueing the job
+  while the override exists.
+- `GET /v1/filter/summary`: verdicts and rejection categories for the active profile.
+  Evidence script: `scripts/verify_filter.py` (with `--scanner DIR`, a differential run of the
+  scanner's own `pass2` on the same stored postings).
+
 ### 3.4 Inside the agent: tasks and database access
 
 One process, one asyncio event loop, these tasks:
@@ -354,8 +398,11 @@ restart.
 
 **Database access rules.**
 - One **writer** connection per component (scheduler/pollers, evaluation,
-  user actions), all serialized through one asyncio write lock; transactions
-  use `BEGIN IMMEDIATE` and are short (milliseconds). Several read-only
+  user actions). Writes are serialized by the event loop itself, not by a lock: every
+  connection is used only on the loop thread and no transaction contains an `await`, so
+  one transaction always finishes before another starts (corrected in P1.4; the earlier
+  text named an asyncio write lock that the code never needed). Transactions use
+  `BEGIN IMMEDIATE` and are short (milliseconds; a re-filter chunk is the longest, ~0.3 s). Several read-only
   connections (`mode=ro`) for queries; WAL lets them read during a write.
 - **No transaction spans a network call or model call.** The worker claims in
   one transaction, releases, calls the model, then persists in a second
@@ -409,6 +456,11 @@ implied: `requirements.origin` (`model` / `unextracted_eligibility`, 6.4 check 7
 `model_configs.tested_at_ms` with `CHECK (enabled = 0 OR tested_at_ms IS NOT NULL)` (6.8 load
 test); `sources` `CHECK (enabled = 0 OR terms_reviewed_on IS NOT NULL)` (8); `agent_runs.elevated`;
 `created_at_ms` on `posting_analyses`, `filter_results`, `evaluations`, `inferred_claims`.
+Migration 0003 (P1.4) seeds the default model config (Gemma 4 12B on LM Studio, reasoning
+off, `enabled = 0` until its load test runs) and `settings.default_model_config_id`.
+`filter_results.reasons` shape: `{primary, failed: [{rule, category, detail}], work_mode,
+remote_eligibility, salary: {min, max, period, annual_max, text} | null, clearance_mention}`;
+categories `title_family`, `seniority`, `location`, `compensation`, `other`.
 
 Conventions: `INTEGER PRIMARY KEY`; times as UTC epoch milliseconds
 (`*_ms` INTEGER); JSON as TEXT with `CHECK (json_valid(col))`; enums as TEXT

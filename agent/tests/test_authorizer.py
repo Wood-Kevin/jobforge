@@ -26,6 +26,13 @@ FORBIDDEN = [
     # Settings and model configs are user decisions.
     ("discovery", "UPDATE settings SET value = '1' WHERE key = 'discovery_paused'"),
     ("evaluation", "UPDATE model_configs SET enabled = 1"),
+    # Filtering (P1.4): verdicts are discovery's; overrides are the user's; the user may only re-status an analysis.
+    ("user", f"INSERT INTO filter_results (job_id, raw_posting_id, search_profile_id, ruleset_version, verdict, created_at_ms) VALUES (1, 1, 1, 'r', 'pass', {NOW})"),
+    ("discovery", f"INSERT INTO filter_overrides (job_id, created_at_ms) VALUES (1, {NOW})"),
+    ("evaluation", f"INSERT INTO filter_overrides (job_id, created_at_ms) VALUES (1, {NOW})"),
+    ("user", "UPDATE posting_analyses SET sections = '{}'"),
+    ("user", "UPDATE posting_analyses SET attempts = 0"),
+    ("discovery", "INSERT INTO search_profiles (version, rules, created_at_ms) VALUES (9, '{}', 1)"),
     # Deletes are rare and explicit.
     ("user", "DELETE FROM jobs"),
     ("discovery", "DELETE FROM raw_postings"),
@@ -60,6 +67,10 @@ def test_allowed_writes_succeed(db, paths):
     user = open_connection(paths.db, "user")
     user.execute("UPDATE experience_items SET status = 'verified', verified_at_ms = ? WHERE id = ?", (NOW, ids["item"]))
     user.execute("UPDATE settings SET value = '1' WHERE key = 'discovery_paused'")
+    user.execute("INSERT INTO filter_overrides (job_id, created_at_ms) VALUES (?, ?)", (ids["job"], NOW))
+    user.execute("INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
+                 "interpreter_version, created_at_ms) VALUES (?, ?, ?, 'e', 's', 'i', ?)", (ids["raw"], ids["job"], ids["model"], NOW))
+    user.execute("UPDATE posting_analyses SET status = 'superseded'")
     ev = open_connection(paths.db, "evaluation")
     ev.execute("INSERT INTO inferred_claims (statement, kind, created_at_ms) VALUES ('DNS troubleshooting', 'skill', ?)", (NOW,))
     assert db.execute("SELECT status FROM experience_items WHERE id = ?", (ids["item"],)).fetchone()[0] == "verified"

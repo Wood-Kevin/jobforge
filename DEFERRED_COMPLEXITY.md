@@ -141,3 +141,18 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Options:** (a) store `description_raw` only when it is not recoverable from the payload (Lever's stitched sections), derive it otherwise: about -30%, no format change; (b) compress payload and raw markup (zlib BLOB columns, migration): about -60%, still lossless; (c) both. Rejected: pruning rejected postings (breaks re-filtering, requirement "preserve rejected jobs").
 - **Why deferred:** Not harmful at current scale (disk has ~1 TB free; growth is only new or materially changed postings). It is a storage-format decision for Kevin, not a P1.3 defect.
 - **Trigger:** Database over 1 GB, daily backup over 60 s, or Kevin choosing an option.
+
+## Filter regression suite depends on the scanner's config.yaml (P1.4)
+- **What:** `agent/tests/test_filter_rules.py` (the scanner's filter + salary suite: 175 cases, plus 2 JobForge additions) reads a tuned profile from `../job-scanner/config.yaml` (or `JOBFORGE_SCANNER_CONFIG`). Without it the module is skipped with a printed reason; the synthetic-profile tests in `test_filter_pipeline.py` still run.
+- **Why deferred:** The profile is personal data and stays out of the repo. Once JobForge holds the profile, the scanner file stops being the source of truth and will drift from it.
+- **Trigger:** The first profile change made in JobForge instead of the scanner, or retiring the scanner. Then point the suite at a profile exported from the JobForge database (still outside the repo).
+
+## "Evaluate anyway" cannot be undone (P1.4)
+- **What:** A `filter_overrides` row is insert-only and permanent; while it exists, every re-filter keeps queueing the job's new posting versions for analysis.
+- **Why deferred:** No UI yet (P1.8) and no undo requirement in the spec. Adding one needs either a delete grant or a `revoked_at_ms` column (preferred: keeps history).
+- **Trigger:** P1.8 rejected view, or an override Kevin wants to take back.
+
+## Re-filter covers each job's current posting only (P1.4)
+- **What:** A re-filter gives every job (open or closed) a verdict for its *current* raw posting. Older raw versions of a changed posting keep only the verdicts they got under earlier profiles.
+- **Why deferred:** A verdict on an outdated version under a newer profile has no use in Phase 1 (nothing reads it); filtering every historical version would multiply the work by the version count.
+- **Trigger:** A history view that compares old posting versions under the current profile.

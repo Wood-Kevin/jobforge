@@ -6,6 +6,7 @@ lock -> logging -> migrate (backup first, refuse newer) -> recovery -> run row -
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import random
 import time
@@ -19,9 +20,13 @@ from jobforge_agent.db.connect import AgentConnection, open_connection
 from jobforge_agent.discovery import admin as discovery_admin
 from jobforge_agent.discovery.http import HttpClient
 from jobforge_agent.discovery.service import DiscoveryService
+from jobforge_agent.filtering import pipeline as filter_pipeline
+from jobforge_agent.filtering import rules as filter_rules
+from jobforge_agent.filtering.profile import compile_profile
 from jobforge_agent.paths import Paths
 
 HEARTBEAT_S = 10
+REFILTER_CHUNK = 300
 MAINTENANCE_S = 3600
 
 
@@ -58,6 +63,8 @@ class AgentRuntime:
         # instead of waiting for its fallback poll. Created on the loop in serve().
         self._events_signal: asyncio.Event | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._refilter_task: asyncio.Task | None = None
+        self._refilter_again = False
 
     # ----- startup / shutdown (synchronous, before and after the loop work) -----
 
@@ -150,6 +157,133 @@ class AgentRuntime:
         assert self.user is not None
         return self.user.execute("UPDATE employer_poll_state SET next_poll_at_ms = ? WHERE employer_id = ?",
                                  (now_ms(), employer_id)).rowcount == 1
+
+    # ----- search profile and filtering -----
+
+    def search_profile(self) -> dict | None:
+        assert self.reader is not None
+        row = self.reader.execute("SELECT id, version, rules, created_at_ms FROM search_profiles ORDER BY version DESC LIMIT 1").fetchone()
+        if row is None:
+            return None
+        return {"id": row[0], "version": row[1], "rules": json.loads(row[2]), "created_at_ms": row[3]}
+
+    def save_search_profile(self, rules: dict) -> dict:
+        """User action: a new, immutable profile version (validated first), then a re-filter."""
+        assert self.user is not None
+        compile_profile(rules)  # raises ProfileError naming the bad field; nothing is saved
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            version = self.user.execute("SELECT coalesce(max(version), 0) + 1 FROM search_profiles").fetchone()[0]
+            self.user.execute("INSERT INTO search_profiles (version, rules, created_at_ms) VALUES (?, ?, ?)",
+                              (version, json.dumps(rules), now_ms()))
+            self.user.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('search_profile_saved', ?, ?)",
+                              (json.dumps({"version": version}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("search_profile_saved", version=version)
+        self.notify_events()
+        self.start_refilter()
+        return {"version": version, "refilter": "started"}
+
+    def start_refilter(self) -> str:
+        """Re-filter every job's current posting with the active profile. One run at a time; requests
+        before a run reads its job list share that run, a request after gets exactly one more."""
+        if self._refilter_task is not None and not self._refilter_task.done():
+            self._refilter_again = True
+            return "queued"
+        self._refilter_task = asyncio.get_running_loop().create_task(self._refilter())
+        self._refilter_task.add_done_callback(self._refilter_finished)
+        return "started"
+
+    def _refilter_finished(self, task: asyncio.Task) -> None:
+        # A failed re-filter must be seen: error log plus an event the dashboard shows.
+        if task.cancelled() or task.exception() is None:
+            return
+        exc = task.exception()
+        self.log.error("refilter_failed", error=f"{type(exc).__name__}: {exc}")
+        if self.discovery_conn is not None:
+            self.discovery_conn.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('refilter_failed', ?, ?)",
+                                        (json.dumps({"error": f"{type(exc).__name__}: {exc}"[:500]}), now_ms()))
+            self.notify_events()
+
+    async def _refilter(self) -> None:
+        while True:
+            self._refilter_again = False
+            conn = self.discovery_conn
+            assert conn is not None
+            totals = filter_pipeline.FilterStats()
+            job_ids = filter_pipeline.all_job_ids(conn)
+            started = now_ms()
+            profile = filter_pipeline.active_profile(conn)
+            if profile is None:
+                self.log.warning("refilter_skipped", reason="no search profile")
+                return
+            model_id = filter_pipeline.default_model_config_id(conn)
+            for i in range(0, len(job_ids), REFILTER_CHUNK):
+                conn.execute("BEGIN IMMEDIATE")
+                try:
+                    for job_id in job_ids[i:i + REFILTER_CHUNK]:
+                        filter_pipeline.filter_job(conn, job_id, profile, now_ms(), totals, model_id, emit_event=False)
+                    conn.execute("COMMIT")
+                except Exception:
+                    conn.execute("ROLLBACK")
+                    raise
+                await asyncio.sleep(0)  # let polls and IPC run between chunks
+            summary = {"profile_version": profile.version, "ruleset": filter_rules.RULESET_VERSION, "jobs": len(job_ids),
+                       "new_results": totals.filtered, "already_filtered": totals.already_filtered, "passed": totals.passed,
+                       "rejected": totals.rejected, "queued": totals.queued, "seconds": round((now_ms() - started) / 1000, 1)}
+            conn.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('refilter_done', ?, ?)",
+                         (json.dumps(summary), now_ms()))
+            self.log.info("refilter_done", **summary)
+            self.notify_events()
+            if not self._refilter_again:
+                return
+
+    def evaluate_anyway(self, job_id: int, note: str | None) -> dict | None:
+        """User action: override a rejection and queue analysis of the job's current posting."""
+        assert self.user is not None
+        got = filter_pipeline.job_view(self.user, job_id)
+        if got is None:
+            return None
+        _, raw_id, closed = got
+        model_id = filter_pipeline.default_model_config_id(self.user)
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            self.user.execute("INSERT INTO filter_overrides (job_id, note, created_at_ms) VALUES (?, ?, ?)", (job_id, note, now_ms()))
+            queued = (not closed and model_id is not None
+                      and filter_pipeline.queue_analysis(self.user, job_id, raw_id, model_id, now_ms()))
+            self.user.execute("INSERT INTO change_events (type, job_id, created_at_ms) VALUES ('evaluate_anyway', ?, ?)", (job_id, now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.notify_events()
+        return {"job_id": job_id, "queued": bool(queued), "closed": closed}
+
+    def filter_summary(self) -> dict:
+        """Verdicts and rejection categories for the active profile and ruleset (evidence and dashboard)."""
+        assert self.reader is not None
+        profile = self.search_profile()
+        if profile is None:
+            return {"profile_version": None}
+        rows = self.reader.execute(
+            "SELECT fr.verdict, fr.reasons FROM filter_results fr JOIN jobs j ON j.current_raw_posting_id = fr.raw_posting_id "
+            "WHERE fr.search_profile_id = ? AND fr.ruleset_version = ? AND j.closed_at_ms IS NULL",
+            (profile["id"], filter_rules.RULESET_VERSION)).fetchall()
+        verdicts, categories, clearance = {"pass": 0, "reject": 0}, {}, 0
+        for verdict, reasons in rows:
+            verdicts[verdict] += 1
+            r = json.loads(reasons)
+            if r.get("clearance_mention"):
+                clearance += 1
+            if r.get("primary"):
+                cat = filter_rules.category(r["primary"])
+                categories[cat] = categories.get(cat, 0) + 1
+        pending = self.reader.execute("SELECT count(*) FROM posting_analyses WHERE status = 'pending'").fetchone()[0]
+        return {"profile_version": profile["version"], "ruleset": filter_rules.RULESET_VERSION, "verdicts": verdicts,
+                "rejected_by_primary_category": categories, "clearance_mentions": clearance, "analyses_pending": pending}
 
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""
