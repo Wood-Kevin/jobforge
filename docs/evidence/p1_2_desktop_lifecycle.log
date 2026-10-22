@@ -1,0 +1,153 @@
+﻿[23:33:15] test shell elevated: True
+[23:33:15] data root existed before test: False
+[23:33:15] T1 silent per-user install, unelevated: dist-installers\JobForge_0.1.0_setup.exe
+[23:33:17] installer exit 0 in 2.2 s
+[23:33:17] install dir: C:\Users\kevin\AppData\Local\JobForge
+
+Name          Length  
+----          ------  
+agent                 
+JobForge.exe  11185152
+uninstall.exe 83371   
+
+
+
+[23:33:17] install MB 43.3; agent files 98
+[23:33:17] autostart before any action:
+[23:33:17]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[23:33:17]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[23:33:17] T2 launch JobForge unelevated (window)
+
+Name              Id Started  MainWindowTitle
+----              -- -------  ---------------
+JobForge       21052 23:33:18 JobForge       
+jobforge-agent 36356 23:33:18                
+
+
+
+[23:33:21] health: {"version":"0.1.0","protocol_version":1,"pid":36356,"run_id":1,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":3,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+1792639998043 pid=21052 host start background=false version=0.1.0
+1792639998139 pid=21052 spawned agent pid=36356 data_root=C:\Users\kevin\AppData\Local\dev.kevin.jobforge
+1792639998748 pid=21052 status Running detail=None pid=Some(36356)
+{"run_id": 1, "version": "0.1.0", "schema": 1, "elevated": false, "recovered_runs": [], "interrupted_fetches": 0, "reset_analyses": 0, "reset_evaluations": 0, "event": "agent_start", "level": "info", "timestamp": "2026-10-22T03:33:18.612614Z"}
+[23:33:21] T3 close the window
+[23:33:22] window before: 'JobForge' pid 21052
+
+Name              Id Started  MainWindowTitle       
+----              -- -------  ---------------       
+JobForge       21052 23:33:18 dev.kevin.jobforge-siw
+jobforge-agent 36356 23:33:18                       
+
+
+
+[23:33:30] agent pid before close: 36356
+[23:33:30] health after close: {"version":"0.1.0","protocol_version":1,"pid":36356,"run_id":1,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":11,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:33:30] T4 pause (same route as the tray item), then kill the agent
+[23:33:30] {"version":"0.1.0","protocol_version":1,"pid":36356,"run_id":1,"schema":1,"db":"ok","elevated":false,"discovery_paused":true,"uptime_s":11,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:33:43] respawned: True after 13.7 s
+[23:33:43] health after respawn (expect discovery_paused true): {"version":"0.1.0","protocol_version":1,"pid":44012,"run_id":2,"schema":1,"db":"ok","elevated":false,"discovery_paused":true,"uptime_s":1,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:33:43] {"version":"0.1.0","protocol_version":1,"pid":44012,"run_id":2,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":1,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+(2, 44012, 0, None)
+(1, 36356, 1, 'crash_recovered')
+1792639998748 pid=21052 status Running detail=None pid=Some(36356)
+1792640010041 pid=21052 event stream ended: An existing connection was forcibly closed by the remote host. (os error 10054)
+1792640022835 pid=21052 watchdog restarting agent
+1792640022835 pid=21052 status Starting detail=None pid=None
+1792640022838 pid=21052 spawned agent pid=44012 data_root=C:\Users\kevin\AppData\Local\dev.kevin.jobforge
+[23:33:43] T5 second launch (no args) -> one host process, window shown
+
+Name              Id Started  MainWindowTitle
+----              -- -------  ---------------
+JobForge       21052 23:33:18 JobForge       
+jobforge-agent 44012 23:33:42                
+
+
+
+[23:33:49] T5b live event in the open window: pause, wait, capture the window
+[23:33:49] {"version":"0.1.0","protocol_version":1,"pid":44012,"run_id":2,"schema":1,"db":"ok","elevated":false,"discovery_paused":true,"uptime_s":7,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:33:53] screenshot True 736x639 -> dist-installers\window_p1_2.png
+[23:33:53] {"version":"0.1.0","protocol_version":1,"pid":44012,"run_id":2,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":11,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:33:53] T6 kill the host
+
+Name              Id Started  MainWindowTitle
+----              -- -------  ---------------
+jobforge-agent 44012 23:33:42                
+
+
+
+[23:33:59] health after host kill: {"version":"0.1.0","protocol_version":1,"pid":44012,"run_id":2,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":17,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+
+Name              Id Started  MainWindowTitle       
+----              -- -------  ---------------       
+JobForge       14524 23:34:00 dev.kevin.jobforge-siw
+jobforge-agent 44012 23:33:42                       
+
+
+
+1792640040457 pid=14524 host start background=true version=0.1.0
+1792640040473 pid=14524 status Running detail=None pid=Some(44012)
+1792640040482 pid=14524 attached to running agent
+[23:34:07] agent pid unchanged: 44012 -> 44012
+[23:34:07] T7 autostart on (forwarded to the running host)
+[23:34:08] exit: 0
+[23:34:10]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: JobForge = "C:\Users\kevin\AppData\Local\JobForge\JobForge.exe" --background
+[23:34:10]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[23:34:10] simulate sign-in: exit JobForge, then run the registered command unelevated
+
+Name              Id Started  MainWindowTitle       
+----              -- -------  ---------------       
+JobForge       13648 23:34:12 dev.kevin.jobforge-siw
+jobforge-agent 39324 23:34:12                       
+
+
+
+[23:34:14] health: {"version":"0.1.0","protocol_version":1,"pid":39324,"run_id":3,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":2,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:34:14] T8 start JobForge.exe directly from this ELEVATED shell
+
+Name              Id Started  MainWindowTitle
+----              -- -------  ---------------
+JobForge       25232 23:34:16 JobForge       
+jobforge-agent 17384 23:34:16                
+
+
+
+1792640055896 pid=48060 relaunched_unelevated
+1792640056052 pid=25232 host start background=false version=0.1.0
+1792640056064 pid=25232 spawned agent pid=17384 data_root=C:\Users\kevin\AppData\Local\dev.kevin.jobforge
+1792640056671 pid=25232 status Running detail=None pid=Some(17384)
+[23:34:27] health (expect elevated false): {"version":"0.1.0","protocol_version":1,"pid":17384,"run_id":4,"schema":1,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":11,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\dev.kevin.jobforge"}
+[23:34:27] T9 database newer than this version
+
+Name        Id Started  MainWindowTitle       
+----        -- -------  ---------------       
+JobForge 16388 23:34:29 dev.kevin.jobforge-siw
+
+
+
+1792640068681 pid=25232 agent still answering after wait: false
+1792640069555 pid=16388 host start background=true version=0.1.0
+1792640069598 pid=16388 spawned agent pid=26072 data_root=C:\Users\kevin\AppData\Local\dev.kevin.jobforge
+1792640070199 pid=16388 agent exited with code Some(4)
+1792640070200 pid=16388 status StoppedDbNewer detail=None pid=None
+[23:34:59] agent spawns during 30 s: 1 (one expected, no churn)
+{"db_version": 99, "agent_schema": 1, "event": "db_newer_than_agent", "level": "error", "timestamp": "2026-10-22T03:34:30.010630Z"}
+[23:35:00] T10 start, then --exit (same function as tray Exit)
+[23:35:02] both gone: True after 1.0 s
+(5, 'user_exit', 0)
+(4, 'user_exit', 0)
+(3, 'user_exit', 0)
+[23:35:02] WAL file left after clean exit: True
+[23:35:02] T11 files under the install dir changed after install (expect none):
+
+[23:35:02] T12 uninstall while running
+[23:35:05]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: JobForge = "C:\Users\kevin\AppData\Local\JobForge\JobForge.exe" --background
+[23:35:05]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[23:35:06] uninstaller exit 0
+
+[23:35:11] install dir exists: False; data root exists: True
+[23:35:11]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[23:35:11]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+{"run_id": 4, "reason": "user_exit", "event": "agent_stop", "level": "info", "timestamp": "2026-10-22T03:34:28.636037Z"}
+{"run_id": 5, "reason": "user_exit", "event": "agent_stop", "level": "info", "timestamp": "2026-10-22T03:35:01.878324Z"}
+{"run_id": 6, "reason": "uninstall", "event": "agent_stop", "level": "info", "timestamp": "2026-10-22T03:35:07.283252Z"}
+[23:35:11] removed test-created data root

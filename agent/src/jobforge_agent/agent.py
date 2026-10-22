@@ -44,9 +44,14 @@ class AgentRuntime:
         self.stop_reason = "unknown"
         self.run_id: int | None = None
         self.lifecycle: AgentConnection | None = None
+        self.user: AgentConnection | None = None
         self.reader: AgentConnection | None = None
         self.elevated = winutil.is_elevated()
         self.last_maintenance_error: str | None = None
+        # Woken after each commit that adds change_events, so the event stream pushes at once
+        # instead of waiting for its fallback poll. Created on the loop in serve().
+        self._events_signal: asyncio.Event | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     # ----- startup / shutdown (synchronous, before and after the loop work) -----
 
@@ -61,6 +66,7 @@ class AgentRuntime:
         if result.to_version != result.from_version:
             self.log.info("migrated", from_version=result.from_version, to_version=result.to_version)
         self.lifecycle = open_connection(self.paths.db, "lifecycle")
+        self.user = open_connection(self.paths.db, "user")
         self.reader = open_connection(self.paths.db, "readonly", readonly=True)
         report = recovery.recover(self.lifecycle, now_ms())
         self.run_id = self.lifecycle.execute(
@@ -78,10 +84,13 @@ class AgentRuntime:
             self.lifecycle.execute("UPDATE agent_runs SET stopped_at_ms = ?, heartbeat_at_ms = ?, stop_reason = ? WHERE id = ?",
                                    (t, t, self.stop_reason, self.run_id))
             self.log.info("agent_stop", run_id=self.run_id, reason=self.stop_reason)
-        for c in (self.lifecycle, self.reader):
+        # Read-only first, a writer last: only a read-write connection can checkpoint and remove
+        # the WAL on close. Closing the read-only one last left committed rows in jobforge.db-wal
+        # (found in the P1.2 lifecycle run), which a plain file copy would miss.
+        for c in (self.reader, self.user, self.lifecycle):
             if c is not None:
                 c.close()
-        self.lifecycle = self.reader = None
+        self.lifecycle = self.user = self.reader = None
 
     # ----- used by IPC handlers (event-loop thread) -----
 
@@ -102,10 +111,65 @@ class AgentRuntime:
             "data_dir": str(self.paths.root),
         }
 
+    def set_discovery_paused(self, paused: bool) -> dict:
+        """User action (tray or window). Persists across restarts; recorded as a change event."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            self.user.execute("UPDATE settings SET value = ? WHERE key = 'discovery_paused'", ("1" if paused else "0",))
+            self.user.execute("INSERT INTO change_events (type, created_at_ms) VALUES (?, ?)",
+                              ("discovery_paused" if paused else "discovery_resumed", now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("discovery_paused" if paused else "discovery_resumed")
+        self.notify_events()
+        return self.health()
+
+    def notify_events(self) -> None:
+        """Call after a commit that added change_events rows; never before (no uncommitted events)."""
+        if self._events_signal is not None:
+            self._events_signal.set()
+
+    def events_after(self, last_id: int, limit: int = 200) -> list[dict]:
+        assert self.reader is not None
+        rows = self.reader.execute(
+            "SELECT id, type, job_id, employer_id, ref, created_at_ms FROM change_events WHERE id > ? ORDER BY id LIMIT ?",
+            (last_id, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+    def latest_event_id(self) -> int:
+        assert self.reader is not None
+        return self.reader.execute("SELECT coalesce(max(id), 0) FROM change_events").fetchone()[0]
+
+    async def wait_for_events(self, timeout: float) -> None:
+        """Return when notified or after `timeout` (fallback poll), whichever comes first."""
+        if self._events_signal is None:
+            self._events_signal = asyncio.Event()
+        signal = self._events_signal
+        try:
+            await asyncio.wait_for(signal.wait(), timeout=timeout)
+        except TimeoutError:
+            return
+        # Swap in a fresh event so the next waiter blocks until the next notification.
+        if self._events_signal is signal:
+            self._events_signal = asyncio.Event()
+
     def request_stop(self, reason: str) -> None:
         self.stop_reason = reason
         if self.stop_event is not None:
             self.stop_event.set()
+        self.notify_events()  # wake event streams so they end and do not hold up shutdown
+
+    def request_stop_threadsafe(self, reason: str) -> None:
+        """For callers on other threads (the session-end window)."""
+        loop = self._loop
+        if loop is not None and not loop.is_closed():
+            loop.call_soon_threadsafe(self.request_stop, reason)
+
+    def is_stopping(self) -> bool:
+        return self.stop_event is not None and self.stop_event.is_set()
 
     # ----- background tasks -----
 
@@ -143,10 +207,13 @@ class AgentRuntime:
     async def serve(self) -> None:
         """Run the IPC server and background tasks until a stop is requested."""
         self.stop_event = asyncio.Event()
+        self._events_signal = asyncio.Event()
+        self._loop = asyncio.get_running_loop()
         sock = ipc.bind_loopback()
         endpoint = ipc.IpcEndpoint(port=sock.getsockname()[1], token=ipc.new_token())
         app = ipc.create_app(self, endpoint)
-        server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, lifespan="off"))
+        server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, lifespan="off",
+                                               timeout_graceful_shutdown=3))
         server_task = asyncio.create_task(server.serve(sockets=[sock]))
         # Publish the endpoint only once uvicorn is accepting connections.
         while not server.started and not server_task.done():

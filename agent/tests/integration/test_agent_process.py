@@ -162,3 +162,30 @@ def test_elevated_run_is_refused_without_creating_files(tmp_path):
     r = subprocess.run([sys.executable, "-m", "jobforge_agent", "--status"], env=env, capture_output=True, text=True,
                        creationflags=winutil.CREATE_NO_WINDOW, timeout=60)
     assert r.returncode == 1 and "not reachable" in r.stderr
+
+
+def test_sign_out_stops_the_agent_gracefully(agent_paths):
+    """Simulate Windows sign-out by sending WM_ENDSESSION to the agent's hidden window."""
+    import ctypes
+    from ctypes import wintypes
+
+    from jobforge_agent.sessionend import CLASS_NAME, ENDSESSION_LOGOFF, WM_ENDSESSION
+
+    p = agent_paths
+    start_agent(p.root)
+    health = _wait(lambda: _running_health(p), 30, "agent did not start")
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
+    user32.FindWindowW.restype = wintypes.HWND
+    hwnd = _wait(lambda: user32.FindWindowW(CLASS_NAME, None), 10, "session window not found")
+    user32.SendMessageTimeoutW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
+                                           wintypes.UINT, wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
+    result = ctypes.c_size_t()
+    t0 = time.time()
+    user32.SendMessageTimeoutW(hwnd, WM_ENDSESSION, 1, ENDSESSION_LOGOFF, 0, 10_000, ctypes.byref(result))
+    returned_after = time.time() - t0
+    _wait(lambda: not p.ipc.exists(), 10, "agent did not stop after WM_ENDSESSION")
+    runs = _runs(p)
+    assert runs[-1][1] == health["pid"] and runs[-1][3] and runs[-1][4] == "session_end_logoff"
+    # The handler returned only after the run was recorded, and inside Windows' allowance.
+    assert returned_after < 5.0, returned_after

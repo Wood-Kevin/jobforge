@@ -197,7 +197,7 @@ evaluations lives in Python, where the scanner code and the tests already are.
 | Agent hangs (alive, not answering) | **Never spawns a second agent while its last child is still alive** (spike: a hung agent plus respawn produced 8 hung agents). Tray shows "agent not responding" and offers Restart (kill + spawn). | An internal watchdog task logs `event_loop_stalled` if the loop misses ticks for > 30 s. |
 | Launched elevated (Run as administrator) | **D16 (Kevin, Q28):** compare the token's user SID with the interactive shell user's (Explorer's process owner). Same user -> relaunch itself at medium integrity through the shell (Explorer's token), log `relaunched_unelevated`, exit. Different user, or relaunch fails -> message "JobForge must run as you, without administrator rights", exit, start nothing. | Run mode, `--backup` or `--restore` while elevated -> exit 5, log `refused_elevated` (an elevated agent would create Administrators-owned files in the user's data root). `--shutdown` and `--status` are allowed elevated, because installer hooks need them. Logs `elevated` on every start. Spike: the autostart plugin wrote machine-wide `HKLM\...\Run` when elevated, so JobForge writes `HKCU\...\Run` itself (7.2). |
 | Sleep / resume | Nothing special. | Scheduler sees a monotonic-clock tick gap > 2 min and re-spreads overdue employers (3.3). HTTP calls that were in flight fail and are retried by normal backoff. |
-| Sign-out / shutdown | Exits on session end. | Handles `CTRL_SHUTDOWN_EVENT`/`CTRL_LOGOFF_EVENT` (and a hidden message window for `WM_QUERYENDSESSION`) with the same graceful shutdown; anything unfinished is recovered on next start. |
+| Sign-out / shutdown | Exits on session end. | **Implemented P1.2:** a hidden top-level window (`sessionend.py`) answers `WM_QUERYENDSESSION` and, on `WM_ENDSESSION`, requests a graceful stop and waits up to 4 s for the run row (`stop_reason = session_end_logoff` / `session_end_shutdown`). Console control events are not used: a console process that loads user32 does not receive logoff/shutdown events. Anything unfinished is recovered on next start. |
 | Update / uninstall | See 7.2. | `--shutdown` from the installer hook. |
 
 ### 3.3 Continuous incremental discovery
@@ -333,6 +333,9 @@ restart.
   one transaction, releases, calls the model, then persists in a second
   transaction. Pinned by a test (4.3) that holds a fake model call open for 30 s
   and checks a user action commits within 1 s meanwhile.
+- **Close order.** On stop, the read-only connection closes first and a writer last: only
+  a read-write connection checkpoints and removes the WAL on close (P1.2 found committed rows
+  left in `-wal` when the read-only connection closed last). Tested.
 - **Thread affinity.** FastAPI runs plain `def` handlers in a worker thread
   pool; a connection created on the event-loop thread then raises
   `sqlite3.ProgrammingError` (spike: every `/v1/health` returned 500 while the
@@ -491,6 +494,14 @@ only by the Rust host.**
 - **Handshake and version skew:** host calls `GET /v1/health`, which returns
   agent version and `protocol_version`. Mismatch (old agent still running
   after an update) -> host requests `/v1/shutdown` and spawns the bundled agent.
+- **Implemented so far (P1.1-P1.2):** `GET /v1/health`, `POST /v1/shutdown`,
+  `POST /v1/discovery/pause|resume`, `GET /v1/events` (SSE; resumes after `Last-Event-ID`;
+  new subscribers get only future events; woken by the committing code, 2 s fallback poll,
+  15 s keepalive; ends when the agent stops so it never blocks shutdown). The host's
+  `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
+  action and the stream is relayed by the host.
+- **Host command line:** `JobForge.exe [--background] [--exit] [--autostart on|off]`; with a
+  host already running, the single-instance plugin forwards the arguments to it.
 - **API surface** (same routes as rev 3, now under `/v1`): health, status
   (freshness, queues, inference, errors), discovery pause/resume/poll-now,
   jobs, evaluations, evaluate-anyway, search profile versions, resumes,
@@ -848,8 +859,8 @@ section 2. Spike P1.0d proves it before the decision is final (9).
 ### 7.2 Installation and updates
 
 - **Installer:** Tauri NSIS bundle, `installMode: currentUser` (no admin),
-  installs to `%LOCALAPPDATA%\JobForge\` (spike-measured: 16.4 MiB installer,
-  43 MB installed, 86 agent files, 2.6-3.8 s silent install), WebView2 via the
+  installs to `%LOCALAPPDATA%\JobForge\` (P1.2 build: 16.7 MB installer, 43.3 MB
+  installed, 98 agent files, 2.2-2.5 s silent install; spike: 16.4 MiB), WebView2 via the
   embedded bootstrapper if missing. Start-menu shortcut; autostart is a
   setting in the app (default off, Q24). **JobForge writes and deletes its own
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` value** (`JobForge` =

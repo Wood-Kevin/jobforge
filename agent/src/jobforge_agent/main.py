@@ -17,6 +17,7 @@ import asyncio
 import json
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -26,6 +27,7 @@ from jobforge_agent.db import backup
 from jobforge_agent.db.migrate import DatabaseNewer
 from jobforge_agent.instance_lock import InstanceLock
 from jobforge_agent.paths import Paths, resolve_paths
+from jobforge_agent.sessionend import SessionEndWatcher
 
 EXIT_OK, EXIT_ERROR, EXIT_ALREADY_RUNNING, EXIT_DB_NEWER, EXIT_ELEVATED = 0, 1, 3, 4, 5
 # Modes that would create or rewrite files in the user's data root. Run elevated, those files
@@ -72,6 +74,11 @@ def cmd_run(paths: Paths) -> int:
     logs.configure(paths.logs)
     log = logs.get("main")
     runtime = AgentRuntime(paths)
+    recorded = threading.Event()  # set once the run row holds its final stop reason
+    watcher = SessionEndWatcher(runtime.request_stop_threadsafe, recorded)
+    if not watcher.start():
+        # Not fatal: without it a sign-out ends the agent abruptly and startup recovery repairs the state.
+        log.error("session_end_watcher_failed", error=watcher.error)
     try:
         try:
             runtime.start()
@@ -88,6 +95,8 @@ def cmd_run(paths: Paths) -> int:
         raise
     finally:
         runtime.finish()
+        recorded.set()
+        watcher.close()
         logs.close()
         lock.release()
 

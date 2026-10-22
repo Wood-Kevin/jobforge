@@ -13,12 +13,13 @@ import json
 import os
 import secrets
 import socket
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from jobforge_agent import PROTOCOL_VERSION
 
@@ -82,4 +83,44 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         runtime.request_stop(request.query_params.get("reason", "requested"))
         return {"stopping": True}
 
+    @app.post("/v1/discovery/pause")
+    async def pause_discovery():
+        return runtime.set_discovery_paused(True)
+
+    @app.post("/v1/discovery/resume")
+    async def resume_discovery():
+        return runtime.set_discovery_paused(False)
+
+    @app.get("/v1/events")
+    async def events(request: Request):
+        """Server-Sent Events over change_events (ARCHITECTURE 3.3, 5).
+
+        Resumes after Last-Event-ID (or ?after=N); a new subscriber without either gets only
+        future events. Rows are read after commit, so nothing rolled back is ever sent.
+        """
+        raw = request.headers.get("last-event-id") or request.query_params.get("after")
+        last_id = int(raw) if raw and raw.isdigit() else runtime.latest_event_id()
+        return StreamingResponse(_event_stream(runtime, request, last_id), media_type="text/event-stream",
+                                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
     return app
+
+
+EVENT_FALLBACK_POLL_S = 2.0
+KEEPALIVE_S = 15.0
+
+
+async def _event_stream(runtime: "AgentRuntime", request: Request, last_id: int):
+    yield ": connected\n\n"
+    last_write = time.monotonic()
+    while not runtime.is_stopping() and not await request.is_disconnected():
+        rows = runtime.events_after(last_id)
+        for row in rows:
+            last_id = row["id"]
+            yield f"id: {row['id']}\nevent: change\ndata: {json.dumps(row)}\n\n"
+            last_write = time.monotonic()
+        if not rows:
+            if time.monotonic() - last_write >= KEEPALIVE_S:
+                yield ": keepalive\n\n"
+                last_write = time.monotonic()
+            await runtime.wait_for_events(EVENT_FALLBACK_POLL_S)

@@ -29,3 +29,12 @@ spikes/p1_0d_packaging/build_*.log
 
 # The spike host keeps its hand-written frontend in dist/
 !spikes/p1_0d_packaging/host/dist/
+
+# Release build output
+dist-installers/
+agent/dist/
+agent/build/
+desktop/app-icon.png
+build.log
+desktop/src-tauri/gen/
+*.tsbuildinfo
