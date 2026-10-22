@@ -1,0 +1,157 @@
+{
+  "requirements": [
+    {
+      "text": "Strong proficiency administering Linux systems (CentOS, Debian, Ubuntu)",
+      "jd_quote": "Strong proficiency administering Linux systems (CentOS, Debian, Ubuntu)",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience applying systems-level troubleshooting and analysis to resolve non-routine technical issues",
+      "jd_quote": "Experience applying systems-level troubleshooting and analysis to resolve non-routine technical issues",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Familiarity with scripting languages such as Bash, Python, or similar",
+      "jd_quote": "Familiarity with scripting languages such as Bash, Python, or similar",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience with virtualization, networking, or software development is a plus",
+      "jd_quote": "Experience with virtualization, networking, or software development is a plus",
+      "importance": "preferred",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Hands-on experience configuring and supporting: Web servers, Databases and caching solutions, Firewalls",
+      "jd_quote": "Hands-on experience configuring and supporting:\n   \n   - Web servers\n   \n   - Databases and caching solutions\n   \n   - Firewalls",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Demonstrated understanding of: Common Linux utilities and system tooling, Server and application architecture, including security hardening, Distributed storage solutions (e.g., Ceph), Virtualization technologies, Load balancing concepts, Core networking concepts",
+      "jd_quote": "Demonstrated understanding of:\n   \n   - Common Linux utilities and system tooling\n   \n   - Server and application architecture, including security hardening\n   \n   - Distributed storage solutions (e.g., Ceph)\n   \n   - Virtualization technologies\n   \n   - Load balancing concepts\n   \n   - Core networking concepts",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Strong written and verbal communication skills with the ability to collaborate across teams",
+      "jd_quote": "Strong written and verbal communication skills with the ability to collaborate across teams",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "We are currently accepting applications from candidates residing in the following states: Alabama, Arizona, Colorado, Connecticut, Florida, Georgia, Idaho, Illinois, Indiana, Iowa, Kentucky, Louisiana, Maryland, Massachusetts, Michigan, Minnesota, Missouri, Montana, Nebraska, Nevada, New Jersey, New Mexico, New York, North Carolina, Ohio, Oklahoma, Pennsylvania, Rhode Island, South Carolina, Tennessee, Texas, Utah, Vermont, Virginia, Wisconsin.",
+      "jd_quote": "We are currently accepting applications from candidates residing in the following states: Alabama, Arizona, Colorado, Connecticut, Florida, Georgia, Idaho, Illinois, Indiana, Iowa, Kentucky, Louisiana, Maryland, Massachusetts, Michigan, Minnesota, Missouri, Montana, Nebraska, Nevada, New Jersey, New Mexico, New York, North Carolina, Ohio, Oklahoma, Pennsylvania, Rhode Island, South Carolina, Tennessee, Texas, Utah, Vermont, Virginia, Wisconsin.",
+      "importance": "hard",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    {
+      "text": "100% company-paid insurance premiums for employee medical, dental and vision plans.",
+      "jd_quote": "100% company-paid insurance premiums for employee medical, dental and vision plans.",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "401(k) plan that matches 100% up to 4%, with immediate vesting",
+      "jd_quote": "401(k) plan that matches 100% up to 4%, with immediate vesting",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Professional Development Reimbursement of $2,500 each year",
+      "jd_quote": "Professional Development Reimbursement of $2,500 each year",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "11 Holidays + Paid Time Off Accrual + Rollover Plan",
+      "jd_quote": "11 Holidays + Paid Time Off Accrual + Rollover Plan",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Increased PTO at 3 year and 10 year anniversary + 1 month paid sabbatical every 5 years + Anniversary Bonus each year",
+      "jd_quote": "Increased PTO at 3 year and 10 year anniversary + 1 month paid sabbatical every 5 years + Anniversary Bonus each year",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "$500 stipend for remote office setup in first year + $400 each following year",
+      "jd_quote": "$500 stipend for remote office setup in first year + $400 each following year",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Internet reimbursement up to $75 per month",
+      "jd_quote": "Internet reimbursement up to $75 per month",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Gym membership reimbursement up to $50 per month",
+      "jd_quote": "Gym membership reimbursement up to $50 per month",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Company paid Wellable subscription",
+      "jd_quote": "Company paid Wellable subscription",
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    }
+  ]
+}

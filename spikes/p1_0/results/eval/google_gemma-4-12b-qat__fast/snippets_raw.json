@@ -1,0 +1,389 @@
+[
+  {
+    "id": "neg_cloud",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.08
+  },
+  {
+    "id": "neg_degree",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 1.92
+  },
+  {
+    "id": "neg_k8s",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.06
+  },
+  {
+    "id": "neg_mixed_clearance",
+    "area": "negation",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": false,
+      "polarity": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "clearance",
+      "min_years": null
+    },
+    "seconds": 3.34
+  },
+  {
+    "id": "imp_ccna_req",
+    "area": "importance",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 1.82
+  },
+  {
+    "id": "imp_ccna_plus",
+    "area": "importance",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true
+    },
+    "got": {
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 1.88
+  },
+  {
+    "id": "imp_ccna_equiv",
+    "area": "importance",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 1.84
+  },
+  {
+    "id": "imp_conflict_aws",
+    "area": "importance",
+    "kind": "info",
+    "ok": null,
+    "got": [
+      {
+        "text": "Must have AWS experience.",
+        "jd_quote": "Must have AWS experience.",
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      }
+    ],
+    "seconds": 1.81
+  },
+  {
+    "id": "imp_degree_or_years",
+    "area": "importance",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 3.27
+  },
+  {
+    "id": "subj_customers",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 2.01
+  },
+  {
+    "id": "subj_stack",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": false,
+    "got": [
+      {
+        "text": "Terraform",
+        "jd_quote": "Terraform",
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      {
+        "text": "Ansible",
+        "jd_quote": "Ansible",
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      {
+        "text": "Datadog",
+        "jd_quote": "Datadog",
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      }
+    ],
+    "seconds": 4.29
+  },
+  {
+    "id": "subj_mentor_years",
+    "area": "subject",
+    "kind": "not_requirement_years",
+    "ok": true,
+    "got": [],
+    "seconds": 2.05
+  },
+  {
+    "id": "subj_benefit_cert",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 1.85
+  },
+  {
+    "id": "eeo",
+    "area": "eeo",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 2.31
+  },
+  {
+    "id": "elig_citizen",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    "seconds": 1.89
+  },
+  {
+    "id": "elig_tssci",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "clearance",
+      "min_years": null
+    },
+    "seconds": 1.9
+  },
+  {
+    "id": "elig_reside",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": false
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    "seconds": 1.95
+  },
+  {
+    "id": "elig_sponsor",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    "seconds": 2.08
+  },
+  {
+    "id": "elig_lift",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "physical",
+      "min_years": null
+    },
+    "seconds": 1.95
+  },
+  {
+    "id": "elig_travel",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "travel",
+      "min_years": null
+    },
+    "seconds": 2.07
+  },
+  {
+    "id": "years_5",
+    "area": "years",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "min_years": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": 5
+    },
+    "seconds": 1.94
+  },
+  {
+    "id": "years_pref",
+    "area": "years",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "min_years": true
+    },
+    "got": {
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": 3
+    },
+    "seconds": 1.94
+  }
+]

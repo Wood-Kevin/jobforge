@@ -1,0 +1,24 @@
+﻿[21:46:40] before exit:
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      20952 21:46:33                             
+jobforge-spike-host 37396 21:46:31 dev.kevin.jobforge.spike-siw
+
+
+
+[21:46:40] health: {"version":"0.2.0","protocol_version":1,"pid":20952,"schema":2,"paused":false,"ticks_this_run":2,"uptime_s":7,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:46:40] second launch with --exit (same code path as tray 'Exit JobForge')
+[21:46:47] both processes gone: True after 6.8 s
+
+user_version 2
+(2, 20952, '0.2.0', 1792633593953, 1792633603257, 'user_exit')
+(1, 44384, '0.1.0', 1792633567884, 1792633588066, 'update')
+ticks per run [(2, 2), (1, 4)]
+1792633593578 pid=37396 spawned agent pid=20952 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+1792633603053 pid=37396 exit requested, shutdown sent ok=true
+1792633607346 pid=37396 agent still answering after wait: false
+{"ts": 1792633594013, "pid": 20952, "version": "0.2.0", "event": "ipc_ready", "port": 53152, "run_dir_sid": "S-1-5-21-460994057-1581153062-2505041042-1001"}
+{"ts": 1792633603258, "pid": 20952, "version": "0.2.0", "event": "agent_stop", "reason": "user_exit"}
+[21:46:47] lock released (a fresh agent can take it):
+[21:46:51] agent --status exit (no agent running, expect 1): 1

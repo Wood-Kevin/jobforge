@@ -1,0 +1,40 @@
+﻿[21:47:00] install the OLD installer over the new one, unelevated: .\installers\JobForgeSpike_0.1.0_setup.exe
+[21:47:05] installer exit 0
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      41284 21:47:34                             
+jobforge-spike-host 16084 21:47:06 dev.kevin.jobforge.spike-siw
+
+
+
+[21:47:37] health: health failed: Unable to connect to the remote server
+[21:47:37] agent log (expect db_newer_than_agent):
+{"ts": 1792633621261, "pid": 20752, "version": "0.2.0", "event": "cli_shutdown_begin", "reason": "update"}
+{"ts": 1792633623303, "pid": 20752, "version": "0.2.0", "event": "cli_shutdown_request_failed", "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"}
+{"ts": 1792633623304, "pid": 20752, "version": "0.2.0", "event": "cli_shutdown_done", "how": "graceful_or_not_running"}
+{"ts": 1792633628933, "pid": 25824, "version": "0.1.0", "event": "db_newer_than_agent", "db_version": 2, "agent_schema": 1}
+{"ts": 1792633655257, "pid": 41284, "version": "0.1.0", "event": "db_newer_than_agent", "db_version": 2, "agent_schema": 1}
+1792633607346 pid=37396 agent still answering after wait: false
+1792633626467 pid=16084 host start background=true
+1792633628601 pid=16084 spawned agent pid=25824 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+1792633643836 pid=16084 agent did not answer within 15 s
+1792633645865 pid=16084 health failed (1): http://127.0.0.1:53152/v1/health: Connection Failed: Connect error: No connection could be made because the target machine actively refused it. (os error 10061)
+1792633652902 pid=16084 health failed (2): http://127.0.0.1:53152/v1/health: Connection Failed: Connect error: No connection could be made because the target machine actively refused it. (os error 10061)
+1792633652902 pid=16084 watchdog respawning agent
+1792633654948 pid=16084 spawned agent pid=41284 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+[21:47:37] restore pre-migration backup: C:\Users\kevin\AppData\Local\JobForgeSpikeData\backups\pre-migrate-v1-20261021-214633.db
+[21:47:40] restore exit 0
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      33448 21:47:43                             
+jobforge-spike-host 37200 21:47:41 dev.kevin.jobforge.spike-siw
+
+
+
+[21:47:49] health: {"version":"0.1.0","protocol_version":1,"pid":33448,"schema":1,"paused":false,"ticks_this_run":2,"uptime_s":6,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+user_version 1
+(2, 33448, '0.1.0', 1792633663752, None, None)
+(1, 44384, '0.1.0', 1792633567884, 1792633588066, 'update')
+ticks per run [(2, 2), (1, 4)]

@@ -1,0 +1,361 @@
+[
+  {
+    "id": "neg_cloud",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 6.34
+  },
+  {
+    "id": "neg_degree",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 5.43
+  },
+  {
+    "id": "neg_k8s",
+    "area": "negation",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "polarity": true
+    },
+    "got": {
+      "importance": "preferred",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 3.67
+  },
+  {
+    "id": "neg_mixed_clearance",
+    "area": "negation",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": false,
+      "polarity": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "required",
+      "subject": "candidate",
+      "eligibility_type": "clearance",
+      "min_years": null
+    },
+    "seconds": 2.89
+  },
+  {
+    "id": "imp_ccna_req",
+    "area": "importance",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": false
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.36
+  },
+  {
+    "id": "imp_ccna_plus",
+    "area": "importance",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true
+    },
+    "got": {
+      "importance": "preferred",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.52
+  },
+  {
+    "id": "imp_ccna_equiv",
+    "area": "importance",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": false
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.47
+  },
+  {
+    "id": "imp_conflict_aws",
+    "area": "importance",
+    "kind": "info",
+    "ok": null,
+    "got": [
+      {
+        "text": "Must have AWS experience.",
+        "jd_quote": "Must have AWS experience.",
+        "importance": "required",
+        "polarity": "negated",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      }
+    ],
+    "seconds": 3.22
+  },
+  {
+    "id": "imp_degree_or_years",
+    "area": "importance",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "polarity": false
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 3.05
+  },
+  {
+    "id": "subj_customers",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 0.61
+  },
+  {
+    "id": "subj_stack",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 0.69
+  },
+  {
+    "id": "subj_mentor_years",
+    "area": "subject",
+    "kind": "not_requirement_years",
+    "ok": true,
+    "got": [],
+    "seconds": 1.67
+  },
+  {
+    "id": "subj_benefit_cert",
+    "area": "subject",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 2.29
+  },
+  {
+    "id": "eeo",
+    "area": "eeo",
+    "kind": "not_requirement",
+    "ok": true,
+    "got": [],
+    "seconds": 0.96
+  },
+  {
+    "id": "elig_citizen",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": false
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "required",
+      "subject": "candidate",
+      "eligibility_type": "clearance",
+      "min_years": null
+    },
+    "seconds": 2.35
+  },
+  {
+    "id": "elig_tssci",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "required",
+      "subject": "candidate",
+      "eligibility_type": "clearance",
+      "min_years": null
+    },
+    "seconds": 2.21
+  },
+  {
+    "id": "elig_reside",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": false
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "required",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.16
+  },
+  {
+    "id": "elig_sponsor",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": true
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    "seconds": 3.05
+  },
+  {
+    "id": "elig_lift",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": false
+    },
+    "got": {
+      "importance": "hard",
+      "polarity": "required",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.13
+  },
+  {
+    "id": "elig_travel",
+    "area": "eligibility",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "eligibility_type": false
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.63
+  },
+  {
+    "id": "years_5",
+    "area": "years",
+    "kind": "target",
+    "ok": true,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "min_years": true
+    },
+    "got": {
+      "importance": "required",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": 5
+    },
+    "seconds": 3.12
+  },
+  {
+    "id": "years_pref",
+    "area": "years",
+    "kind": "target",
+    "ok": false,
+    "found": true,
+    "fields": {
+      "importance": true,
+      "min_years": false
+    },
+    "got": {
+      "importance": "preferred",
+      "polarity": "negated",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    "seconds": 2.71
+  }
+]

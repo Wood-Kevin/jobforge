@@ -1,0 +1,20 @@
+﻿[21:48:03] before uninstall:
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      33448 21:47:43                             
+jobforge-spike-host 37200 21:47:41 dev.kevin.jobforge.spike-siw
+
+
+
+[21:48:04] uninstaller exit 0
+
+[21:48:09] install dir exists: False
+[21:48:09] data dir exists: True
+[21:48:09] autostart entries:
+[21:48:09]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[21:48:09]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+{"ts": 1792633663806, "pid": 33448, "version": "0.1.0", "event": "ipc_ready", "port": 54362, "run_dir_sid": "S-1-5-21-460994057-1581153062-2505041042-1001"}
+{"ts": 1792633685236, "pid": 12228, "version": "0.1.0", "event": "cli_shutdown_begin", "reason": "uninstall"}
+{"ts": 1792633685440, "pid": 33448, "version": "0.1.0", "event": "agent_stop", "reason": "uninstall"}
+{"ts": 1792633685763, "pid": 12228, "version": "0.1.0", "event": "cli_shutdown_done", "how": "graceful_or_not_running"}

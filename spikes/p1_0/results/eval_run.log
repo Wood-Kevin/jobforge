@@ -1,0 +1,266 @@
+
+### google/gemma-4-12b-qat [fast]
+Unloading "openai/gpt-oss-20b"...
+Unloaded 1 model.
+['\x1b[K\x1b[?25hModel loaded successfully in 6.26s.', '(6.66 GiB)', 'To use the model in the API/SDK, use the identifier "google/gemma-4-12b-qat".']
+IDENTIFIER                MODEL                     STATUS    SIZE       CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+google/gemma-4-12b-qat    google/gemma-4-12b-qat    IDLE      7.15 GB    16384      4           LM Studio      Local
+ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787 38.49 s 17 items
+greenhouse_axonius_8009643003 21.18 s 10 items
+greenhouse_gitlab_8859063002 27.36 s 11 items
+greenhouse_huntress_7743188003 42.09 s 21 items
+greenhouse_keepersecurity_4459433009 51.18 s 25 items
+greenhouse_tailscale_4710785005 23.21 s 13 items
+Unloading "google/gemma-4-12b-qat"...
+Unloaded 1 model.
+{
+  "model": "google/gemma-4-12b-qat",
+  "mode": "fast",
+  "finish_reasons": [
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "reasoning_tokens_median": 0,
+  "snippet_seconds_median": 1.95,
+  "valid_json": "6/6",
+  "quotes_found": "97/97",
+  "probes_found": "31/32",
+  "probes_all_fields_correct": "29/32",
+  "field_accuracy_when_found": {
+    "importance": "30/30",
+    "polarity": "30/30",
+    "subject": "30/30",
+    "eligibility_type": "2/4",
+    "min_years": "3/3"
+  },
+  "trap_violations": "0/26",
+  "snippets_ok": "18/21",
+  "snippets_by_area": {
+    "negation": "3/4",
+    "importance": "4/4",
+    "subject": "3/4",
+    "eeo": "1/1",
+    "eligibility": "5/6",
+    "years": "2/2"
+  },
+  "posting_seconds_median": 38.49,
+  "posting_seconds_max": 51.18,
+  "completion_tokens_median": 1898,
+  "load_seconds": 6.6
+}
+
+### openai/gpt-oss-20b [fast]
+No models to unload.
+['\x1b[K\x1b[?25hModel loaded successfully in 5.75s.', '(11.28 GiB)', 'To use the model in the API/SDK, use the identifier "openai/gpt-oss-20b".']
+IDENTIFIER            MODEL                 STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+openai/gpt-oss-20b    openai/gpt-oss-20b    IDLE      12.11 GB    16384      4           LM Studio      Local
+ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787 23.92 s 15 items
+greenhouse_axonius_8009643003 20.04 s 9 items
+greenhouse_gitlab_8859063002 21.71 s 10 items
+greenhouse_huntress_7743188003 31.55 s 20 items
+greenhouse_keepersecurity_4459433009 39.87 s 25 items
+greenhouse_tailscale_4710785005 21.24 s 12 items
+Unloading "openai/gpt-oss-20b"...
+Unloaded 1 model.
+{
+  "model": "openai/gpt-oss-20b",
+  "mode": "fast",
+  "finish_reasons": [
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "reasoning_tokens_median": 4,
+  "snippet_seconds_median": 2.53,
+  "valid_json": "6/6",
+  "quotes_found": "84/91",
+  "probes_found": "30/32",
+  "probes_all_fields_correct": "27/32",
+  "field_accuracy_when_found": {
+    "importance": "29/30",
+    "polarity": "30/30",
+    "subject": "30/30",
+    "eligibility_type": "1/4",
+    "min_years": "3/3"
+  },
+  "trap_violations": "0/26",
+  "snippets_ok": "14/21",
+  "snippets_by_area": {
+    "negation": "3/4",
+    "importance": "4/4",
+    "subject": "4/4",
+    "eeo": "1/1",
+    "eligibility": "1/6",
+    "years": "1/2"
+  },
+  "posting_seconds_median": 23.92,
+  "posting_seconds_max": 39.87,
+  "completion_tokens_median": 1033,
+  "load_seconds": 6.0
+}
+
+### qwen/qwen3-30b-a3b [fast]
+No models to unload.
+['\x1b[K\x1b[?25hModel loaded successfully in 8.42s.', '(17.35 GiB)', 'To use the model in the API/SDK, use the identifier "qwen/qwen3-30b-a3b".']
+IDENTIFIER            MODEL                 STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+qwen/qwen3-30b-a3b    qwen/qwen3-30b-a3b    IDLE      18.63 GB    16384      4           LM Studio      Local
+ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787 48.49 s 8 items
+greenhouse_axonius_8009643003 47.29 s 9 items
+greenhouse_gitlab_8859063002 66.48 s 10 items
+greenhouse_huntress_7743188003 192.97 s 34 items
+greenhouse_keepersecurity_4459433009 147.36 s 25 items
+greenhouse_tailscale_4710785005 51.6 s 12 items
+Unloading "qwen/qwen3-30b-a3b"...
+Unloaded 1 model.
+{
+  "model": "qwen/qwen3-30b-a3b",
+  "mode": "fast",
+  "finish_reasons": [
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "reasoning_tokens_median": 0,
+  "snippet_seconds_median": 3.73,
+  "valid_json": "6/6",
+  "quotes_found": "98/98",
+  "probes_found": "30/32",
+  "probes_all_fields_correct": "28/32",
+  "field_accuracy_when_found": {
+    "importance": "29/30",
+    "polarity": "30/30",
+    "subject": "30/30",
+    "eligibility_type": "2/4",
+    "min_years": "3/3"
+  },
+  "trap_violations": "0/26",
+  "snippets_ok": "17/21",
+  "snippets_by_area": {
+    "negation": "3/4",
+    "importance": "4/4",
+    "subject": "4/4",
+    "eeo": "1/1",
+    "eligibility": "4/6",
+    "years": "1/2"
+  },
+  "posting_seconds_median": 66.48,
+  "posting_seconds_max": 192.97,
+  "completion_tokens_median": 1140,
+  "load_seconds": 8.7
+}
+
+### openai/gpt-oss-20b [think]
+No models to unload.
+['\x1b[K\x1b[?25hModel loaded successfully in 5.91s.', '(11.28 GiB)', 'To use the model in the API/SDK, use the identifier "openai/gpt-oss-20b".']
+IDENTIFIER            MODEL                 STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+openai/gpt-oss-20b    openai/gpt-oss-20b    IDLE      12.11 GB    16384      4           LM Studio      Local
+ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787 23.66 s 15 items
+greenhouse_axonius_8009643003 19.94 s 9 items
+greenhouse_gitlab_8859063002 21.97 s 10 items
+greenhouse_huntress_7743188003 31.41 s 20 items
+greenhouse_keepersecurity_4459433009 39.06 s 25 items
+greenhouse_tailscale_4710785005 21.07 s 12 items
+Unloading "openai/gpt-oss-20b"...
+Unloaded 1 model.
+{
+  "model": "openai/gpt-oss-20b",
+  "mode": "think",
+  "finish_reasons": [
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "reasoning_tokens_median": 4,
+  "snippet_seconds_median": 2.53,
+  "valid_json": "6/6",
+  "quotes_found": "84/91",
+  "probes_found": "30/32",
+  "probes_all_fields_correct": "27/32",
+  "field_accuracy_when_found": {
+    "importance": "29/30",
+    "polarity": "30/30",
+    "subject": "30/30",
+    "eligibility_type": "1/4",
+    "min_years": "3/3"
+  },
+  "trap_violations": "0/26",
+  "snippets_ok": "14/21",
+  "snippets_by_area": {
+    "negation": "3/4",
+    "importance": "4/4",
+    "subject": "4/4",
+    "eeo": "1/1",
+    "eligibility": "1/6",
+    "years": "1/2"
+  },
+  "posting_seconds_median": 23.66,
+  "posting_seconds_max": 39.06,
+  "completion_tokens_median": 1033,
+  "load_seconds": 6.2
+}
+
+### qwen/qwen3-30b-a3b [think]
+No models to unload.
+['\x1b[K\x1b[?25hModel loaded successfully in 8.30s.', '(17.35 GiB)', 'To use the model in the API/SDK, use the identifier "qwen/qwen3-30b-a3b".']
+IDENTIFIER            MODEL                 STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL
+qwen/qwen3-30b-a3b    qwen/qwen3-30b-a3b    IDLE      18.63 GB    16384      4           LM Studio      Local
+ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787 102.95 s 15 items
+greenhouse_axonius_8009643003 123.22 s 10 items
+greenhouse_gitlab_8859063002 163.15 s 10 items
+greenhouse_huntress_7743188003 170.6 s 21 items
+greenhouse_keepersecurity_4459433009 174.21 s 25 items
+greenhouse_tailscale_4710785005 144.51 s 13 items
+Unloading "qwen/qwen3-30b-a3b"...
+Unloaded 1 model.
+{
+  "model": "qwen/qwen3-30b-a3b",
+  "mode": "think",
+  "finish_reasons": [
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "reasoning_tokens_median": 1183,
+  "snippet_seconds_median": 18.81,
+  "valid_json": "6/6",
+  "quotes_found": "94/94",
+  "probes_found": "30/32",
+  "probes_all_fields_correct": "26/32",
+  "field_accuracy_when_found": {
+    "importance": "28/30",
+    "polarity": "30/30",
+    "subject": "30/30",
+    "eligibility_type": "2/4",
+    "min_years": "3/3"
+  },
+  "trap_violations": "0/26",
+  "snippets_ok": "16/21",
+  "snippets_by_area": {
+    "negation": "3/4",
+    "importance": "4/4",
+    "subject": "4/4",
+    "eeo": "1/1",
+    "eligibility": "2/6",
+    "years": "2/2"
+  },
+  "posting_seconds_median": 163.15,
+  "posting_seconds_max": 174.21,
+  "completion_tokens_median": 2524,
+  "load_seconds": 8.6
+}

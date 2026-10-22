@@ -1,0 +1,1185 @@
+{
+  "model": "qwen/qwen3-30b-a3b",
+  "mode": "think",
+  "request_extras": {},
+  "max_tokens": 12000,
+  "prompt_version": "e1-draft-2",
+  "context": 16384,
+  "load_seconds": 8.6,
+  "lms_ps": "IDENTIFIER            MODEL                 STATUS    SIZE        CONTEXT    PARALLEL    LOAD CONFIG    DEVICE    TTL\nqwen/qwen3-30b-a3b    qwen/qwen3-30b-a3b    IDLE      18.63 GB    16384      4           LM Studio      Local",
+  "postings": {
+    "ashby_vultr_24c3445f-27b2-40fb-870e-e59b71305787": {
+      "seconds": 102.95,
+      "usage": {
+        "prompt_tokens": 1426,
+        "completion_tokens": 1887,
+        "total_tokens": 3313,
+        "completion_tokens_details": {
+          "reasoning_tokens": 630
+        }
+      },
+      "error": null,
+      "chars": 6189,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "accepting applications from candidates residing in the following states",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "eligibility_type": true
+          },
+          "got": {
+            "importance": "hard",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "residency",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Strong proficiency administering Linux systems",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Familiarity with scripting languages such as Bash, Python",
+          "found": true,
+          "fields": {
+            "importance": false,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Experience with virtualization, networking, or software development is a plus",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Distributed storage solutions (e.g., Ceph)",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "Professional Development Reimbursement of $2,500",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "33 global cloud data center locations",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "disability, veteran status, or any other protected status",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "will not conduct a background check until after an offer",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [],
+      "quotes_found": 15,
+      "n_items": 15,
+      "quotes_not_found": []
+    },
+    "greenhouse_axonius_8009643003": {
+      "seconds": 123.22,
+      "usage": {
+        "prompt_tokens": 1225,
+        "completion_tokens": 2255,
+        "total_tokens": 3480,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1183
+        }
+      },
+      "error": null,
+      "chars": 5187,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "Active-duty military service member approved to participate in the DoD SkillBridge program",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "hard",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Operational background in military IT, communications",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Working knowledge of networking fundamentals",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "One or more industry certifications such as CompTIA Security+",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "scripting languages such as Python is a plus",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "without regard to race, color, ancestry",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "citizenship, marital status, disability, or Veteran status",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "Axonius participates in E-Verify",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "supports millions of assets for leading customers",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [],
+      "quotes_found": 10,
+      "n_items": 10,
+      "quotes_not_found": []
+    },
+    "greenhouse_gitlab_8859063002": {
+      "seconds": 163.15,
+      "usage": {
+        "prompt_tokens": 2169,
+        "completion_tokens": 2524,
+        "total_tokens": 4693,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1390
+        }
+      },
+      "error": null,
+      "chars": 10428,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "you must be a United States Citizen",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "eligibility_type": false
+          },
+          "got": {
+            "importance": "hard",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "clearance",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Strong Linux systems administration knowledge",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Ability to use scripting languages (preferably Ruby or Bash)",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Practical experience with Git and continuous integration",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Familiarity with DevOps practices and container-orchestration",
+          "found": true,
+          "fields": {
+            "importance": false,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "overnight shift role with working hours of 12:00am - 7:00am EST",
+          "found": false,
+          "fields": {},
+          "got": null
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "regardless of race, color, religion, ancestry",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "national origin, age, citizenship, marital status",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "protected veteran status",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "many successful candidates do not meet every single requirement",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "More than 50 million registered users",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [],
+      "quotes_found": 10,
+      "n_items": 10,
+      "quotes_not_found": []
+    },
+    "greenhouse_huntress_7743188003": {
+      "seconds": 170.6,
+      "usage": {
+        "prompt_tokens": 1703,
+        "completion_tokens": 2788,
+        "total_tokens": 4491,
+        "completion_tokens_details": {
+          "reasoning_tokens": 863
+        }
+      },
+      "error": null,
+      "chars": 7119,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "4+ years of experience in a SOC or Digital Forensics (DFIR) role",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "min_years": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": 4
+          }
+        },
+        {
+          "anchor": "Working knowledge of Windows Administration",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "static and dynamic malware analysis concepts",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Previous experience in an MSP/MSSP/MDR role",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Experience with scripting languages (such as PowerShell",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "Founded in 2015 by former NSA cyber operators",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "12 weeks of paid parental leave",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "disability, veteran status, genetic information",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "We do discriminate against hackers",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [
+        {
+          "anchor": "Location: Remote, US (West Coast)",
+          "got": [
+            {
+              "jd_quote": "Location: Remote, US (West Coast)",
+              "importance": "hard",
+              "eligibility_type": "physical",
+              "subject": "candidate"
+            }
+          ]
+        }
+      ],
+      "quotes_found": 21,
+      "n_items": 21,
+      "quotes_not_found": []
+    },
+    "greenhouse_keepersecurity_4459433009": {
+      "seconds": 174.21,
+      "usage": {
+        "prompt_tokens": 2364,
+        "completion_tokens": 2678,
+        "total_tokens": 5042,
+        "completion_tokens_details": {
+          "reasoning_tokens": 449
+        }
+      },
+      "error": null,
+      "chars": 11610,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "Must reside within reasonable commuting distance of Keeper",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "eligibility_type": false
+          },
+          "got": {
+            "importance": "hard",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "work_authorization",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Ability to lift up to 50 pounds",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "eligibility_type": true
+          },
+          "got": {
+            "importance": "hard",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "physical",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "3+ years of experience in IT support",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "min_years": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": 3
+          }
+        },
+        {
+          "anchor": "Strong hands-on experience supporting Microsoft Windows and macOS",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Familiarity with virtualization technologies such as VMware or Hyper-V",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Relevant CompTIA, Microsoft, networking or IT support certifications",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "Employment history, qualifications, work eligibility",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "participant in the U.S. Federal E-Verify program",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "disability status and veteran status (US)",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "Background verification (post offer)",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "Above market annual bonuses",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [],
+      "quotes_found": 25,
+      "n_items": 25,
+      "quotes_not_found": []
+    },
+    "greenhouse_tailscale_4710785005": {
+      "seconds": 144.51,
+      "usage": {
+        "prompt_tokens": 1545,
+        "completion_tokens": 2449,
+        "total_tokens": 3994,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1368
+        }
+      },
+      "error": null,
+      "chars": 6459,
+      "finish_reason": "stop",
+      "probes": [
+        {
+          "anchor": "Prior Go expertise is not a requirement",
+          "found": false,
+          "fields": {},
+          "got": null
+        },
+        {
+          "anchor": "Four or more years of experience in software development",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true,
+            "min_years": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": 4
+          }
+        },
+        {
+          "anchor": "Proficiency in C# and modern native UI frameworks",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "required",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Experience with WinUI 3 and Windows App SDK",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        },
+        {
+          "anchor": "Proficiency in Go",
+          "found": true,
+          "fields": {
+            "importance": true,
+            "polarity": true,
+            "subject": true
+          },
+          "got": {
+            "importance": "preferred",
+            "polarity": "affirmative",
+            "subject": "candidate",
+            "eligibility_type": "none",
+            "min_years": null
+          }
+        }
+      ],
+      "traps": [
+        {
+          "anchor": "meet 100% of the qualifications",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "$1500 USD annually for professional development",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "Founded in 2019 and fully distributed",
+          "violated": false,
+          "got": []
+        },
+        {
+          "anchor": "Some roles require in-office collaboration",
+          "violated": false,
+          "got": []
+        }
+      ],
+      "info": [],
+      "quotes_found": 13,
+      "n_items": 13,
+      "quotes_not_found": []
+    }
+  },
+  "snippets": [
+    {
+      "id": "neg_cloud",
+      "area": "negation",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "negated",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 20.14
+    },
+    {
+      "id": "neg_degree",
+      "area": "negation",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "negated",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 22.41
+    },
+    {
+      "id": "neg_k8s",
+      "area": "negation",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "negated",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 14.53
+    },
+    {
+      "id": "neg_mixed_clearance",
+      "area": "negation",
+      "kind": "target",
+      "ok": false,
+      "found": true,
+      "fields": {
+        "importance": false,
+        "polarity": true,
+        "eligibility_type": true
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "clearance",
+        "min_years": null
+      },
+      "seconds": 18.25
+    },
+    {
+      "id": "imp_ccna_req",
+      "area": "importance",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 21.93
+    },
+    {
+      "id": "imp_ccna_plus",
+      "area": "importance",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true
+      },
+      "got": {
+        "importance": "preferred",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 13.97
+    },
+    {
+      "id": "imp_ccna_equiv",
+      "area": "importance",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 22.94
+    },
+    {
+      "id": "imp_conflict_aws",
+      "area": "importance",
+      "kind": "info",
+      "ok": null,
+      "got": [
+        {
+          "text": "Must have AWS experience.",
+          "jd_quote": "Must have AWS experience.",
+          "importance": "required",
+          "polarity": "affirmative",
+          "subject": "candidate",
+          "eligibility_type": "none",
+          "min_years": null
+        }
+      ],
+      "seconds": 16.92
+    },
+    {
+      "id": "imp_degree_or_years",
+      "area": "importance",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "polarity": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": 4
+      },
+      "seconds": 29.14
+    },
+    {
+      "id": "subj_customers",
+      "area": "subject",
+      "kind": "not_requirement",
+      "ok": true,
+      "got": [],
+      "seconds": 23.81
+    },
+    {
+      "id": "subj_stack",
+      "area": "subject",
+      "kind": "not_requirement",
+      "ok": true,
+      "got": [],
+      "seconds": 12.72
+    },
+    {
+      "id": "subj_mentor_years",
+      "area": "subject",
+      "kind": "not_requirement_years",
+      "ok": true,
+      "got": [],
+      "seconds": 38.92
+    },
+    {
+      "id": "subj_benefit_cert",
+      "area": "subject",
+      "kind": "not_requirement",
+      "ok": true,
+      "got": [],
+      "seconds": 12.34
+    },
+    {
+      "id": "eeo",
+      "area": "eeo",
+      "kind": "not_requirement",
+      "ok": true,
+      "got": [],
+      "seconds": 13.57
+    },
+    {
+      "id": "elig_citizen",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": false,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": false
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 16.18
+    },
+    {
+      "id": "elig_tssci",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": true
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "clearance",
+        "min_years": null
+      },
+      "seconds": 16.13
+    },
+    {
+      "id": "elig_reside",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": false,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": false
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 18.7
+    },
+    {
+      "id": "elig_sponsor",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": true
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "sponsorship",
+        "min_years": null
+      },
+      "seconds": 51.37
+    },
+    {
+      "id": "elig_lift",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": false,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": false
+      },
+      "got": {
+        "importance": "hard",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 25.97
+    },
+    {
+      "id": "elig_travel",
+      "area": "eligibility",
+      "kind": "target",
+      "ok": false,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "eligibility_type": false
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": null
+      },
+      "seconds": 18.81
+    },
+    {
+      "id": "years_5",
+      "area": "years",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "min_years": true
+      },
+      "got": {
+        "importance": "required",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": 5
+      },
+      "seconds": 18.06
+    },
+    {
+      "id": "years_pref",
+      "area": "years",
+      "kind": "target",
+      "ok": true,
+      "found": true,
+      "fields": {
+        "importance": true,
+        "min_years": true
+      },
+      "got": {
+        "importance": "preferred",
+        "polarity": "affirmative",
+        "subject": "candidate",
+        "eligibility_type": "none",
+        "min_years": 3
+      },
+      "seconds": 27.39
+    }
+  ],
+  "summary": {
+    "model": "qwen/qwen3-30b-a3b",
+    "mode": "think",
+    "finish_reasons": [
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop"
+    ],
+    "reasoning_tokens_median": 1183,
+    "snippet_seconds_median": 18.81,
+    "valid_json": "6/6",
+    "quotes_found": "94/94",
+    "probes_found": "30/32",
+    "probes_all_fields_correct": "26/32",
+    "field_accuracy_when_found": {
+      "importance": "28/30",
+      "polarity": "30/30",
+      "subject": "30/30",
+      "eligibility_type": "2/4",
+      "min_years": "3/3"
+    },
+    "trap_violations": "0/26",
+    "snippets_ok": "16/21",
+    "snippets_by_area": {
+      "negation": "3/4",
+      "importance": "4/4",
+      "subject": "4/4",
+      "eeo": "1/1",
+      "eligibility": "2/6",
+      "years": "2/2"
+    },
+    "posting_seconds_median": 163.15,
+    "posting_seconds_max": 174.21,
+    "completion_tokens_median": 2524,
+    "load_seconds": 8.6
+  }
+}

@@ -1,0 +1,55 @@
+Technical Support Engineer (SkillBridge: On-the-job training)
+
+Please note: This program is reserved for active-duty military service members approved to participate in the DoD SkillBridge program within the final 180 days of service.
+
+Axonius is partnering with the DoD SkillBridge program to offer transitioning military service members a structured, hands-on fellowship designed to launch a career in corporate cybersecurity account management.
+
+As a Technical Support Engineer Fellow, you will train alongside senior team members to resolve complex technical challenges for enterprise customers and serve as a frontline liaison between clients and internal Engineering, Product, and TAM teams. Through a structured three-phase training program, you will learn to troubleshoot the Axonius platform, manage a live ticket queue, analyze logs, and communicate technical solutions clearly and efficiently to customers around the world.
+
+This is a remote, 12-week on-the-job training program.
+
+Responsibilities & What You Will Learn
+
+- Technical Troubleshooting & Support: Learn to analyze, diagnose, and resolve complex technical incidents across the Axonius platform, including adapters, queries, enforcement, gateways, and infrastructure — applying the same systematic problem-solving discipline you developed in the military to a fast-paced enterprise environment.
+
+- Ticket Management & Case Ownership: Gain hands-on experience managing a live customer ticket queue in Zendesk, striving for one-touch resolution and serving as a case manager from initial report to close. Your military experience managing high-priority tasks under pressure translates directly here.
+
+- Technical Documentation: Learn to create and maintain internal and external knowledge base articles in Confluence, contributing to the team's shared knowledge and reducing recurring issues — similar to writing SOPs and AARs in a military context.
+
+- Escalation & Cross-Functional Collaboration: Develop the skills to write detailed escalation notes and coordinate with senior Engineering, TAM, and Product teams when issues require deeper investigation, mirroring the cross-functional coordination you practiced across military units.
+
+Minimum Qualifications
+
+- Active-duty military service member approved to participate in the DoD SkillBridge program within the final 180 days of service.
+
+- Operational background in military IT, communications (COMSEC, G6, N6, or A6), cyber operations, or a related technical domain.
+
+- Working knowledge of networking fundamentals such as TCP/IP, routing, and firewall rules, and experience supporting enterprise IT systems or mission-critical infrastructure.
+
+- Proven ability to document, report, and communicate technical issues clearly to both technical and non-technical audiences.
+
+Preferred Qualifications
+
+- One or more industry certifications such as CompTIA Security+, Network+, AWS Cloud Practitioner, CCNA, or equivalent formal military technical training.
+
+- Hands-on experience with Linux shell, Windows system administration, Active Directory, or virtualization platforms such as VMware.
+
+- Familiarity with log analysis, endpoint security tools, or network monitoring in an enterprise environment.
+
+- Experience with ticketing or ITSM platforms and a demonstrated ability to manage multiple priorities simultaneously.
+
+- Exposure to RESTful APIs, cloud environments, or scripting languages such as Python is a plus.
+
+#LI-LN1 #LI-REMOTE
+
+About Axonius: 
+
+Axonius transforms cyber asset intelligence into actionability. With the Axonius Asset Cloud, customers preemptively tackle high-risk and hard-to-spot threat exposures, misconfigurations, and overspending. The integrated platform brings together data from every system in an organization’s IT infrastructure to optimize mission-critical risk, performance, and cost measures via actionable intelligence.
+
+Covering cyber assets, software, SaaS applications, identities, vulnerabilities, infrastructure, and more, Axonius is the one place to go for Security, IT, and GRC teams to continuously drive actionability across the organization. Cited as one of the fastest-growing cybersecurity startups, with accolades from CNBC, Forbes, and Fortune, Axonius supports millions of assets for leading customers across industries and around the world.
+
+Axonius makes it a priority to invest in our people with competitive compensation and benefits, growth opportunities, community-building, and so much more. Learn more about benefits at Axonius.
+
+At Axonius we support a diverse and inclusive workplace and believe in equal employment opportunity. We welcome people of different backgrounds, experiences, abilities and perspectives to apply. All qualified applicants will receive consideration for employment without regard to race, color, ancestry, religion, age, sex, gender identity, national origin, sexual orientation, citizenship, marital status, disability, or Veteran status.
+
+Axonius participates in E-Verify. To learn more, please review the E-Verify Participation Poster (PDF) and the Right to Work Poster (PDF). By submitting your application to us, you acknowledge that your personal data will be processed in accordance with our Global Job Candidate Privacy Notice.

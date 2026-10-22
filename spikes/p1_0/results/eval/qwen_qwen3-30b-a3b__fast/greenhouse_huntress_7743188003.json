@@ -1,0 +1,310 @@
+{
+  "requirements": [
+    {
+      "text": "4+ years of experience in a SOC or Digital Forensics (DFIR) role",
+      "jd_quote": "4+ years of experience in a SOC or Digital Forensics (DFIR) role",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": 4
+    },
+    {
+      "text": "Demonstrated experience with Windows, Linux, and MacOS as an attack surface",
+      "jd_quote": "Demonstrated experience with Windows, Linux, and MacOS as an attack surface",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Demonstrated experience with basic Threat Actor tools and techniques: (MITRE ATT&CK Framework, PowerShell & Command Prompt Terminals, WMIC, Scheduled Tasks, SCM, Windows Domain and host Enumeration Techniques, Basic Lateral Movement Techniques, Basic Persistence Mechanisms, Basic Defense Evasion Techniques, other offensive/Red Team TTPs)",
+      "jd_quote": "Demonstrated experience with basic Threat Actor tools and techniques: (MITRE ATT&CK Framework, PowerShell & Command Prompt Terminals, WMIC, Scheduled Tasks, SCM, Windows Domain and host Enumeration Techniques, Basic Lateral Movement Techniques, Basic Persistence Mechanisms, Basic Defense Evasion Techniques, other offensive/Red Team TTPs)",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Demonstrated experience with static and dynamic malware analysis concepts",
+      "jd_quote": "Demonstrated experience with static and dynamic malware analysis concepts",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Working knowledge of Windows Administration or Enterprise Domain Administration",
+      "jd_quote": "Working knowledge of Windows Administration or Enterprise Domain Administration",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Active Directory, Group Policy, Domain Trusts, etc.",
+      "jd_quote": "Active Directory, Group Policy, Domain Trusts, etc.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Working knowledge of core networking concepts",
+      "jd_quote": "Working knowledge of core networking concepts",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Common ports/protocols, NAT, Public/Private IPs, VLANs, etc.",
+      "jd_quote": "Common ports/protocols, NAT, Public/Private IPs, VLANs, etc.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Working knowledge of web technologies and concepts",
+      "jd_quote": "Working knowledge of web technologies and concepts",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Web servers/applications, OWASP top 10, etc.",
+      "jd_quote": "Web servers/applications, OWASP top 10, etc.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Effective communication skills, with the ability to explain complex events to less technical audiences, enabling effective cross-functional collaboration within the SOC and across departments",
+      "jd_quote": "Effective communication skills, with the ability to explain complex events to less technical audiences, enabling effective cross-functional collaboration within the SOC and across departments",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Dedicated to prioritizing and addressing customer needs and concerns in all decision-making processes",
+      "jd_quote": "Dedicated to prioritizing and addressing customer needs and concerns in all decision-making processes",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "A strong sense of curiosity and a genuine excitement for learning",
+      "jd_quote": "A strong sense of curiosity and a genuine excitement for learning",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Previous experience in an MSP/MSSP/MDR role",
+      "jd_quote": "Previous experience in an MSP/MSSP/MDR role",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Linux and MacOS investigative experience",
+      "jd_quote": "Linux and MacOS investigative experience",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience with scripting languages (such as PowerShell, Python, Bash, PHP, JavaScript, or Ruby)",
+      "jd_quote": "Experience with scripting languages (such as PowerShell, Python, Bash, PHP, JavaScript, or Ruby)",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Demonstrated experience on platforms such as HackTheBox, TryHackMe, Blue Team Labs Online, etc.",
+      "jd_quote": "Demonstrated experience on platforms such as HackTheBox, TryHackMe, Blue Team Labs Online, etc.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Demonstrated experience with Cloud-based investigations such as M365, Azure, AWS, GCP, etc.",
+      "jd_quote": "Demonstrated experience with Cloud-based investigations such as M365, Azure, AWS, GCP, etc.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Participation in cybersecurity competitions such as Capture the Flags, the Collegiate Cyber Defense Competition, etc.",
+      "jd_quote": "Participation in cybersecurity competitions such as Capture the Flags, the Collegiate Cyber Defense Competition, etc.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Familiarity with MSP tools such as RMMs",
+      "jd_quote": "Familiarity with MSP tools such as RMMs",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Remote, US (West Coast)",
+      "jd_quote": "Location: Remote, US (West Coast)",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "physical",
+      "min_years": null
+    },
+    {
+      "text": "100% remote work environment - since our founding in 2015",
+      "jd_quote": "100% remote work environment - since our founding in 2015",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Generous paid time off policy, including vacation, sick time, and paid holidays",
+      "jd_quote": "Generous paid time off policy, including vacation, sick time, and paid holidays",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "12 weeks of paid parental leave",
+      "jd_quote": "12 weeks of paid parental leave",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Highly competitive and comprehensive medical, dental, and vision benefits plans",
+      "jd_quote": "Highly competitive and comprehensive medical, dental, and vision benefits plans",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "401(k) with a 5% contribution regardless of employee contribution",
+      "jd_quote": "401(k) with a 5% contribution regardless of employee contribution",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Life and Disability insurance plans",
+      "jd_quote": "Life and Disability insurance plans",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Stock options for all full-time employees",
+      "jd_quote": "Stock options for all full-time employees",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "One-time $500 reimbursement for building/upgrading home office",
+      "jd_quote": "One-time $500 reimbursement for building/upgrading home office",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Annual allowance for education and professional development assistance",
+      "jd_quote": "Annual allowance for education and professional development assistance",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "$75 USD/month digital reimbursement",
+      "jd_quote": "$75 USD/month digital reimbursement",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Access to the BetterUp platform for coaching, personal, and professional growth",
+      "jd_quote": "Access to the BetterUp platform for coaching, personal, and professional growth",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "benefit",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "We do not discriminate based on race, ethnicity, color, ancestry, national origin, religion, sex, sexual orientation, gender identity, disability, veteran status, genetic information, marital status, or any other legally protected status.",
+      "jd_quote": "We do not discriminate based on race, ethnicity, color, ancestry, national origin, religion, sex, sexual orientation, gender identity, disability, veteran status, genetic information, marital status, or any other legally protected status.",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "company",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "We do discriminate against hackers who try to exploit businesses of all sizes.",
+      "jd_quote": "We do discriminate against hackers who try to exploit businesses of all sizes.",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "company",
+      "eligibility_type": "none",
+      "min_years": null
+    }
+  ]
+}

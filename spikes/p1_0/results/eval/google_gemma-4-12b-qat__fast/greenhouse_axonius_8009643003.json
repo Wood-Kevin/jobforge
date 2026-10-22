@@ -1,0 +1,94 @@
+{
+  "requirements": [
+    {
+      "text": "active-duty military service members approved to participate in the DoD SkillBridge program within the final 180 days of service",
+      "jd_quote": "active-duty military service members approved to participate in the DoD SkillBridge program within the final 180 days of service",
+      "importance": "hard",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "work_authorization",
+      "min_years": null
+    },
+    {
+      "text": "Operational background in military IT, communications (COMSEC, G6, N6, or A6), cyber operations, or a related technical domain.",
+      "jd_quote": "Operational background in military IT, communications (COMSEC, G6, N6, or A6), cyber operations, or a related technical domain.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Working knowledge of networking fundamentals such as TCP/IP, routing, and firewall rules",
+      "jd_quote": "Working knowledge of networking fundamentals such as TCP/IP, routing, and firewall rules",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "experience supporting enterprise IT systems or mission-critical infrastructure",
+      "jd_quote": "experience supporting enterprise IT systems or mission-critical infrastructure",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Proven ability to document, report, and communicate technical issues clearly to both technical and non-technical audiences.",
+      "jd_quote": "Proven ability to document, report, and communicate technical issues clearly to both technical and non-technical audiences.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "One or more industry certifications such as CompTIA Security+, Network+, AWS Cloud Practitioner, CCNA, or equivalent formal military technical training.",
+      "jd_quote": "One or more industry certifications such as CompTIA Security+, Network+, AWS Cloud Practitioner, CCNA, or equivalent formal military technical training.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Hands-on experience with Linux shell, Windows system administration, Active Directory, or virtualization platforms such as VMware.",
+      "jd_quote": "Hands-on experience with Linux shell, Windows system administration, Active Directory, or virtualization platforms such as VMware.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Familiarity with log analysis, endpoint security tools, or network monitoring in an enterprise environment.",
+      "jd_quote": "Familiarity with log analysis, endpoint security tools, or network monitoring in an enterprise environment.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience with ticketing or ITSM platforms and a demonstrated ability to manage multiple priorities simultaneously.",
+      "jd_quote": "Experience with ticketing or ITSM platforms and a demonstrated ability to manage multiple priorities simultaneously.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Exposure to RESTful APIs, cloud environments, or scripting languages such as Python is a plus.",
+      "jd_quote": "Exposure to RESTful APIs, cloud environments, or scripting languages such as Python is a plus.",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    }
+  ]
+}

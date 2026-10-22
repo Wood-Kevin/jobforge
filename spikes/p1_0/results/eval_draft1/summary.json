@@ -1,0 +1,152 @@
+[
+  {
+    "model": "google/gemma-4-12b-qat",
+    "mode": "fast",
+    "finish_reasons": [
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop"
+    ],
+    "reasoning_tokens_median": 0,
+    "snippet_seconds_median": 2.02,
+    "valid_json": "6/6",
+    "quotes_found": "100/100",
+    "probes_found": "31/32",
+    "probes_all_fields_correct": "2/32",
+    "field_accuracy_when_found": {
+      "importance": "30/30",
+      "polarity": "1/30",
+      "subject": "30/30",
+      "eligibility_type": "2/4",
+      "min_years": "3/3"
+    },
+    "trap_violations": "0/26",
+    "snippets_ok": "16/21",
+    "snippets_by_area": {
+      "negation": "3/4",
+      "importance": "1/4",
+      "subject": "4/4",
+      "eeo": "1/1",
+      "eligibility": "5/6",
+      "years": "2/2"
+    },
+    "posting_seconds_median": 37.92,
+    "posting_seconds_max": 51.65,
+    "completion_tokens_median": 1898,
+    "load_seconds": 5.0
+  },
+  {
+    "model": "qwen3.5-9b-tuned",
+    "mode": "fast",
+    "finish_reasons": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "reasoning_tokens_median": null,
+    "snippet_seconds_median": 1.23,
+    "valid_json": "0/6",
+    "quotes_found": "0/0",
+    "probes_found": "0/0",
+    "probes_all_fields_correct": "0/0",
+    "field_accuracy_when_found": {},
+    "trap_violations": "0/0",
+    "snippets_ok": "0/22",
+    "snippets_by_area": {
+      "negation": "0/4",
+      "importance": "0/5",
+      "subject": "0/4",
+      "eeo": "0/1",
+      "eligibility": "0/6",
+      "years": "0/2"
+    },
+    "posting_seconds_median": null,
+    "posting_seconds_max": null,
+    "completion_tokens_median": null,
+    "load_seconds": 1.6
+  },
+  {
+    "model": "openai/gpt-oss-20b",
+    "mode": "fast",
+    "finish_reasons": [
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop"
+    ],
+    "reasoning_tokens_median": 4,
+    "snippet_seconds_median": 2.52,
+    "valid_json": "6/6",
+    "quotes_found": "85/92",
+    "probes_found": "31/32",
+    "probes_all_fields_correct": "6/32",
+    "field_accuracy_when_found": {
+      "importance": "29/30",
+      "polarity": "6/31",
+      "subject": "30/30",
+      "eligibility_type": "1/4",
+      "min_years": "3/3"
+    },
+    "trap_violations": "0/26",
+    "snippets_ok": "12/21",
+    "snippets_by_area": {
+      "negation": "3/4",
+      "importance": "1/4",
+      "subject": "4/4",
+      "eeo": "1/1",
+      "eligibility": "2/6",
+      "years": "1/2"
+    },
+    "posting_seconds_median": 32.58,
+    "posting_seconds_max": 40.61,
+    "completion_tokens_median": 1362,
+    "load_seconds": 9.5
+  },
+  {
+    "model": "qwen/qwen3-30b-a3b",
+    "mode": "fast",
+    "finish_reasons": [
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop",
+      "stop"
+    ],
+    "reasoning_tokens_median": 0,
+    "snippet_seconds_median": 3.76,
+    "valid_json": "6/6",
+    "quotes_found": "85/85",
+    "probes_found": "30/32",
+    "probes_all_fields_correct": "0/32",
+    "field_accuracy_when_found": {
+      "importance": "29/30",
+      "polarity": "0/30",
+      "subject": "30/30",
+      "eligibility_type": "1/4",
+      "min_years": "3/3"
+    },
+    "trap_violations": "0/26",
+    "snippets_ok": "14/21",
+    "snippets_by_area": {
+      "negation": "3/4",
+      "importance": "1/4",
+      "subject": "4/4",
+      "eeo": "1/1",
+      "eligibility": "4/6",
+      "years": "1/2"
+    },
+    "posting_seconds_median": 66.24,
+    "posting_seconds_max": 147.79,
+    "completion_tokens_median": 1128,
+    "load_seconds": 13.6
+  }
+]

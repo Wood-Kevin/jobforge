@@ -1,0 +1,140 @@
+﻿[21:39:58] T1 launch host unelevated (window mode)
+
+Name                   Id Started  MainWindowTitle           
+----                   -- -------  ---------------           
+jobforge-agent      44064 21:39:59                           
+jobforge-spike-host 40948 21:39:59 JobForge (packaging spike)
+
+
+
+[21:40:04] health: {"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":false,"ticks_this_run":1,"uptime_s":5,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+1792633199496 pid=40948 host start background=false
+1792633199581 pid=40948 spawned agent pid=44064 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+[21:40:04] agent elevation (from its own log):
+
+{"ts": 1792633199858, "pid": 44064, "version": "0.1.0", "event": "agent_start", "run_id": 1, "recovered_orphan_runs": 
+[], "db": "C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData\\data\\jobforge.db", "elevated": false}
+[21:40:04] T2 close the window; host stays in tray, agent unaffected
+[21:40:04] host main window: 'JobForge (packaging spike)' handle 396514
+[21:40:16] host still running: True; main window now: 'dev.kevin.jobforge.spike-siw' handle 3148930
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      44064 21:39:59                             
+jobforge-spike-host 40948 21:39:59 dev.kevin.jobforge.spike-siw
+
+
+
+[21:40:16] agent pid before close: 44064
+[21:40:16] health: {"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":false,"ticks_this_run":4,"uptime_s":17,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:40:16] T3 pause via IPC (same route as the tray item); ticks must stop
+[21:40:16] {"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":true,"ticks_this_run":4,"uptime_s":17,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:40:28] health 12 s apart while paused:
+{"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":true,"ticks_this_run":4,"uptime_s":17,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+{"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":true,"ticks_this_run":4,"uptime_s":29,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:40:28] T4 IPC rejects missing token and foreign Host; loopback only; run dir ACL
+[21:40:28] no token -> 401
+[21:40:28] foreign Host -> 400
+
+LocalAddress LocalPort
+------------ ---------
+127.0.0.1        58717
+
+
+
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\run KEVINSPC\kevin:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+[21:40:29] T5 second agent instance must refuse (exit 3)
+[21:40:30] second agent exit code: 3
+[21:40:30] T6 host crash: kill host; agent must keep running; relaunch must attach, not spawn
+
+Name              Id Started  MainWindowTitle
+----              -- -------  ---------------
+jobforge-agent 44064 21:39:59                
+
+
+
+[21:40:38] health after host kill: {"version":"0.1.0","protocol_version":1,"pid":44064,"schema":1,"paused":true,"ticks_this_run":4,"uptime_s":39,"run_id":1,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      44064 21:39:59                             
+jobforge-spike-host 43592 21:40:39 dev.kevin.jobforge.spike-siw
+
+
+
+1792633199496 pid=40948 host start background=false
+1792633199581 pid=40948 spawned agent pid=44064 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+1792633239643 pid=43592 host start background=true
+1792633239657 pid=43592 attached to running agent
+[21:40:48] T7 agent crash while paused: watchdog respawns; pause persists; previous run marked crash_recovered
+[21:41:02] agent answered again: True after 13.6 s
+[21:41:02] health after respawn (expect paused true): {"version":"0.1.0","protocol_version":1,"pid":15756,"schema":1,"paused":true,"ticks_this_run":0,"uptime_s":1,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:41:02] {"version":"0.1.0","protocol_version":1,"pid":15756,"schema":1,"paused":false,"ticks_this_run":0,"uptime_s":1,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:41:13] health after resume: {"version":"0.1.0","protocol_version":1,"pid":15756,"schema":1,"paused":false,"ticks_this_run":2,"uptime_s":12,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      15756 21:41:00                             
+jobforge-spike-host 43592 21:40:39 dev.kevin.jobforge.spike-siw
+
+
+
+user_version 1
+(2, 15756, '0.1.0', 1792633261125, None, None)
+(1, 44064, '0.1.0', 1792633199857, 1792633245156, 'crash_recovered')
+ticks per run [(2, 2), (1, 4)]
+1792633239643 pid=43592 host start background=true
+1792633239657 pid=43592 attached to running agent
+1792633251693 pid=43592 health failed (1): http://127.0.0.1:58717/v1/health: Connection Failed: Connect error: No connection could be made because the target machine actively refused it. (os error 10061)
+1792633258713 pid=43592 health failed (2): http://127.0.0.1:58717/v1/health: Connection Failed: Connect error: No connection could be made because the target machine actively refused it. (os error 10061)
+1792633258714 pid=43592 watchdog respawning agent
+1792633260733 pid=43592 spawned agent pid=15756 exe=\\?\C:\Users\kevin\AppData\Local\JobForgeSpike\agent\jobforge-agent.exe
+[21:41:13] T8 autostart through the plugin, unelevated (host must not be running for the CLI hook)
+[21:41:16] enable exit: 0
+[21:41:16]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: JobForgeSpike = C:\Users\kevin\AppData\Local\JobForgeSpike\jobforge-spike-host.exe --background
+[21:41:16]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[21:41:16] simulate sign-in by running the registered command line unelevated: C:\Users\kevin\AppData\Local\JobForgeSpike\jobforge-spike-host.exe --background
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      15756 21:41:00                             
+jobforge-spike-host 41956 21:41:17 dev.kevin.jobforge.spike-siw
+
+
+
+1792633277329 pid=41956 host start background=true
+1792633277340 pid=41956 attached to running agent
+[21:41:29] disable exit: 0
+[21:41:29]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[21:41:29]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[21:41:29] T9 relaunch host so the update test starts with host + agent running
+
+Name                   Id Started  MainWindowTitle             
+----                   -- -------  ---------------             
+jobforge-agent      15756 21:41:00                             
+jobforge-spike-host 40892 21:41:30 dev.kevin.jobforge.spike-siw
+
+
+
+[21:41:37] health: {"version":"0.1.0","protocol_version":1,"pid":15756,"schema":1,"paused":false,"ticks_this_run":7,"uptime_s":36,"run_id":2,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\JobForgeSpikeData"}
+[21:41:37] T10 files under the install dir modified after install (expect none):
+
+[21:41:37] data dir tree:
+
+FullName                                                              Length
+--------                                                              ------
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\data\jobforge.db         4096
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\data\jobforge.db-shm    32768
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\data\jobforge.db-wal   160712
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\logs\agent-console.log      0
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\logs\agent.jsonl         1106
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\logs\host.log            1213
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\run\agent.lock              0
+C:\Users\kevin\AppData\Local\JobForgeSpikeData\run\ipc.json              129
+
+
+
+
+

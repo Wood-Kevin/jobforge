@@ -1,0 +1,31 @@
+# Secrets and personal data never enter the repo (SPEC section 5)
+.env*
+!.env.example
+*.db
+*.db-wal
+*.db-shm
+backups/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+
+# Node / Rust / packaging
+node_modules/
+target/
+agent-dist/
+agent-dist-*/
+installers/
+*.exe
+
+# Spike build output (large, reproducible from spikes/*/build.ps1)
+spikes/p1_0d_packaging/host/src-tauri/gen/
+spikes/p1_0d_packaging/build_*.log
+
+# The spike host keeps its hand-written frontend in dist/
+!spikes/p1_0d_packaging/host/dist/

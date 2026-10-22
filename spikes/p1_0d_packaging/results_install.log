@@ -1,0 +1,17 @@
+﻿[21:39:55] silent per-user install, unelevated: .\installers\JobForgeSpike_0.1.0_setup.exe
+[21:39:58] installer exit 0 in 2.6 s
+[21:39:58] install dir: C:\Users\kevin\AppData\Local\JobForgeSpike
+
+Name                    Length  
+----                    ------  
+agent                           
+jobforge-spike-host.exe 11172864
+uninstall.exe           83198   
+
+
+
+[21:39:58] install dir size MB: 43.0; agent files: 86
+[21:39:58] python dll: C:\Users\kevin\AppData\Local\JobForgeSpike\agent\_internal\python314.dll
+[21:39:58] autostart entries before any action:
+[21:39:58]   HKCU:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)
+[21:39:58]   HKLM:\Software\Microsoft\Windows\CurrentVersion\Run :: (no JobForge entry)

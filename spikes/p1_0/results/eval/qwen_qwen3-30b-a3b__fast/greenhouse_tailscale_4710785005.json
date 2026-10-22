@@ -1,0 +1,112 @@
+{
+  "requirements": [
+    {
+      "text": "Four or more years of experience in software development",
+      "jd_quote": "Four or more years of experience in software development",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": 4
+    },
+    {
+      "text": "Strong understanding of software development principles, capabilities, and limitations of the Windows platform",
+      "jd_quote": "Strong understanding of software development principles, capabilities, and limitations of the Windows platform",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Proficiency in C# and modern native UI frameworks (WinUI/UWP/WPF)",
+      "jd_quote": "Proficiency in C# and modern native UI frameworks (WinUI/UWP/WPF)",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience with general networking concepts - DNS, VPNs, IP Networking, routing, etc.",
+      "jd_quote": "Experience with general networking concepts - DNS, VPNs, IP Networking, routing, etc.",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Excellent written and verbal communication skills",
+      "jd_quote": "Excellent written and verbal communication skills",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Ability to give and process constructive feedback, as well as work independently",
+      "jd_quote": "Ability to give and process constructive feedback, as well as work independently",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Flexibility to adjust to the dynamic nature of a startup",
+      "jd_quote": "Flexibility to adjust to the dynamic nature of a startup",
+      "importance": "required",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience with WinUI 3 and Windows App SDK",
+      "jd_quote": "Experience with WinUI 3 and Windows App SDK",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Experience developing native Windows applications and services",
+      "jd_quote": "Experience developing native Windows applications and services",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Familiarity with Windows networking stack and Windows Filtering Platform",
+      "jd_quote": "Familiarity with Windows networking stack and Windows Filtering Platform",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Familiarity with Windows security model, session isolation, access tokens and related concepts",
+      "jd_quote": "Familiarity with Windows security model, session isolation, access tokens and related concepts",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    },
+    {
+      "text": "Proficiency in Go",
+      "jd_quote": "Proficiency in Go",
+      "importance": "preferred",
+      "polarity": "affirmative",
+      "subject": "candidate",
+      "eligibility_type": "none",
+      "min_years": null
+    }
+  ]
+}
