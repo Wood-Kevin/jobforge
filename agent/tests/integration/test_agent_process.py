@@ -14,6 +14,7 @@ import urllib.request
 import pytest
 
 from jobforge_agent import ipc, winutil
+from jobforge_agent.db import migrate
 from jobforge_agent.instance_lock import InstanceLock
 from jobforge_agent.paths import Paths
 
@@ -80,7 +81,7 @@ def test_agent_lifecycle_end_to_end(agent_paths):
     start_agent(p.root)
     health = _wait(lambda: _running_health(p), 30, "agent did not publish a working ipc.json")
     pid = health["pid"]
-    assert health["elevated"] is False and health["schema"] == 1
+    assert health["elevated"] is False and health["schema"] == migrate.target_version()
 
     # IPC guard over a real socket.
     assert _health(p, token=None)[0] == 401

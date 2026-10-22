@@ -10,6 +10,7 @@ import httpx
 
 from jobforge_agent import PROTOCOL_VERSION, ipc
 from jobforge_agent.agent import AgentRuntime
+from jobforge_agent.db import migrate
 
 PORT = 50123
 TOKEN = "t" * 64
@@ -83,7 +84,7 @@ def test_health_reports_version_schema_and_elevation(paths):
         assert r.status_code == 200
         body = r.json()
         assert body["protocol_version"] == PROTOCOL_VERSION
-        assert body["schema"] == 1 and body["db"] == "ok" and body["run_id"] == runtime.run_id
+        assert body["schema"] == migrate.target_version() and body["db"] == "ok" and body["run_id"] == runtime.run_id
         assert body["discovery_paused"] is False
         assert isinstance(body["elevated"], bool)
     _run(paths, check)

@@ -30,9 +30,8 @@ def db(paths):
 def seed_basics(conn) -> dict:
     """Minimal rows that most tables reference. Uses the owner connection."""
     ids = {}
-    ids["source"] = conn.execute(
-        "INSERT INTO sources (kind, host, enabled, terms_reviewed_on) VALUES ('greenhouse', 'boards-api.greenhouse.io', 1, '2026-10-21') RETURNING id"
-    ).fetchone()[0]
+    # Migration 0002 seeds the three reviewed sources.
+    ids["source"] = conn.execute("SELECT id FROM sources WHERE kind = 'greenhouse'").fetchone()[0]
     ids["employer"] = conn.execute(
         "INSERT INTO employers (source_id, slug, display_name) VALUES (?, 'acme', 'Acme') RETURNING id", (ids["source"],)
     ).fetchone()[0]

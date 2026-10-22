@@ -1,0 +1,12 @@
+file MB: 405.0
+bytes by outcome (outcome, polls, total bytes, avg bytes):
+   ('EMPTY', 2, 30, 15.0)
+   ('NOT_MODIFIED', 129, 0, 0.0)
+   ('OK', 85, 74485735, 876302.7647058824)
+employers with more than one 200 (name, polls_200, new, changed):
+   ('Ensono', 2, 90, 0)
+   ('Pure Storage', 2, 369, 0)
+   ('Dun & Bradstreet', 2, 97, 0)
+jobs per source: [('ashby', 2159), ('greenhouse', 9190), ('lever', 1855)]
+raw_postings: 13204 rows; payload 171.6 MB, description_raw 124.1 MB, description_text 87.4 MB
+zlib ratio on 300 sampled payloads: 3.2x

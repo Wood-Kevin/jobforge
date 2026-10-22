@@ -91,6 +91,24 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     async def resume_discovery():
         return runtime.set_discovery_paused(False)
 
+    @app.get("/v1/discovery/status")
+    async def discovery_status():
+        return runtime.discovery_status()
+
+    @app.post("/v1/admin/employers/import")
+    async def import_employers(request: Request):
+        body = await request.json()
+        entries = body.get("employers") if isinstance(body, dict) else None
+        if not isinstance(entries, list):
+            return JSONResponse({"error": "expected an object with an 'employers' list"}, status_code=422)
+        return runtime.import_employers(entries)
+
+    @app.post("/v1/admin/employers/{employer_id}/poll-now")
+    async def poll_now(employer_id: int):
+        if not runtime.poll_now(employer_id):
+            return JSONResponse({"error": "unknown employer"}, status_code=404)
+        return {"due": True}
+
     @app.get("/v1/events")
     async def events(request: Request):
         """Server-Sent Events over change_events (ARCHITECTURE 3.3, 5).

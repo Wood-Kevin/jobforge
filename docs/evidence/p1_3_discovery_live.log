@@ -1,0 +1,122 @@
+[23:51:32] data root C:\Users\kevin\AppData\Local\jobforge-evidence-p1_3
+[23:51:33] agent up; importing watchlist
+[23:51:34] import exit 0: {
+  "added": 0,
+  "existing": 84,
+  "skipped_unsupported": [
+    "workable:huggingface",
+    "workday:cohesity/wd5/Cohesity_Careers",
+    "workday:arcticwolf/wd1/External",
+    "workday:reliaquest/wd5/ReliaQuest_Careers",
+    "workday:paloaltonetworks/wd5/panwexternalcareers",
+    "workday:crowdstrike/wd5/crowdstrikecareers",
+    "workday:equinix/wd1/External",
+    "workday:redhat/wd5/jobs",
+    "workday:unisys/wd5/External",
+    "workday:kyndryl/wd5/KyndrylProfessionalCareers",
+    "workday:dxctechnology/wd1/DXCJobs",
+    "workday:motorolasolutions/wd5/Careers",
+    "workday:zoom/wd5/Zoom",
+    "workday:philips/wd3/jobs-and-careers",
+    "workday:ironmountain/wd5/iron-mountain-jobs",
+    "workday:humana/wd5/Humana_External_Career_Site",
+    "workday:caci/wd1/External",
+    "workday:gdit/wd5/External_Career_Site",
+    "workday:boeing/wd1/EXTERNAL_CAREERS",
+    "workday:availity/wd1/Availity_Careers_US",
+    "workday:rayonier/wd501/Rayonier_Careers",
+    "workday:unf/wd5/unfjobs",
+    "workday:rackspace/wd1/External",
+    "workday:woundedwarriorproject/wd5/WWP",
+    "workday:fis/wd5/SearchJobs",
+    "workday:fntg/wd5/FNF-Careers",
+    "workday:ghr/wd1/Lateral-US",
+    "workday:db/wd3/DBWebsite",
+    "weworkremotely:remote-devops-sysadmin-jobs",
+    "weworkremotely:remote-customer-support-jobs"
+  ]
+} 
+[23:52:34] still running
+[23:53:35] still running
+[23:54:35] still running
+[23:55:35] still running
+[23:56:36] still running
+[23:57:36] still running
+[23:58:37] still running
+[23:59:37] still running
+[00:00:37] still running
+[00:01:38] still running
+[00:02:38] still running
+[00:03:39] still running
+[00:04:40] still running
+[00:05:40] still running
+[00:06:40] still running
+[00:07:41] still running
+[00:08:41] still running
+[00:09:42] still running
+[00:10:42] still running
+[00:11:43] still running
+[00:12:43] still running
+[00:13:43] still running
+[00:14:44] still running
+[00:15:44] still running
+[00:16:45] still running
+[00:17:45] still running
+[00:18:45] still running
+[00:19:46] still running
+[00:20:46] still running
+[00:21:47] still running
+[00:22:47] still running
+[00:23:48] still running
+[00:24:48] still running
+[00:25:48] still running
+[00:26:49] still running
+[00:26:49] evidence:
+database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_3\data\jobforge.db
+now: 2026-10-22 00:26:49  schema: 2  paused: 0
+
+== Discovery is continuous: per source, enabled employers and max age of last success (s)
+  greenhouse  boards-api.greenhouse.io   employers=58   max_success_age_s=883  never_succeeded=0  interval_s=900
+  lever       api.lever.co               employers=9    max_success_age_s=717  never_succeeded=0  interval_s=900
+  ashby       api.ashbyhq.com            employers=17   max_success_age_s=908  never_succeeded=0  interval_s=900
+
+== Employers not active or failing (status, consecutive failures, last outcome, last error)
+  (none)
+
+== Outcomes per source, last 24 h
+  ashby       NOT_MODIFIED    25
+  ashby       OK              16
+  ashby       EMPTY           1
+  greenhouse  NOT_MODIFIED    89
+  greenhouse  OK              60
+  lever       NOT_MODIFIED    15
+  lever       OK              9
+  lever       EMPTY           1
+
+== Request volume per host: last hour and last 24 h (requests, bytes on the wire) vs hourly budget
+  greenhouse  last_hour: 150 req, 40.79 MB (budget 300/h)   last_24h: 150 req, 40.79 MB
+  lever       last_hour: 26 req, 29.76 MB (budget 120/h)   last_24h: 26 req, 29.76 MB
+  ashby       last_hour: 43 req, 3.94 MB (budget 120/h)   last_24h: 43 req, 3.94 MB
+
+== Intervals as configured: median gap between successive fetch starts per employer (s), last 24 h
+  gaps=132  min=816  median=902  max=997
+
+== No overlapping polls: pairs of fetches for one employer whose [start, finish] overlap
+  overlapping pairs: 0
+  unfinished fetches now: 0
+
+== Retry-After honored: rows with retry_after_s and the next request to that host
+  (no Retry-After seen)
+
+== Jitter, no bursts: fetch starts per minute per host, last 2 h (minutes with any fetch)
+  ashby       minutes_active=27  max_per_minute=3  distribution={1: 13, 2: 13, 3: 1}
+  greenhouse  minutes_active=37  max_per_minute=10  distribution={1: 2, 2: 11, 3: 6, 4: 3, 5: 4, 6: 5, 7: 5, 10: 1}
+  lever       minutes_active=19  max_per_minute=3  distribution={1: 14, 2: 4, 3: 1}
+
+== Change detection, last 24 h
+  posting_new      13204
+  jobs open/total: 13204/13204   raw_postings: 13204   200 polls: 87   304 polls: 129
+
+== Recovery: INTERRUPTED fetches and whether each was followed by another fetch
+ 
+[00:26:50] shutdown exit 0

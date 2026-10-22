@@ -70,7 +70,7 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 
 ## Retention pruning of postings
 - **What:** Archive or prune old raw postings for closed, never-qualifying jobs.
-- **Why deferred:** ~100 MB at current volume; keeping everything enables re-filtering.
+- **Why deferred:** Keeping everything enables re-filtering. Measured in P1.3: 405 MB for 13,204 postings (not the ~100 MB first estimated); see "Raw posting storage size".
 - **Trigger:** Database or backup size becomes a practical problem.
 
 ## Items surfaced by the P1.0b / P1.0d spikes (2026-10-21)
@@ -125,3 +125,19 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **What:** The P1.2 script drives every tray action through the same functions (IPC routes, `--exit`, `--autostart`) but does not click the tray menu; sign-in is simulated by running the registered command line; sign-out by sending `WM_ENDSESSION`.
 - **Why deferred:** Not automatable from this session.
 - **Trigger:** Kevin, once: click each tray item; sign out and back in with autostart on; then check `host.log` and `agent_runs`.
+
+### Sleep/resume observed on the real machine (P1.3 acceptance item)
+- **What:** ARCHITECTURE 9 P1.3 asks for "sleep the PC 30 min -> no burst beyond budget". The gap detection and respread are unit-tested with an injected clock (backlog of 100 overdue employers spreads over one interval; wall clock jumps do not double-poll), but a real sleep was not performed.
+- **Why deferred:** Putting Kevin's PC to sleep is not something this session should do.
+- **Trigger:** Kevin, once: with JobForge running, sleep the PC for 30+ min, wake it, then run `python scripts\verify_discovery.py` and read the "Jitter, no bursts" and "Request volume" sections.
+
+### Watchlist hygiene
+- **What:** The scanner watchlist includes Workday, Workable and We Work Remotely entries; JobForge Phase 1 skips them (reported by the import).
+- **Why deferred:** Those sources are out of Phase 1 scope.
+- **Trigger:** Phase 2 source expansion.
+
+### Raw posting storage size (measured P1.3)
+- **What:** 84 employers, 13,204 postings -> 405 MB database. raw_postings: payload 171.6 MB, `description_raw` 124.1 MB, `description_text` 87.4 MB. For Greenhouse and Ashby `description_raw` is a byte-for-byte copy of a field inside the payload (~31% of the file). Payloads compress 3.1x with zlib (300-row sample). Daily backups (keep 7) of a 400 MB file are ~2.8 GB.
+- **Options:** (a) store `description_raw` only when it is not recoverable from the payload (Lever's stitched sections), derive it otherwise: about -30%, no format change; (b) compress payload and raw markup (zlib BLOB columns, migration): about -60%, still lossless; (c) both. Rejected: pruning rejected postings (breaks re-filtering, requirement "preserve rejected jobs").
+- **Why deferred:** Not harmful at current scale (disk has ~1 TB free; growth is only new or materially changed postings). It is a storage-format decision for Kevin, not a P1.3 defect.
+- **Trigger:** Database over 1 GB, daily backup over 60 s, or Kevin choosing an option.

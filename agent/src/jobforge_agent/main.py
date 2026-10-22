@@ -9,6 +9,7 @@ Usage:
   jobforge-agent --status        print the running agent's /v1/health
   jobforge-agent --backup        write a backup now (agent must not be running)
   jobforge-agent --restore FILE  replace the database with FILE (agent must not be running)
+  jobforge-agent --import-watchlist FILE  add Greenhouse/Lever/Ashby employers from a watchlist YAML (agent running)
   jobforge-agent --version
 """
 from __future__ import annotations
@@ -46,13 +47,15 @@ def _note_refusal(paths: Paths, mode: str) -> None:
             f.write(line + "\n")
 
 
-def _request(paths: Paths, method: str, path: str, timeout: float = 3) -> dict:
+def _request(paths: Paths, method: str, path: str, timeout: float = 3, body: dict | None = None) -> dict:
     info = ipc.read_ipc_file(paths.ipc)
     if not info:
         raise ConnectionError("no ipc.json (agent not running?)")
-    req = urllib.request.Request(f"http://127.0.0.1:{info['port']}{path}", method=method,
-                                 data=b"" if method == "POST" else None,
-                                 headers={"Authorization": f"Bearer {info['token']}"})
+    data = json.dumps(body).encode("utf-8") if body is not None else (b"" if method == "POST" else None)
+    headers = {"Authorization": f"Bearer {info['token']}"}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    req = urllib.request.Request(f"http://127.0.0.1:{info['port']}{path}", method=method, data=data, headers=headers)
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read())
 
@@ -129,6 +132,27 @@ def cmd_status(paths: Paths) -> int:
         return EXIT_ERROR
 
 
+def cmd_import_watchlist(paths: Paths, source: str) -> int:
+    """Read a watchlist YAML (scanner format: employers: [{name, ats, slug}]) and send it to the
+    running agent. The agent is the only process that writes the database (SPEC D4)."""
+    import yaml
+
+    with open(source, encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    rows = data.get("employers") if isinstance(data, dict) else data
+    if not isinstance(rows, list):
+        print("watchlist must be a list or have an 'employers:' list", file=sys.stderr)
+        return EXIT_ERROR
+    entries = [{"source": r.get("ats") or r.get("source"), "slug": r.get("slug"), "name": r.get("name")}
+               for r in rows if isinstance(r, dict)]
+    try:
+        print(json.dumps(_request(paths, "POST", "/v1/admin/employers/import", timeout=30, body={"employers": entries}), indent=2))
+        return EXIT_OK
+    except (OSError, urllib.error.URLError, ConnectionError) as exc:
+        print(f"agent not reachable (is JobForge running?): {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+
 def _with_agent_stopped(paths: Paths, action) -> int:
     lock = InstanceLock(paths.lock)
     if not lock.try_acquire():
@@ -163,7 +187,7 @@ def main(argv: list[str] | None = None) -> int:
     mode = "run"
     if args:
         mode = {"--shutdown": "shutdown", "--status": "status", "--backup": "backup",
-                "--restore": "restore", "--version": "version"}.get(args[0], "unknown")
+                "--restore": "restore", "--version": "version", "--import-watchlist": "import"}.get(args[0], "unknown")
     if mode == "unknown":
         print(__doc__, file=sys.stderr)
         return EXIT_ERROR
@@ -182,6 +206,11 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_status(paths)
     if mode == "backup":
         return cmd_backup(paths)
+    if mode == "import":
+        if len(args) < 2:
+            print("--import-watchlist needs a file", file=sys.stderr)
+            return EXIT_ERROR
+        return cmd_import_watchlist(paths, args[1])
     if len(args) < 2:
         print("--restore needs a file", file=sys.stderr)
         return EXIT_ERROR

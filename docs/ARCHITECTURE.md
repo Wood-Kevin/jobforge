@@ -204,6 +204,34 @@ evaluations lives in Python, where the scanner code and the tests already are.
 
 Unchanged in behavior from rev 3; adapted to SQLite and the agent.
 
+**Implemented in P1.3** (`agent/src/jobforge_agent/discovery/`). Points where the code adds to
+or departs from the text below:
+- Parsers, RFC 9309 robots semantics and the collision guard are ported from
+  `ats_scanner` at `edd1528`. The scanner's in-request retries are **not** ported: a failed
+  request ends the poll with an outcome, and the scheduler's backoff reschedules it, so
+  every attempt is a `source_fetches` row and request volume is measurable.
+- robots.txt is cached per host in `robots_cache` for 24 h; fetching it counts toward the
+  host's budget. A SKIPPED employer is next polled when that cache entry expires.
+- `HostLimiter` serializes and spaces requests per host across all polls (spacing = max of
+  `request_spacing_ms` and robots `Crawl-delay`, plus 0-1 s jitter).
+- Budgets seeded in migration 0002: Greenhouse 300/h, Lever 120/h, Ashby 120/h. Greenhouse
+  was raised from the review's 120/h because the imported watchlist has 58 Greenhouse
+  employers (232 polls/h at 15 min); 120/h would have stretched them to ~30 min silently.
+- `jobs.employer_id` (migration 0002) scopes missing-posting detection to the employer.
+- A posting that reverts to an earlier version (A -> B -> A) points back at the existing
+  raw row instead of violating `UNIQUE (source_job_id, material_sha256)`.
+- Material hash ignores tracking query parameters (`utm_*`, `gh_src`, `source`, `ref`, ...).
+- Employers are added by `jobforge-agent --import-watchlist FILE` (scanner YAML format),
+  which posts to `POST /v1/admin/employers/import` on the running agent: the agent remains
+  the only process that writes the database. Unsupported sources (Workday, Workable, WWR)
+  are reported, not silently dropped. First polls of imported employers are spread over one
+  interval.
+- `GET /v1/discovery/status` serves the dashboard data; `POST /v1/admin/employers/{id}/poll-now`
+  makes one employer due (still subject to lease, backoff and budget).
+- Structured salary only (Lever `salaryRange`, Ashby compensation); the scanner's
+  salary-from-text parser moves with filtering in P1.4.
+- Evidence script: `scripts/verify_discovery.py` (becomes the discovery section of verify.sh).
+
 **Model.** Every enabled employer has an `employer_poll_state` row with
 `next_poll_at_ms`. A scheduler task wakes every 5 s, claims due employers,
 hands each to a poll task, and reschedules it on completion.
@@ -400,7 +428,7 @@ split below is kept as documentation for any future server port (A13).
 | `robots_cache` | host PK, fetched_at_ms, expires_at_ms, http_status, body | |
 | `source_fetches` | id, employer_id FK, started_at_ms, finished_at_ms, outcome (OK/EMPTY/NOT_MODIFIED/ERROR/SKIPPED/INTERRUPTED/BUDGET_DEFERRED), http_status, retry_after_s, requests_made, bytes_received, duration_ms, postings_seen, new_count, changed_count, closed_count, complete, error | **Partial unique index** `(employer_id) WHERE finished_at_ms IS NULL`. |
 | `raw_postings` | id, employer_id FK, source_job_id, fetched_at_ms, first_fetch_id FK, listing_url, apply_url, payload (JSON), description_raw, description_text, payload_sha256, material_sha256, adapter_version | **Append-only by trigger.** Unique (source_job_id, material_sha256). |
-| `jobs` | id, source_job_id UNIQUE, current_raw_posting_id FK, last_payload_sha256, title, company, location_text, work_mode, salary_min, salary_max, salary_period, posted_at, first_seen_at_ms, last_seen_at_ms, missing_polls, closed_at_ms | Current view. |
+| `jobs` | id, source_job_id UNIQUE, employer_id FK (0002), current_raw_posting_id FK, last_payload_sha256, title, company, location_text, work_mode, salary_min, salary_max, salary_period, posted_at, first_seen_at_ms, last_seen_at_ms, missing_polls, closed_at_ms | Current view. |
 | `posting_analyses` | id, raw_posting_id FK, model_config_id FK, model_id_reported, extraction_prompt_version, segmenter_version, interpreter_version, sections (JSON), status (pending/running/done/failed/superseded), attempts, lease_until_ms, last_error, raw_response (JSON) | Unique on the version tuple. Partial unique index `(job_id) WHERE status = 'pending'` (job_id denormalized) enforces supersession. |
 | `requirements` | id, posting_analysis_id FK, text, jd_quote, quote_found, quote_occurrences, section_label, sentence, model_importance, model_polarity, model_subject, eligibility_type, min_years, cue_importance, cue_polarity, cue_subject, final_class, interpretation_status, flags (JSON) | |
 | `change_events` | id, type, job_id, employer_id, ref (JSON), created_at_ms | Same transaction as the change; pruned after 7 days (trigger allows only that delete). |

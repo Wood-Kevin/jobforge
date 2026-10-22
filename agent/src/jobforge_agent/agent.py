@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import random
 import time
 from dataclasses import dataclass
 
@@ -15,6 +16,9 @@ import uvicorn
 from jobforge_agent import PROTOCOL_VERSION, __version__, ipc, logs, winutil
 from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
+from jobforge_agent.discovery import admin as discovery_admin
+from jobforge_agent.discovery.http import HttpClient
+from jobforge_agent.discovery.service import DiscoveryService
 from jobforge_agent.paths import Paths
 
 HEARTBEAT_S = 10
@@ -45,6 +49,8 @@ class AgentRuntime:
         self.run_id: int | None = None
         self.lifecycle: AgentConnection | None = None
         self.user: AgentConnection | None = None
+        self.discovery_conn: AgentConnection | None = None
+        self.discovery: DiscoveryService | None = None
         self.reader: AgentConnection | None = None
         self.elevated = winutil.is_elevated()
         self.last_maintenance_error: str | None = None
@@ -67,6 +73,7 @@ class AgentRuntime:
             self.log.info("migrated", from_version=result.from_version, to_version=result.to_version)
         self.lifecycle = open_connection(self.paths.db, "lifecycle")
         self.user = open_connection(self.paths.db, "user")
+        self.discovery_conn = open_connection(self.paths.db, "discovery")
         self.reader = open_connection(self.paths.db, "readonly", readonly=True)
         report = recovery.recover(self.lifecycle, now_ms())
         self.run_id = self.lifecycle.execute(
@@ -87,10 +94,10 @@ class AgentRuntime:
         # Read-only first, a writer last: only a read-write connection can checkpoint and remove
         # the WAL on close. Closing the read-only one last left committed rows in jobforge.db-wal
         # (found in the P1.2 lifecycle run), which a plain file copy would miss.
-        for c in (self.reader, self.user, self.lifecycle):
+        for c in (self.reader, self.user, self.discovery_conn, self.lifecycle):
             if c is not None:
                 c.close()
-        self.lifecycle = self.user = self.reader = None
+        self.lifecycle = self.user = self.reader = self.discovery_conn = None
 
     # ----- used by IPC handlers (event-loop thread) -----
 
@@ -126,6 +133,23 @@ class AgentRuntime:
         self.log.info("discovery_paused" if paused else "discovery_resumed")
         self.notify_events()
         return self.health()
+
+    def discovery_status(self) -> dict:
+        assert self.reader is not None
+        return discovery_admin.status(self.reader, now_ms())
+
+    def import_employers(self, entries: list[dict]) -> dict:
+        assert self.user is not None
+        result = discovery_admin.import_employers(self.user, entries, now_ms(), random.Random())
+        self.log.info("employers_imported", added=result["added"], existing=result["existing"],
+                      skipped_unsupported=len(result["skipped_unsupported"]))
+        return result
+
+    def poll_now(self, employer_id: int) -> bool:
+        """User action: make one employer due now (still subject to lease, backoff and budget)."""
+        assert self.user is not None
+        return self.user.execute("UPDATE employer_poll_state SET next_poll_at_ms = ? WHERE employer_id = ?",
+                                 (now_ms(), employer_id)).rowcount == 1
 
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""
@@ -215,6 +239,8 @@ class AgentRuntime:
         server = uvicorn.Server(uvicorn.Config(app, log_config=None, access_log=False, lifespan="off",
                                                timeout_graceful_shutdown=3))
         server_task = asyncio.create_task(server.serve(sockets=[sock]))
+        http = HttpClient()
+        self.discovery = DiscoveryService(self.discovery_conn, http, on_events=self.notify_events)
         # Publish the endpoint only once uvicorn is accepting connections.
         while not server.started and not server_task.done():
             await asyncio.sleep(0.01)
@@ -224,7 +250,8 @@ class AgentRuntime:
         ipc.write_ipc_file(self.paths.ipc, endpoint, os.getpid())
         self.log.info("ipc_ready", port=endpoint.port)
 
-        tasks = [asyncio.create_task(self.heartbeat()), asyncio.create_task(self.maintenance())]
+        tasks = [asyncio.create_task(self.heartbeat()), asyncio.create_task(self.maintenance()),
+                 asyncio.create_task(self.discovery.run(self.stop_event))]
         stop_task = asyncio.create_task(self.stop_event.wait())
         done, _ = await asyncio.wait({server_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
         if server_task in done and not self.stop_event.is_set():
@@ -232,6 +259,10 @@ class AgentRuntime:
             self.stop_reason = self.stop_reason if self.stop_reason != "unknown" else "signal"
             self.stop_event.set()
         server.should_exit = True
-        await asyncio.gather(server_task, *tasks, return_exceptions=True)
+        results = await asyncio.gather(server_task, *tasks, return_exceptions=True)
+        for r in results:
+            if isinstance(r, Exception):
+                self.log.error("task_failed_on_stop", error=f"{type(r).__name__}: {r}")
         stop_task.cancel()
+        await http.aclose()
         self.paths.ipc.unlink(missing_ok=True)
