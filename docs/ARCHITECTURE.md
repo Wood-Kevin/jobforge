@@ -508,6 +508,52 @@ split below is kept as documentation for any future server port (A13).
 | `application_events` | id, application_id, from_status, to_status, at_ms, note | **Append-only by trigger.** |
 | `agent_runs` | id, pid, version, started_at_ms, stopped_at_ms, stop_reason, heartbeat_at_ms | Restart/crash history for the dashboard and verify.sh. |
 
+**Profile (implemented in P1.5,** `agent/src/jobforge_agent/profile/`**).**
+- **Resumes:** `POST /v1/resumes?filename=&label=` takes the file as the raw request body (no
+  multipart, no base64), so the stored BLOB is exactly what was sent; `GET .../{id}/original`
+  returns it with an `X-Sha256` header. Markdown/text (UTF-8, falling back to cp1252), DOCX
+  (standard library: `word/document.xml`) and PDF (`pypdf`) are extracted to text. A file whose
+  text cannot be extracted is still stored, with `extracted_text` NULL and the reason in the
+  response and a `resume_text_extraction_failed` warning. Limit 10 MB (413); other types 422.
+  P1.5 live: 14 of a real PDF resumes round-tripped byte-identical, all with text.
+- **Experience items:** `GET/POST /v1/experience`, `PATCH/DELETE /v1/experience/{id}`. Created
+  `self_reported`; `status` and `verified_at_ms` are not accepted fields. Editing kind,
+  statement, attributes, dates or years of a verified item clears the verification (Kevin
+  confirmed the old text, not the new one); changing only `source` does not. An item accepted
+  from an inferred claim cannot be deleted while the claim links to it (409).
+- **Verify:** `POST /v1/experience/{id}/verify` (optional `note`, kept as
+  `attributes.verify_note`) and `.../unverify`. `profile/items.py: verify_item` is the only code
+  that writes `'verified'`, pinned by an AST scan of every SQL string that writes
+  `experience_items` (a mutation that makes `create_item` insert `'verified'` fails it).
+- **Eligibility facts** are `kind = 'eligibility'` items whose `attributes.type` is one of the
+  E2 lexicon's eligibility types, each with typed fields, so P1.7 matches hard requirements by
+  code (6.4 E3) instead of reading free text:
+
+  | type | fields (required in bold) |
+  |---|---|
+  | work_authorization | **us_citizen**, **authorized_to_work_us** (bool) |
+  | sponsorship | **needs_sponsorship** (bool) |
+  | clearance | **level** (none/confidential/secret/top_secret/ts_sci), **status** (active/current/inactive/expired/none), polygraph (none/ci/full_scope), last_active_year |
+  | residency | **country**, state, city, willing_to_relocate |
+  | physical | max_lift_lbs, can_stand_hours (at least one) |
+  | travel | **max_travel_percent** (0-100) |
+  | license | **name**, **active**; several allowed |
+  | program_status | active_duty, veteran, student (at least one) |
+
+  One fact per type except licenses (409). Unknown fields are refused, so a typo cannot
+  silently drop a fact. Rejected alternative: free-form attributes, which P1.7 code could only
+  match by guessing.
+- **Completeness:** `GET/PUT /v1/profile/completeness` (`cert_list_complete`,
+  `eligibility_facts_complete`, both default off). A flag on means "not in my profile = I do not
+  have it", which lets P1.7 read a missing cert or fact as a gap instead of unknown.
+- **Inferred-claims inbox:** `GET /v1/inferred-claims?state=open|accepted|rejected`,
+  `POST .../{id}/accept` (optional rewording; becomes a self-reported item with
+  `source = inferred_claim:<id>`, never verified, never an eligibility fact) and `.../reject`.
+  Only evaluation inserts claims (P1.7).
+- Every change is one user-action transaction with a `profile_changed` event whose ref holds
+  the action name and ids only; the same goes for the log line. Profile snapshots are created
+  by evaluation in P1.7.
+
 ### 4.3 Postgres guarantees and their replacements
 
 The earlier drafts leaned on Postgres for several guarantees. Each one needs
@@ -515,7 +561,7 @@ a named replacement and a test, or it silently disappears.
 
 | Guarantee (rev 1-3) | Postgres mechanism | Rev 4 replacement | Test that pins it |
 |---|---|---|---|
-| **Worker cannot write or verify experience** | `jobforge_worker` role without UPDATE/INSERT on `experience_items` | **Per-connection SQLite authorizer** (`Connection.set_authorizer`): each component opens its own connection with an allow-list of tables it may write; anything else returns `SQLITE_DENY`. The discovery and evaluation connections deny writes to `experience_items`, `profile_completeness`, `applications`, `application_events`, `settings`. Only the user-action connection (used solely by IPC handlers for explicit user commands) may write them, and `verify` is the only handler that sets `status='verified'`. Plus the CHECK constraint, plus `match_citations` FK. | Evaluation connection `UPDATE experience_items SET status='verified'` -> `sqlite3.DatabaseError: not authorized`; same for INSERT. Discovery connection write to `applications` -> denied. Grep test: only modules under `ipc/routes/` import the user-action connection factory, and only `ipc/routes/profile.py` contains a statement setting `status = 'verified'`. |
+| **Worker cannot write or verify experience** | `jobforge_worker` role without UPDATE/INSERT on `experience_items` | **Per-connection SQLite authorizer** (`Connection.set_authorizer`): each component opens its own connection with an allow-list of tables it may write; anything else returns `SQLITE_DENY`. The discovery and evaluation connections deny writes to `experience_items`, `profile_completeness`, `applications`, `application_events`, `settings`. Only the user-action connection (used solely by IPC handlers for explicit user commands) may write them, and `verify` is the only handler that sets `status='verified'`. Plus the CHECK constraint, plus `match_citations` FK. | Evaluation connection `UPDATE experience_items SET status='verified'` -> `sqlite3.DatabaseError: not authorized`; same for INSERT. Discovery connection write to `applications` -> denied. Source scans (P1.5): only `agent.py` (the runtime that serves IPC) opens the user-action connection, and only `profile/items.py: verify_item` has a SQL string writing `'verified'` to `experience_items` (corrected from the planned `ipc/routes/` layout, which the code never used). |
 | | | **Honest limit:** roles defended against a compromised or buggy *process with a different login*. Here everything runs as Kevin's Windows account, so the authorizer defends against bugs and against model output steering code paths, not against malware running as Kevin (which could edit the file directly). That threat was equally out of reach in the Docker design, since the DB volume was Kevin's too. | |
 | **Append-only posting history** (and insert-only profiles, snapshots, events) | No UPDATE/DELETE grants | **Triggers** `BEFORE UPDATE` / `BEFORE DELETE ... RAISE(ABORT, '<table> is append-only')` on `raw_postings`, `search_profiles`, `profile_snapshots`, `profile_snapshot_items`, `application_events`; `change_events` allows only DELETE of rows older than 7 days. Triggers apply to every connection, including future code. Migrations that must rebuild a table drop and recreate its trigger explicitly in the same migration. | UPDATE and DELETE on each table -> `IntegrityError` with the message; a migration test asserts every append-only table still has both triggers after the latest migration. |
 | **Atomic queue claims** | `FOR UPDATE SKIP LOCKED` | `BEGIN IMMEDIATE` + `UPDATE ... WHERE id IN (SELECT ... LIMIT n) RETURNING id`. SQLite allows one writer at a time, so a claim cannot interleave with another claim. Leases (`lease_until_ms`) remain for in-process timeouts. | Two writer connections claiming from separate threads 1,000 times: claimed id sets are disjoint and complete. |

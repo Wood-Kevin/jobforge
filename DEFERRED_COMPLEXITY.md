@@ -156,3 +156,8 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **What:** A re-filter gives every job (open or closed) a verdict for its *current* raw posting. Older raw versions of a changed posting keep only the verdicts they got under earlier profiles.
 - **Why deferred:** A verdict on an outdated version under a newer profile has no use in Phase 1 (nothing reads it); filtering every historical version would multiply the work by the version count.
 - **Trigger:** A history view that compares old posting versions under the current profile.
+
+## Duplicate resume uploads are stored twice (P1.5)
+- **What:** Uploading the same file again creates a second `resumes` row (P1.5 live: two of the 14 PDFs were byte-identical copies in different folders, stored as two rows with one sha256).
+- **Why deferred:** Harmless at this size (~30 KB each) and the UI does not exist yet to say "already uploaded as ...". Refusing silently, or deduping by sha256, would both hide something from Kevin.
+- **Trigger:** P1.8 resume view; return the existing id with a `duplicate_of` field instead of inserting.

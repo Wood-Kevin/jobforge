@@ -1,0 +1,33 @@
+P1.5 live profile evidence, 2026-10-22. Real agent, unelevated, on an empty data folder (%LOCALAPPDATA%\jobforge-evidence-p1_5).
+Input: every file in a resumes folder, read only (files unchanged). Filenames and text deliberately not printed.
+
+health: {"version": "0.1.0", "schema": 3, "db": "ok", "elevated": false}
+
+== Resume round trip: 15 files
+   1 .pdf     74061 B  disk=376df27fb6fb stored=376df27fb6fb downloaded=376df27fb6fb identical=True text_chars=3791 extraction_error=None
+   2 .pdf     29401 B  disk=b1db1ace0db7 stored=b1db1ace0db7 downloaded=b1db1ace0db7 identical=True text_chars=3697 extraction_error=None
+   3 .pdf     29401 B  disk=b1db1ace0db7 stored=b1db1ace0db7 downloaded=b1db1ace0db7 identical=True text_chars=3697 extraction_error=None
+   4 .pdf     75965 B  disk=4e63e107f2c6 stored=4e63e107f2c6 downloaded=4e63e107f2c6 identical=True text_chars=4247 extraction_error=None
+   5 .pdf     29355 B  disk=c43f90c9411e stored=c43f90c9411e downloaded=c43f90c9411e identical=True text_chars=3733 extraction_error=None
+   6 .log      2586 B  upload HTTP 422: {"error":"unsupported file type .log: use .docx, .markdown, .md, .pdf, .txt"}
+   7 .pdf     29272 B  disk=9d0335d73c78 stored=9d0335d73c78 downloaded=9d0335d73c78 identical=True text_chars=3609 extraction_error=None
+   8 .pdf     29358 B  disk=4a1c12f54d77 stored=4a1c12f54d77 downloaded=4a1c12f54d77 identical=True text_chars=3627 extraction_error=None
+   9 .pdf     27877 B  disk=af22257990a4 stored=af22257990a4 downloaded=af22257990a4 identical=True text_chars=1798 extraction_error=None
+  10 .pdf     29208 B  disk=713757025484 stored=713757025484 downloaded=713757025484 identical=True text_chars=3692 extraction_error=None
+  11 .pdf     29251 B  disk=5841efb75f2d stored=5841efb75f2d downloaded=5841efb75f2d identical=True text_chars=3479 extraction_error=None
+  12 .pdf     29186 B  disk=7a7971cbdf4c stored=7a7971cbdf4c downloaded=7a7971cbdf4c identical=True text_chars=3414 extraction_error=None
+  13 .pdf     28172 B  disk=ac6a89fa4682 stored=ac6a89fa4682 downloaded=ac6a89fa4682 identical=True text_chars=2268 extraction_error=None
+  14 .pdf     29152 B  disk=6c43294b6022 stored=6c43294b6022 downloaded=6c43294b6022 identical=True text_chars=3264 extraction_error=None
+  15 .pdf     15005 B  disk=e4de394cf114 stored=e4de394cf114 downloaded=e4de394cf114 identical=True text_chars=3243 extraction_error=None
+
+== Synthetic experience item: create, verify, edit
+  after verify: (1, 'verified', 1)
+  edit response: {"verification_cleared":true}
+  after edit:   (1, 'self_reported', 0)
+  profile_changed events: ['{"what": "resume_uploaded", "id": 14}', '{"what": "item_created", "id": 1}', '{"what": "item_verified", "id": 1}', '{"what": "item_updated", "id": 1}']
+
+--shutdown exit code: 0
+
+== Log leak check: 452 24-char probes from extracted resume text; found in agent.jsonl: 0
+  log events: ['agent_start', 'agent_stop', 'daily_backup', 'discovery_start', 'ipc_ready', 'migrated', 'profile_changed']
+  resume_text_extraction_failed lines: 0 []

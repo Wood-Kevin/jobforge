@@ -33,6 +33,15 @@ FORBIDDEN = [
     ("user", "UPDATE posting_analyses SET sections = '{}'"),
     ("user", "UPDATE posting_analyses SET attempts = 0"),
     ("discovery", "INSERT INTO search_profiles (version, rules, created_at_ms) VALUES (9, '{}', 1)"),
+    # Profile (P1.5): resumes and completeness are user-only; evaluation proposes claims, never decides them.
+    ("evaluation", f"INSERT INTO resumes (label, original_filename, original_bytes, mime, sha256, uploaded_at_ms) VALUES ('x', 'x.md', X'00', 'text/markdown', 'h', {NOW})"),
+    ("discovery", "DELETE FROM resumes"),
+    ("evaluation", "UPDATE resumes SET extracted_text = 'x'"),
+    ("evaluation", f"INSERT INTO profile_completeness (id, cert_list_complete, updated_at_ms) VALUES (1, 1, {NOW})"),
+    ("discovery", "UPDATE profile_completeness SET eligibility_facts_complete = 1"),
+    ("evaluation", "UPDATE inferred_claims SET accepted_as_item_id = 1"),
+    ("user", "UPDATE inferred_claims SET statement = 'x'"),
+    ("evaluation", "DELETE FROM experience_items"),
     # Deletes are rare and explicit.
     ("user", "DELETE FROM jobs"),
     ("discovery", "DELETE FROM raw_postings"),

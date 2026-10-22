@@ -24,6 +24,7 @@ from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
 from jobforge_agent.filtering.profile import compile_profile
 from jobforge_agent.paths import Paths
+from jobforge_agent.profile import resumes as profile_resumes
 
 HEARTBEAT_S = 10
 REFILTER_CHUNK = 300
@@ -284,6 +285,43 @@ class AgentRuntime:
         pending = self.reader.execute("SELECT count(*) FROM posting_analyses WHERE status = 'pending'").fetchone()[0]
         return {"profile_version": profile["version"], "ruleset": filter_rules.RULESET_VERSION, "verdicts": verdicts,
                 "rejected_by_primary_category": categories, "clearance_mentions": clearance, "analyses_pending": pending}
+
+    # ----- profile (user actions only) -----
+
+    def profile_read(self, fn, *args):
+        """Profile reads use the user-action connection; reads take no write lock."""
+        assert self.user is not None
+        return fn(self.user, *args)
+
+    def profile_action(self, what: str, fn, *args, ref: dict | None = None):
+        """Run one profile change in a user-action transaction with its change event.
+        Logs and events carry ids and the action name only, never profile content."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            result = fn(self.user, *args)
+            event_ref = {"what": what, **(ref or {})}
+            if isinstance(result, int) and not isinstance(result, bool):
+                event_ref["id"] = result
+            elif isinstance(result, dict) and isinstance(result.get("id"), int):
+                event_ref["id"] = result["id"]
+            self.user.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('profile_changed', ?, ?)",
+                              (json.dumps(event_ref), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("profile_changed", **event_ref)
+        self.notify_events()
+        return result
+
+    def upload_resume(self, filename: str, label: str | None, data: bytes) -> dict:
+        result = self.profile_action("resume_uploaded", profile_resumes.store, filename, label, data, now_ms())
+        if result["extraction_error"]:
+            # Stored, but no text: visible in the response and the log, never silently empty.
+            self.log.warning("resume_text_extraction_failed", resume_id=result["id"], mime=result["mime"],
+                             error=result["extraction_error"])
+        return result
 
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""

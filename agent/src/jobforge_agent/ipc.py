@@ -19,10 +19,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from jobforge_agent import PROTOCOL_VERSION
 from jobforge_agent.filtering.profile import ProfileError
+from jobforge_agent.profile import items, resumes
 
 if TYPE_CHECKING:
     from jobforge_agent.agent import AgentRuntime
@@ -141,6 +142,136 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         if result is None:
             return JSONResponse({"error": "unknown job"}, status_code=404)
         return result
+
+    # ----- profile: resumes, experience items, verify, completeness, inferred claims -----
+
+    def _profile_call(fn):
+        try:
+            return fn()
+        except (items.ProfileInputError, resumes.ResumeError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        except items.NotFound as exc:
+            return JSONResponse({"error": f"unknown {exc}"}, status_code=404)
+        except items.Conflict as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
+
+    async def _body(request: Request):
+        if request.headers.get("content-length", "0") in ("", "0"):
+            return {}
+        body = await request.json()
+        return body if isinstance(body, dict) else None
+
+    def _bad_body():
+        return JSONResponse({"error": "request body must be a JSON object"}, status_code=422)
+
+    def _now() -> int:
+        return int(time.time() * 1000)
+
+    @app.post("/v1/resumes")
+    async def upload_resume(request: Request, filename: str, label: str | None = None):
+        # Raw bytes in the body (no multipart, no base64): what is stored is exactly what was sent.
+        size = int(request.headers.get("content-length") or 0)
+        if size > resumes.MAX_BYTES:
+            return JSONResponse({"error": f"file is {size} bytes; the limit is {resumes.MAX_BYTES}"}, status_code=413)
+        data = await request.body()
+        return _profile_call(lambda: runtime.upload_resume(filename, label, data))
+
+    @app.get("/v1/resumes")
+    async def list_resumes():
+        return runtime.profile_read(resumes.listing)
+
+    @app.get("/v1/resumes/{resume_id}")
+    async def get_resume(resume_id: int):
+        r = runtime.profile_read(resumes.get, resume_id)
+        return r if r else JSONResponse({"error": "unknown resume"}, status_code=404)
+
+    @app.get("/v1/resumes/{resume_id}/original")
+    async def get_resume_original(resume_id: int):
+        r = runtime.profile_read(lambda c, i: resumes.get(c, i, original=True), resume_id)
+        if not r:
+            return JSONResponse({"error": "unknown resume"}, status_code=404)
+        return Response(r["original_bytes"], media_type=r["mime"], headers={"X-Sha256": r["sha256"]})
+
+    @app.delete("/v1/resumes/{resume_id}")
+    async def delete_resume(resume_id: int):
+        def go():
+            if not runtime.profile_action("resume_deleted", resumes.delete, resume_id, ref={"id": resume_id}):
+                raise items.NotFound(f"resume {resume_id}")
+            return {"deleted": resume_id}
+        return _profile_call(go)
+
+    @app.get("/v1/experience")
+    async def list_experience():
+        return runtime.profile_read(items.list_items)
+
+    @app.post("/v1/experience")
+    async def create_experience(request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        return _profile_call(lambda: {"id": runtime.profile_action("item_created", items.create_item, body)})
+
+    @app.patch("/v1/experience/{item_id}")
+    async def update_experience(item_id: int, request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        return _profile_call(lambda: runtime.profile_action("item_updated", items.update_item, item_id, body, ref={"id": item_id}))
+
+    @app.delete("/v1/experience/{item_id}")
+    async def delete_experience(item_id: int):
+        def go():
+            runtime.profile_action("item_deleted", items.delete_item, item_id, ref={"id": item_id})
+            return {"deleted": item_id}
+        return _profile_call(go)
+
+    @app.post("/v1/experience/{item_id}/verify")
+    async def verify_experience(item_id: int, request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+
+        def go():
+            runtime.profile_action("item_verified", items.verify_item, item_id, body.get("note"), _now(), ref={"id": item_id})
+            return runtime.profile_read(items.get_item, item_id)
+        return _profile_call(go)
+
+    @app.post("/v1/experience/{item_id}/unverify")
+    async def unverify_experience(item_id: int):
+        def go():
+            runtime.profile_action("item_unverified", items.unverify_item, item_id, ref={"id": item_id})
+            return runtime.profile_read(items.get_item, item_id)
+        return _profile_call(go)
+
+    @app.get("/v1/profile/completeness")
+    async def get_completeness():
+        return runtime.profile_read(items.get_completeness)
+
+    @app.put("/v1/profile/completeness")
+    async def set_completeness(request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        return _profile_call(lambda: runtime.profile_action("completeness_set", items.set_completeness, body, _now()))
+
+    @app.get("/v1/inferred-claims")
+    async def list_claims(state: str | None = None):
+        return _profile_call(lambda: runtime.profile_read(items.list_claims, state))
+
+    @app.post("/v1/inferred-claims/{claim_id}/accept")
+    async def accept_claim(claim_id: int, request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        return _profile_call(lambda: {"item_id": runtime.profile_action("claim_accepted", items.accept_claim, claim_id, body,
+                                                                        ref={"claim_id": claim_id})})
+
+    @app.post("/v1/inferred-claims/{claim_id}/reject")
+    async def reject_claim(claim_id: int):
+        def go():
+            runtime.profile_action("claim_rejected", items.reject_claim, claim_id, ref={"claim_id": claim_id})
+            return {"rejected": claim_id}
+        return _profile_call(go)
 
     @app.get("/v1/events")
     async def events(request: Request):
