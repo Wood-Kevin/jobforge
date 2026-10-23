@@ -3,6 +3,7 @@
 mod autostart;
 mod elevation;
 mod events;
+mod links;
 mod paths;
 mod supervisor;
 mod wide;
@@ -15,7 +16,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, State as TauriState, WebviewUrl, WebviewWindowBuilder};
 
 use paths::host_log;
-use supervisor::{agent_request, State, Status, Supervisor};
+use supervisor::{agent_request, agent_send, Body, State, Status, Supervisor};
 
 const WINDOW_LABEL: &str = "main";
 
@@ -29,8 +30,8 @@ fn open_window(app: &AppHandle) {
     // Closing the window destroys it (frees WebView2); it is rebuilt on demand.
     if let Err(e) = WebviewWindowBuilder::new(app, WINDOW_LABEL, WebviewUrl::App("index.html".into()))
         .title("JobForge")
-        .inner_size(720.0, 600.0)
-        .min_inner_size(420.0, 360.0)
+        .inner_size(1180.0, 820.0)
+        .min_inner_size(640.0, 480.0)
         .build()
     {
         host_log(&format!("window build failed: {e}"));
@@ -61,7 +62,39 @@ fn quit(app: AppHandle, sup: Arc<Supervisor>) {
 
 /// The webview's only path to the agent. The host adds the token; the webview never sees it.
 #[tauri::command]
-async fn agent_call(method: String, path: String) -> Result<serde_json::Value, String> {
+async fn agent_call(method: String, path: String, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    window_path_allowed(&path)?;
+    // A model-config test runs a real model call (up to the 120 s inference timeout).
+    let timeout = if path.ends_with("/test") { Duration::from_secs(180) } else { Duration::from_secs(15) };
+    let body = body.map(Body::Json).unwrap_or(Body::None);
+    tauri::async_runtime::spawn_blocking(move || agent_send(&method, &path, body, timeout))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Resume upload: the file's bytes, unchanged, as the request body (P1.5).
+#[tauri::command]
+async fn agent_upload(path: String, bytes: Vec<u8>) -> Result<serde_json::Value, String> {
+    window_path_allowed(&path)?;
+    if !path.starts_with("/v1/resumes?") {
+        return Err("uploads go to /v1/resumes only".into());
+    }
+    tauri::async_runtime::spawn_blocking(move || agent_send("POST", &path, Body::Bytes(bytes), Duration::from_secs(30)))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+/// Opens a link from a job posting in the system browser. Only http(s) URLs without credentials
+/// pass (ARCHITECTURE 8): a posting's `javascript:`, `file:` or `ms-settings:` link never reaches
+/// the shell.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let url = links::checked(&url)?;
+    host_log("open_url");
+    links::open(&url)
+}
+
+fn window_path_allowed(path: &str) -> Result<(), String> {
     if !path.starts_with("/v1/") {
         return Err("path must start with /v1/".into());
     }
@@ -69,9 +102,7 @@ async fn agent_call(method: String, path: String) -> Result<serde_json::Value, S
     if path.starts_with("/v1/shutdown") || path.starts_with("/v1/events") {
         return Err(format!("{path} is not available to the window"));
     }
-    tauri::async_runtime::spawn_blocking(move || agent_request(&method, &path, Duration::from_secs(5)))
-        .await
-        .map_err(|e| e.to_string())?
+    Ok(())
 }
 
 #[tauri::command]
@@ -130,7 +161,7 @@ pub fn run() {
                 open_window(app);
             }
         }))
-        .invoke_handler(tauri::generate_handler![agent_call, supervisor_status])
+        .invoke_handler(tauri::generate_handler![agent_call, agent_upload, open_url, supervisor_status])
         .setup(move |app| {
             let handle = app.handle().clone();
             if exit_only {

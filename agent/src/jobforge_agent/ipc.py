@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from jobforge_agent import PROTOCOL_VERSION
+from jobforge_agent import PROTOCOL_VERSION, applications as applications_mod, views
 from jobforge_agent.filtering.profile import ProfileError
 from jobforge_agent.inference import configs as model_configs
 from jobforge_agent.profile import items, resumes
@@ -315,6 +315,45 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     async def get_job_analysis(job_id: int):
         a = runtime.job_analysis(job_id)
         return a if a is not None else JSONResponse({"error": "no finished analysis for this job"}, status_code=404)
+
+    # ----- window read models and applications (P1.8) -----
+
+    @app.get("/v1/jobs")
+    async def list_jobs(view: str = "recommended", q: str | None = None, limit: int = 200, offset: int = 0):
+        if view not in views.VIEWS:
+            return JSONResponse({"error": f"view must be one of {', '.join(views.VIEWS)}"}, status_code=422)
+        return runtime.jobs(view, q, limit, offset)
+
+    @app.get("/v1/jobs/{job_id}")
+    async def get_job(job_id: int):
+        d = runtime.job_detail(job_id)
+        return d if d is not None else JSONResponse({"error": "unknown job"}, status_code=404)
+
+    @app.get("/v1/applications")
+    async def list_applications():
+        return runtime.applications()
+
+    @app.put("/v1/jobs/{job_id}/application")
+    async def set_application(job_id: int, request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        try:
+            return runtime.set_application(job_id, body)
+        except applications_mod.ApplicationError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        except LookupError:
+            return JSONResponse({"error": "unknown job"}, status_code=404)
+
+    @app.get("/v1/profile/schema")
+    async def profile_schema():
+        # The typed fields of every eligibility fact, so the window builds forms from the agent's
+        # own validation table instead of a copy that could drift (P1.5).
+        return {"kinds": list(items.KINDS),
+                "eligibility": {t: {f: {"type": spec[0][0], "required": spec[1]} for f, spec in fields.items()}
+                                for t, fields in items.ELIGIBILITY.items()},
+                "multiple_allowed": sorted(items.MULTIPLE_ALLOWED),
+                "application_statuses": list(applications_mod.STATUSES)}
 
     @app.get("/v1/evaluation/status")
     async def evaluation_status():

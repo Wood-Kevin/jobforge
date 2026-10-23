@@ -1,111 +1,65 @@
-import { useCallback, useEffect, useState } from "react";
-import { agentCall, onAgentEvent, onSupervisorChange, supervisorStatus, type ChangeEvent, type Health, type Supervisor } from "./agent";
+// The JobForge window (P1.8). Navigation is local state (no router): the window is one process's
+// view of the agent, and closing it keeps JobForge running in the tray.
+import { useEffect, useState } from "react";
+import { onSupervisorChange, supervisorStatus, type Supervisor } from "./agent";
+import Applications from "./pages/Applications";
+import Dashboard from "./pages/Dashboard";
+import JobDetail from "./pages/JobDetail";
+import Jobs from "./pages/Jobs";
+import Preferences from "./pages/Preferences";
+import Profile from "./pages/Profile";
+import Review from "./pages/Review";
 
-// P1.2 shell window: supervisor state, agent health, pause/resume, live events.
-// The full UI (dashboard, jobs, profile) arrives in P1.8.
+type Page = "dashboard" | "jobs" | "review" | "profile" | "applications" | "preferences";
+const PAGES: [Page, string][] = [["jobs", "Jobs"], ["review", "REVIEW questions"], ["profile", "Profile"],
+  ["applications", "Applications"], ["dashboard", "Dashboard"], ["preferences", "Preferences"]];
+
 export default function App() {
+  const [page, setPage] = useState<Page>("jobs");
+  const [job, setJob] = useState<number | null>(null);
   const [sup, setSup] = useState<Supervisor | null>(null);
-  const [health, setHealth] = useState<Health | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [events, setEvents] = useState<ChangeEvent[]>([]);
-
-  const refresh = useCallback(async () => {
-    try {
-      setSup(await supervisorStatus());
-      setHealth(await agentCall<Health>("GET", "/v1/health"));
-      setError(null);
-    } catch (e) {
-      setHealth(null);
-      setError(String(e));
-    }
-  }, []);
-
   useEffect(() => {
-    refresh();
-    const timer = setInterval(refresh, 5000);
-    const unlisten = [
-      onAgentEvent((e) => {
-        setEvents((prev) => [e, ...prev].slice(0, 50));
-        refresh();
-      }),
-      onSupervisorChange((s) => setSup(s)),
-    ];
-    return () => {
-      clearInterval(timer);
-      unlisten.forEach((p) => p.then((fn) => fn()));
-    };
-  }, [refresh]);
-
-  const togglePause = async () => {
-    if (!health) return;
-    await agentCall("POST", health.discovery_paused ? "/v1/discovery/resume" : "/v1/discovery/pause");
-    refresh();
-  };
+    supervisorStatus().then(setSup).catch(() => setSup(null));
+    const un = onSupervisorChange(setSup);
+    return () => { un.then((fn) => fn()); };
+  }, []);
+  const go = (p: Page) => { setJob(null); setPage(p); };
+  const open = (id: number) => setJob(id);
+  useEffect(() => { window.scrollTo(0, 0); }, [page, job]); // a new view starts at its top
+  const down = sup && sup.state !== "running";
 
   return (
-    <main>
-      <h1>JobForge</h1>
-      <section className="card">
-        <h2>Background agent</h2>
-        <p>
-          <span className={`dot ${sup?.state ?? "starting"}`} /> {label(sup)}
-        </p>
-        {health && (
-          <dl>
-            <dt>Version</dt>
-            <dd>{health.version} (schema {health.schema})</dd>
-            <dt>Process</dt>
-            <dd>pid {health.pid}, up {formatUptime(health.uptime_s)}</dd>
-            <dt>Discovery</dt>
-            <dd>{health.discovery_paused ? "paused" : "running"}</dd>
-            {health.last_maintenance_error && (
-              <>
-                <dt>Maintenance</dt>
-                <dd className="warn">{health.last_maintenance_error}</dd>
-              </>
-            )}
-          </dl>
-        )}
-        {error && !health && <p className="warn">{error}</p>}
-        <button onClick={togglePause} disabled={!health}>
-          {health?.discovery_paused ? "Resume discovery" : "Pause discovery"}
-        </button>
-      </section>
-      <section className="card">
-        <h2>Live events</h2>
-        {events.length === 0 ? (
-          <p className="muted">No events since this window opened.</p>
-        ) : (
-          <ul>
-            {events.map((e) => (
-              <li key={e.id}>
-                <code>#{e.id}</code> {e.type} <span className="muted">{new Date(e.created_at_ms).toLocaleTimeString()}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      <p className="muted">Closing this window keeps JobForge running in the tray. Use the tray menu to exit.</p>
-    </main>
+    <div className="shell">
+      <nav>
+        <h1>JobForge</h1>
+        {PAGES.map(([p, label]) => (
+          <button key={p} className={page === p && job === null ? "nav active" : "nav"} onClick={() => go(p)}>{label}</button>))}
+        <p className="muted foot"><span className={`dot ${sup?.state ?? "starting"}`} /> agent {sup?.state?.replace(/_/g, " ") ?? "connecting"}</p>
+      </nav>
+      <main>
+        {down && <p className="banner">{supervisorText(sup!)}</p>}
+        {job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
+          : page === "dashboard" ? <Dashboard sup={sup} />
+          : page === "jobs" ? <Jobs onOpen={open} />
+          : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
+          : page === "profile" ? <Profile />
+          : page === "applications" ? <Applications onOpen={open} />
+          : <Preferences />}
+        <p className="muted">Closing this window keeps JobForge running in the tray. Use the tray menu to exit.</p>
+      </main>
+    </div>
   );
 }
 
-function label(s: Supervisor | null): string {
-  if (!s) return "Connecting...";
+function supervisorText(s: Supervisor): string {
   const text: Record<Supervisor["state"], string> = {
     starting: "Starting the agent...",
     running: "Running",
-    not_responding: "Agent not responding",
+    not_responding: "The agent is not responding.",
     stopped_db_newer: "Stopped: the database is newer than this version of JobForge. Restore a backup or install the newer version.",
     stopped_elevated: "Stopped: JobForge must run as you, without administrator rights.",
-    failing: "Agent keeps failing; see the log folder.",
+    failing: "The agent keeps failing; see the log folder.",
     exiting: "Exiting...",
   };
   return s.detail ? `${text[s.state]} (${s.detail})` : text[s.state];
-}
-
-function formatUptime(s: number): string {
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }

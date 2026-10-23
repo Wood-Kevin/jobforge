@@ -1,0 +1,50 @@
+P1.8 UI - live evidence (2026-10-23 UTC)
+=========================================
+Setup
+- Host built with `npx tauri build --no-bundle` (desktop/src-tauri/target/release/JobForge.exe), started UNELEVATED through
+  explorer.exe with JOBFORGE_DATA_DIR = an evidence copy of the real profile run (%LOCALAPPDATA%\jobforge-evidence-p1_8ui),
+  JOBFORGE_AGENT_EXE = agent venv python, JOBFORGE_AGENT_ARGS = -m jobforge_agent. Agent: schema 6, elevated false,
+  discovery running against the real watchlist, LM Studio up.
+- A synthetic hostile posting was added to the copy under a disabled test employer (never polled).
+- Screenshots kept in the repo: p1_8_dashboard.png, p1_8_hostile_posting.png, p1_8_live_before.png, p1_8_live_after.png.
+  Screenshots that show the real profile (job list with his recommendations, job detail with his cited items) stay in
+  %LOCALAPPDATA%\jobforge-evidence-p1_8ui\shots (p1_8_jobs_list.png, p1_8_job_detail_top.png, p1_8_job_detail_evidence.png,
+  p1_8_job_detail_posting.png, p1_8_application_set.png).
+
+Acceptance (ARCHITECTURE 9, P1.8 row)
+1. Screenshots of dashboard and a real job detail: p1_8_dashboard.png (agent, recommendation counts, queues, filter,
+   per-source polls/304 share/budget/bytes, employers needing attention with poll-now); job detail of Vultr "Server
+   Onboarding Specialist" (APPLY: ELIGIBLE / COMPETITIVE / HIGH, six opportunity factors with detail, decisive reason, the
+   evidence table citing snapshot items, the sanitized posting with a live "Privacy Policy" link), kept outside the repo.
+2. New posting appears in the open window without reload: window on Jobs > All open (p1_8_live_before.png). A synthetic
+   listing was passed through discovery's own change detection (discovery.changes.apply_listing, the code every poll runs)
+   at 02:24:53Z -> change event 14591 posting_new, job 13504. Four seconds later (p1_8_live_after.png) the job is the top row,
+   "seen 2s"; host cursor = 14591. No click or reload in between. (A real poll would be the same path from the event on;
+   waiting for a real new posting was dropped at Kevin's request: hiring may be slow.)
+3. Host restart replays missed events from the cursor: host stopped with cursor 14566; while no host ran, three changes were
+   made through the agent (discovery pause, resume, an application status) = events 14567, 14568, 14569. Host started:
+   host.log `event_stream_connected after=14566`, `event_stream_first_event id=14567`; cursor afterwards 14569.
+4. <script>/onerror posting renders inert: `npx vitest run` 13 passed (11 hostile inputs incl. Greenhouse-escaped script,
+   javascript: links, svg/math/iframe/form/style; 12 of 13 fail with sanitizing switched off). Live: p1_8_hostile_posting.png
+   shows the surrounding text with the script removed, no image, the javascript: link without href, style stripped, no
+   iframe or form, no alert dialog, window title unchanged ("JobForge").
+5. Application status change -> application_events row: in the window, Application set to "applied" by clicking the select
+   (p1_8_application_set.png, "applied 0s ago") -> applications (2, job 13504, applied), application_events (None -> applied),
+   change event 14592 application_changed. Also via the route while the host was down (event 14569, None -> saved).
+6. No code path submits to an employer: tests/test_views.py::test_outbound_http_only_in_discovery_and_inference - HTTP
+   clients only in discovery/, inference/ and the loopback-only CLI main.py; the host's only request target is 127.0.0.1
+   (a planted https URL in supervisor.rs fails the test); no fetch/XMLHttpRequest/WebSocket/EventSource in desktop/src.
+
+Tests
+- agent: 639 passed (includes the 5 integration tests; tests/test_views.py: views, applications, route contract, outbound scan).
+- desktop: vitest 13 passed; `npm run build` ok; cargo test 11 passed (links allow-list, event cursor survives restart).
+
+Found and fixed during the drill
+- Window opened before the agent wrote ipc.json: views showed an OS error and never retried. Views now reload when the agent
+  becomes reachable; an unreachable agent reads "not reachable yet (starting or restarting)".
+- Navigation scrolled away on long pages; views did not start at the top. Fixed (sticky nav, scroll to top on view change).
+- Integration tests' unelevated launches through explorer.exe: launch folders were never deleted (525 in %TEMP%), and since
+  Python 3.13 tempfile.mkdtemp (and pytest's temp tree) are owner-only, owner = Administrators from an elevated shell, so the
+  unelevated Explorer/agent could not open them ("Windows cannot access the specified device, path, or file" dialogs Kevin
+  saw after an unrelated Explorer crash). Launch and data folders now use a plain mkdir under %TEMP% (inherits the user's
+  access) and are removed on exit.

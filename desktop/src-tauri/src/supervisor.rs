@@ -80,16 +80,47 @@ fn read_ipc() -> Result<IpcInfo, String> {
 /// One authenticated request to the agent. The token is read fresh each time because a
 /// restarted agent writes a new one.
 pub fn agent_request(method: &str, path: &str, timeout: Duration) -> Result<serde_json::Value, String> {
+    agent_send(method, path, Body::None, timeout)
+}
+
+/// What a request carries: nothing, a JSON value, or raw bytes (resume upload: the agent stores
+/// exactly what it receives, P1.5).
+pub enum Body {
+    None,
+    Json(serde_json::Value),
+    Bytes(Vec<u8>),
+}
+
+/// One request to the agent on 127.0.0.1 (the only host this process ever contacts). A 4xx/5xx
+/// answer comes back as `Err` holding `{"status": code, "error": <agent's message>}` as JSON text,
+/// so the window can show the agent's own validation message instead of "status code 422".
+pub fn agent_send(method: &str, path: &str, body: Body, timeout: Duration) -> Result<serde_json::Value, String> {
     let info = read_ipc()?;
     let url = format!("http://127.0.0.1:{}{}", info.port, path);
     let agent = ureq::AgentBuilder::new().timeout(timeout).build();
     let auth = format!("Bearer {}", info.token);
-    let resp = match method {
-        "POST" => agent.post(&url).set("Authorization", &auth).send_string(""),
-        "GET" => agent.get(&url).set("Authorization", &auth).call(),
-        other => return Err(format!("method {other} not allowed")),
+    if !matches!(method, "GET" | "POST" | "PUT" | "PATCH" | "DELETE") {
+        return Err(format!("method {method} not allowed"));
+    }
+    let req = agent.request(method, &url).set("Authorization", &auth);
+    let resp = match body {
+        Body::None if method == "GET" || method == "DELETE" => req.call(),
+        Body::None => req.send_string(""),
+        Body::Json(v) => req.send_json(v),
+        Body::Bytes(b) => req.set("Content-Type", "application/octet-stream").send_bytes(&b),
     };
-    resp.map_err(|e| e.to_string())?.into_json::<serde_json::Value>().map_err(|e| e.to_string())
+    match resp {
+        Ok(r) => r.into_json::<serde_json::Value>().map_err(|e| e.to_string()),
+        Err(ureq::Error::Status(code, r)) => {
+            let text = r.into_string().unwrap_or_default();
+            let error = serde_json::from_str::<serde_json::Value>(&text)
+                .ok()
+                .and_then(|v| v.get("error").cloned())
+                .unwrap_or(serde_json::Value::String(text));
+            Err(serde_json::json!({"status": code, "error": error}).to_string())
+        }
+        Err(e) => Err(serde_json::json!({"status": 0, "error": e.to_string()}).to_string()),
+    }
 }
 
 /// Returns the open SSE response for /v1/events, resuming after `last_id` when given.

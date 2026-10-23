@@ -204,3 +204,18 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **What:** On the 44 real postings, rules v1 give REVIEW 40, STRETCH 3, SKIP 1, APPLY 0 (`docs/evidence/p1_7_evaluation_live.txt`). Fit is INSUFFICIENT on 35, mostly because 184 of 442 negotiable requirements are unknown: the drill profile has no skill items, and uncited model gaps count as unknown (D7). Eligibility UNKNOWN on 19 (type-only conflicts, self-reported drill facts).
 - **Why deferred:** The profile was a drill stand-in; the numbers say little about a real profile. 6.5 and Q16 tune thresholds against the golden-set labels, not intuition, and the REVIEW view is meant to resolve these by asking for the missing items and facts.
 - **Trigger:** a real profile entered (P1.8 UI): rerun with `scripts/compare_verdict_rules.py` and the replay approach (stored model answers, zero model calls); golden-set report (P1.9).
+
+## The window is functional, not friendly (P1.8 -> P1.8b, next)
+- **What:** Kevin: "this beast is not user friendly at all". Picked: he cannot start it himself (no installed current build, no
+  first-run data), internal jargon on screen (NEGOTIABLE / CONFIRMED / flag names / rule numbers), too much on screen (every
+  requirement, 85 employers), manual setup (watchlist, search profile, model test/enable, profile import), and JSON in
+  front of users ("most users aren't going to know what json even is").
+- **Why deferred:** P1.8 acceptance is functional; Kevin chose to commit it and do a focused usability pass before P1.9.
+- **Trigger:** next step (P1.8b).
+
+## UI interaction tests are manual (P1.8)
+- **What:** Component behavior (clicks, forms, live reload) was verified in the real window by screenshot and scripted clicks;
+  only the sanitizer and the route contract are automated. There is no webview automation in CI.
+- **Why deferred:** WebView2 automation (WebDriver for Tauri) is a setup of its own; P1.9's verify.sh and the release drill
+  exercise the installed app.
+- **Trigger:** a UI regression that a screenshot pass missed, or the usability pass adding forms whose validation matters.

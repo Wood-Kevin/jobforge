@@ -26,6 +26,12 @@ pub fn logs_dir() -> PathBuf {
     data_root().join("logs")
 }
 
+/// Where the host keeps the last relayed event id, so a host restart resumes the event stream
+/// from it instead of from "now" (ARCHITECTURE 5).
+pub fn event_cursor_file() -> PathBuf {
+    data_root().join("host").join("event_cursor")
+}
+
 /// FOLDERID_LocalAppData for the user this process runs as; the environment string is only a fallback.
 fn local_app_data() -> PathBuf {
     unsafe {

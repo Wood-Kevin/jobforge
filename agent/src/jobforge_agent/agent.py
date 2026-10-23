@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import uvicorn
 
-from jobforge_agent import PROTOCOL_VERSION, __version__, ipc, logs, winutil
+from jobforge_agent import PROTOCOL_VERSION, __version__, applications, ipc, logs, views, winutil
 from jobforge_agent.analysis import store as analysis_store
 from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
@@ -435,6 +435,37 @@ class AgentRuntime:
             self.notify_events()
         return {"snapshot_id": r.snapshot_id, "snapshot_created": r.snapshot_created, "queued": r.queued,
                 "superseded": r.superseded, "recomputed": r.recomputed}
+
+    # ----- window read models and applications (P1.8) -----
+
+    def jobs(self, view: str, q: str | None, limit: int, offset: int) -> dict:
+        assert self.reader is not None
+        return views.list_jobs(self.reader, view, q, limit, offset)
+
+    def job_detail(self, job_id: int) -> dict | None:
+        assert self.reader is not None
+        return views.job_detail(self.reader, job_id)
+
+    def applications(self) -> list[dict]:
+        assert self.reader is not None
+        return applications.listing(self.reader)
+
+    def set_application(self, job_id: int, fields: dict) -> dict:
+        """User action: create or change the job's application; a status change appends an
+        application_events row in the same transaction. Raises ApplicationError / LookupError."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            result = applications.set_for_job(self.user, job_id, fields, now_ms())
+            self.user.execute("INSERT INTO change_events (type, job_id, ref, created_at_ms) VALUES ('application_changed', ?, ?, ?)",
+                              (job_id, json.dumps({"application_id": result["id"], "status": result["status"]}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("application_changed", job_id=job_id, application_id=result["id"], status=result["status"])
+        self.notify_events()
+        return result
 
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""

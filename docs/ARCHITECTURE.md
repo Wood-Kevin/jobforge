@@ -463,6 +463,8 @@ partial unique index (one pending evaluation per job, like analyses; startup rec
 supersedes a running one that has a newer pending sibling), and adds `years`, `start_date`,
 `end_date` to `profile_snapshot_items` (insert-only triggers unaffected, checked after migrating).
 Migration 0005 (P1.7 follow-up) adds `evaluations.request_sha256` and a partial index on done rows (reuse, 6.4).
+Migration 0006 (P1.8) makes `applications.job_id` unique (one application per job); every status change appends an
+`application_events` row (append-only) in the same user-action transaction.
 `filter_results.reasons` shape: `{primary, failed: [{rule, category, detail}], work_mode,
 remote_eligibility, salary: {min, max, period, annual_max, text} | null, clearance_mention}`;
 categories `title_family`, `seniority`, `location`, `compensation`, `other`.
@@ -642,6 +644,23 @@ only by the Rust host.**
   15 s keepalive; ends when the agent stops so it never blocks shutdown). The host's
   `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
   action and the stream is relayed by the host.
+- **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Rejected and
+  All views; search), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
+  table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
+  REVIEW questions grouped across jobs, Profile (items by kind, typed eligibility-fact forms built from
+  `GET /v1/profile/schema`, verify/unverify, completeness, resumes, inferred claims, import of a reviewed JSON file, all
+  self-reported), Applications, Dashboard, Preferences (search profile form + full rules JSON, model configs). Views reload
+  on the agent events that concern them and when the agent becomes reachable; no view polls the database.
+  Agent routes added: `GET /v1/jobs?view=recommended|rejected|all&q=&limit=&offset=`, `GET /v1/jobs/{id}`,
+  `PUT /v1/jobs/{id}/application`, `GET /v1/applications`, `GET /v1/profile/schema`. Recommendation rows carry `current`
+  and `newer_evaluation_pending`. Every route the window calls is in `desktop/src/api.ts`; a test fails if one is not served.
+  UI types are written by hand (the routes return plain JSON objects with no response models, so the D14 plan of
+  generating them from OpenAPI had nothing to generate; corrected in P1.8).
+- **Host bridge (P1.8):** `agent_call(method, path, body?)` (GET/POST/PUT/PATCH/DELETE, JSON; 4xx/5xx come back with the
+  agent's own message), `agent_upload(path, bytes)` (resumes only, raw bytes), `open_url(url)` (system browser; http(s)
+  only, no credentials, no control characters, <= 2048 chars; `javascript:`, `file:`, `ms-settings:`, UNC refused). The
+  event relay keeps its cursor in `<data root>\host\event_cursor`, so a restarted host resumes from it (before P1.8 a
+  restarted host started from "now" and events committed while it was down were never delivered).
 - **Host command line:** `JobForge.exe [--background] [--exit] [--autostart on|off]`; with a
   host already running, the single-instance plugin forwards the arguments to it.
 - **API surface** (same routes as rev 3, now under `/v1`): health, status
@@ -1266,10 +1285,15 @@ section 2. Spike P1.0d proves it before the decision is final (9).
   (user-only DACL, verified at startup), never logged, never sent to the
   webview.
 - **Webview hardening.** Strict CSP (no remote scripts, no `unsafe-eval`),
-  Tauri capabilities limited to `agent_call`, window and tray commands. Job
+  Tauri capabilities limited to core window/event permissions and the app's own commands (`agent_call`, `agent_upload`,
+  `open_url`, `supervisor_status`; no shell, fs, http or dialog plugins). Job
   descriptions are untrusted HTML from employers: rendered as sanitized HTML
   (DOMPurify, no scripts, no event handlers, links open in the system browser
-  via an explicit allow-list) or as plain text. A test posting containing
+  via an explicit allow-list) or as plain text. Implemented in P1.8 (`desktop/src/sanitize.ts`): allowed tags are
+  formatting only; attributes `href`/`title`; no `style`, images, SVG/MathML, iframes or forms; hrefs must be http(s);
+  Greenhouse's entity-escaped HTML is decoded once **before** sanitizing. Link clicks are intercepted and go to the host's
+  `open_url`; the webview never navigates. Destructive actions use an inline two-step button (the window has no dialog
+  plugin). A test posting containing
   `<script>` and `onerror=` must render inert.
 - **Verified-experience protection** via authorizer, CHECK, FK and append-only
   triggers (4.3), with the honest limit stated there.

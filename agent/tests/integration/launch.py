@@ -7,7 +7,10 @@ that file because explorer does not inherit ours.
 """
 from __future__ import annotations
 
+import atexit
 import os
+import secrets
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -17,6 +20,19 @@ from pathlib import Path
 from jobforge_agent import winutil
 
 PYTHON = sys.executable
+
+
+def user_temp_dir(prefix: str = "jf_launch_") -> Path:
+    """A folder for one generated .cmd, removed when this test process exits (Explorer has run it
+    by then). Until P1.8 these were never removed: 525 jf_launch_* folders had piled up in %TEMP%.
+    Not tempfile.mkdtemp: since Python 3.13 it gives the folder an owner-only ACL, and from an
+    elevated test process the owner is Administrators, so the unelevated Explorer that must run
+    the .cmd cannot open it ("Windows cannot access the specified device, path, or file", P1.8).
+    A plain mkdir inherits %TEMP%'s ACL, which grants the signed-in user."""
+    folder = Path(tempfile.gettempdir()) / f"{prefix}{secrets.token_hex(6)}"
+    folder.mkdir()
+    atexit.register(shutil.rmtree, folder, True)
+    return folder
 
 
 def _cmd_line(args: list[str]) -> str:
@@ -29,7 +45,7 @@ def start_agent(data_dir: Path, *args: str) -> subprocess.Popen | None:
     if not winutil.is_elevated():
         return subprocess.Popen([PYTHON, "-m", "jobforge_agent", *args], env={**os.environ, **env},
                                 creationflags=winutil.CREATE_NO_WINDOW)
-    folder = Path(tempfile.mkdtemp(prefix="jf_launch_"))
+    folder = user_temp_dir()
     cmd = folder / "start.cmd"
     cmd.write_text("@echo off\r\n" + "".join(f'set "{k}={v}"\r\n' for k, v in env.items())
                    + f'start "" /min {_cmd_line(list(args))}\r\n', encoding="ascii")
@@ -43,7 +59,7 @@ def run_agent(data_dir: Path, *args: str, timeout: float = 60) -> int:
     if not winutil.is_elevated():
         return subprocess.run([PYTHON, "-m", "jobforge_agent", *args], env={**os.environ, **env},
                               creationflags=winutil.CREATE_NO_WINDOW, timeout=timeout).returncode
-    folder = Path(tempfile.mkdtemp(prefix="jf_launch_"))
+    folder = user_temp_dir()
     cmd, marker = folder / "run.cmd", folder / "exit.txt"
     cmd.write_text("@echo off\r\n" + "".join(f'set "{k}={v}"\r\n' for k, v in env.items())
                    + f"{_cmd_line(list(args))}\r\n" + f'echo %ERRORLEVEL% > "{marker}"\r\n', encoding="ascii")

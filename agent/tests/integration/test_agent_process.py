@@ -18,7 +18,7 @@ from jobforge_agent.db import migrate
 from jobforge_agent.instance_lock import InstanceLock
 from jobforge_agent.paths import Paths
 
-from launch import run_agent, start_agent
+from launch import run_agent, start_agent, user_temp_dir
 
 pytestmark = pytest.mark.integration
 
@@ -64,8 +64,10 @@ def _runs(paths: Paths) -> list[tuple]:
 
 
 @pytest.fixture
-def agent_paths(tmp_path):
-    p = Paths(tmp_path / "jf")
+def agent_paths():
+    # Not tmp_path: pytest's temp tree is owner-only, and from an elevated test process the owner is
+    # Administrators, so the unelevated agent under test could not create its data there (P1.8).
+    p = Paths(user_temp_dir("jf_data_") / "jf")
     yield p
     # Never leave an agent running after a test.
     info = ipc.read_ipc_file(p.ipc)

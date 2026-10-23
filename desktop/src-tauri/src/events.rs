@@ -1,15 +1,18 @@
 //! Relays the agent's Server-Sent Events to the webview as `agent-event` (ARCHITECTURE 5).
 //!
 //! Reconnects after any error, resuming from the last event id, so an agent restart or a
-//! dropped connection loses nothing.
+//! dropped connection loses nothing. The id is also kept in `<data root>\host\event_cursor`,
+//! so a host restart resumes from it too (P1.8: before, a restarted host started from "now" and
+//! events committed while it was down were never delivered). The agent keeps 7 days of events.
 
 use std::io::{BufRead, BufReader};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter};
 
-use crate::paths::host_log;
+use crate::paths::{event_cursor_file, host_log};
 use crate::supervisor::{open_event_stream, Supervisor};
 
 /// Parses one SSE stream; calls `on_event(id, data)` per complete event. Returns at end of stream.
@@ -38,15 +41,39 @@ pub fn parse_sse<R: BufRead>(reader: R, mut on_event: impl FnMut(Option<u64>, &s
     Ok(())
 }
 
+pub fn read_cursor(path: &Path) -> Option<u64> {
+    std::fs::read_to_string(path).ok()?.trim().parse().ok()
+}
+
+/// Atomic replace, so a crash mid-write never leaves a half-written cursor.
+pub fn write_cursor(path: &Path, id: u64) -> std::io::Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let tmp = path.with_extension("tmp");
+    std::fs::write(&tmp, id.to_string())?;
+    std::fs::rename(&tmp, path)
+}
+
 pub fn relay(app: AppHandle, sup: Arc<Supervisor>) {
-    let mut last_id: Option<u64> = None;
+    let cursor = event_cursor_file();
+    let mut last_id: Option<u64> = read_cursor(&cursor);
     while !sup.is_exiting() {
         match open_event_stream(last_id) {
             Ok(resp) => {
+                host_log(&format!("event_stream_connected after={}", last_id.map(|i| i.to_string()).unwrap_or_else(|| "now".into())));
+                let mut first = true;
                 let reader = BufReader::new(resp.into_reader());
                 let result = parse_sse(reader, |id, data| {
                     if let Some(i) = id {
+                        if first {
+                            host_log(&format!("event_stream_first_event id={i}"));
+                            first = false;
+                        }
                         last_id = Some(i);
+                        if let Err(e) = write_cursor(&cursor, i) {
+                            host_log(&format!("event_cursor_write_failed: {e}"));
+                        }
                     }
                     if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
                         let _ = app.emit("agent-event", value);
@@ -65,6 +92,19 @@ pub fn relay(app: AppHandle, sup: Arc<Supervisor>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cursor_survives_a_restart() {
+        let dir = std::env::temp_dir().join(format!("jf_cursor_{}", std::process::id()));
+        let path = dir.join("host").join("event_cursor");
+        assert_eq!(read_cursor(&path), None);
+        write_cursor(&path, 41).unwrap();
+        write_cursor(&path, 42).unwrap();
+        assert_eq!(read_cursor(&path), Some(42));
+        std::fs::write(&path, "garbage").unwrap();
+        assert_eq!(read_cursor(&path), None); // unreadable cursor: start from now, never crash
+        let _ = std::fs::remove_dir_all(dir);
+    }
 
     #[test]
     fn parses_events_ignores_comments_and_tracks_ids() {
