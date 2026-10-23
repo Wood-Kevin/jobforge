@@ -170,7 +170,7 @@ def test_end_to_end_recommendation_with_evidence_and_no_open_transaction(env, ca
 
     rec = dict(env.db.execute("SELECT * FROM recommendations").fetchone())
     assert (rec["evaluation_id"], rec["search_profile_id"], rec["verdict_rule_version"], rec["eligibility"]) == (
-        ev["id"], env.ids["profile"], "v1", "ELIGIBLE")
+        ev["id"], env.ids["profile"], "v2", "ELIGIBLE")
     assert rec["fit"] == "COMPETITIVE" and rec["recommendation"] == "APPLY"  # 1 minor gap, 1 transferable, 0 unknown negotiable
     assert json.loads(rec["fit_counts"])["self_reported_covering"] == 1
     assert "self-reported" in json.loads(rec["decisive_reasons"])[0]["detail"]
@@ -242,7 +242,7 @@ def test_rules_v2_checks_a_type_only_conflict_under_both_readings(env):
     assert asyncio.run(e.run_once()) == "done"
     calls = server.chat_calls
     profile = store.filter_pipeline.active_profile(env.ev)
-    assert store.recompute(env.ev, profile, NOW, rule_version="v2") == 1 and server.chat_calls == calls
+    assert store.recompute(env.ev, profile, NOW, rule_version="v1") == 1 and server.chat_calls == calls  # v2 is active
     got = {r[0]: (r[1], r[2]) for r in db.execute("SELECT verdict_rule_version, eligibility, recommendation FROM recommendations")}
     assert got == {"v1": ("UNKNOWN", "REVIEW"), "v2": ("ELIGIBLE", "APPLY")}
     reason = json.loads(db.execute("SELECT eligibility_reasons FROM recommendations WHERE verdict_rule_version = 'v2'").fetchone()[0])[0]
@@ -447,7 +447,7 @@ def test_rule_change_recomputes_with_zero_inference_calls(env, monkeypatch):
     r = e.sync()
     assert r.recomputed == 1 and server.chat_calls == calls
     versions = [x[0] for x in env.db.execute("SELECT verdict_rule_version FROM recommendations ORDER BY id")]
-    assert versions == ["v1", "v1-recompute-test"]
+    assert versions == ["v2", "v1-recompute-test"]
     assert e.sync().recomputed == 0  # idempotent
 
 

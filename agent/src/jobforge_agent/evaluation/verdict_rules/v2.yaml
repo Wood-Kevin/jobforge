@@ -1,5 +1,5 @@
-# Verdict rules v2: v1 plus one eligibility rule (proposed in P1.7, Kevin asked for it to be built
-# and measured against v1; active only when VERDICT_RULE_VERSION says so).
+# Verdict rules v2: v1 plus one eligibility rule. Built and measured in P1.7; made the active version by
+# Kevin 2026-10-23 (v1 stays for comparison with scripts/compare_verdict_rules.py).
 #
 # A hard requirement whose ONLY interpretation conflict is the eligibility type (P1.7 live: all 10
 # hard conflicts in 42 postings, mostly Gemma typing a residency rule "work_authorization") is

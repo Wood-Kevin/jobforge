@@ -23,7 +23,15 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
                   r"|\bts ?/ ?sci\b|\bts-sci\b|\bsci\b|\bpolygraph\b|\bpublic trust\b"),
     ("residency", r"\breside\b|\bresiding\b|\bresidency\b|\bresident of\b|\bcommut(e|ing|able) distance\b|\bcommutable\b"
                   r"|\bmust (live|be located|be based)\b|\b(live|located|based) within\b|\bwithin \d+ miles\b"
-                  r"|\b(candidates|applicants) (located|based|residing|living) in\b"),
+                  r"|\b(candidates|applicants) (located|based|residing|living) in\b"
+                  # interp-v2 (P1.7 profile run, Keeper): "be local to the El Dorado Hills area" and
+                  # "on-site a minimum of 3 days per week" were read as experience. "Local to" counts only
+                  # for a person ("be local to") or a place ("local to the ... area/office"), not "data
+                  # local to each node"; on-site/in-office counts only with a days-per-week attendance,
+                  # not "provide on-site support".
+                  r"|\bbe local to\b|\blocal to (the |our )?[\w .,'-]{1,40}\b(area|office|region|metro|city|campus|site)\b"
+                  r"|\b(on-?site|in[- ]office|in the office|in person)\b[^.;]{0,30}?\b(\d|one|two|three|four|five)\s*(\+\s*)?"
+                  r"(days?|x)\s*(a|per|each|every)\s*week\b"),
     ("physical", r"\blift(ing)?\b[^.]{0,30}\b(\d+ ?(lbs?|pounds)|heavy)\b|\b\d+ ?(lbs?|pounds)\b|\bstand(ing)? for (long|extended|\d+)"
                  r"|\bphysical (demands|requirements)\b|\bclimb(ing)? ladders\b"),
     ("travel", r"\btravel\b[^.]{0,20}\b\d+ ?%|\b\d+ ?% (of the time )?travel\b|\bwilling(ness)? to travel\b|\bability to travel\b"

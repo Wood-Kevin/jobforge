@@ -4,4 +4,4 @@ VERDICT_RULE_VERSION with a new verdict_rules/vN.yaml when E5/E6 change (recompu
 model calls)."""
 
 MATCH_PROMPT_VERSION = "m1-v1"
-VERDICT_RULE_VERSION = "v1"
+VERDICT_RULE_VERSION = "v2"  # Kevin 2026-10-23: type-only conflicts checked under both readings (v1 kept for comparison)

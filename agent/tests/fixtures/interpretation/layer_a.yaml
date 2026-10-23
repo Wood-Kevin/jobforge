@@ -402,3 +402,41 @@
     NGINX: {final_class: preferred, interpretation_status: confirmed, flags: [wording_overrides_section]}
     "Excellent problem-solving skills": {final_class: negotiable, interpretation_status: confirmed}
     "Ability to work remotely": {final_class: negotiable, interpretation_status: confirmed}
+
+# ----- P1.7 profile run: location rules the residency lexicon missed (Keeper, real lines) -----
+
+- id: elig_local_to_area
+  area: eligibility
+  # Gemma gave no eligibility type; E2 had no cue either, so it reached Kevin as an experience question.
+  text: "Requirements:\n- This role requires candidates to be local to the El Dorado Hills area."
+  model: [{quote: "This role requires candidates to be local to the El Dorado Hills area"}]
+  expect: {"This role requires candidates to be local to the El Dorado Hills area": {final_class: hard,
+           interpretation_status: conflict, eligibility_type: residency}}
+
+- id: elig_onsite_days_per_week
+  area: eligibility
+  text: "Requirements:\n- Must work on-site a minimum of 3 days per week at our Austin office."
+  model: [{quote: "Must work on-site a minimum of 3 days per week at our Austin office"}]
+  expect: {"Must work on-site a minimum of 3 days per week at our Austin office": {final_class: hard,
+           interpretation_status: conflict, eligibility_type: residency}}
+
+- id: elig_in_office_days_recall
+  area: recall
+  text: "About the role:\nYou will run the help desk.\n\nRequirements:\n- 2+ years of help desk experience.\n- You will be in the office three days a week."
+  model: [{quote: "2+ years of help desk experience", min_years: 2}]
+  recall: [residency]
+
+- id: not_elig_onsite_support_duty
+  area: eligibility
+  # A duty, not a condition on where the candidate lives.
+  text: "Responsibilities:\n- Provide on-site support to users across three offices."
+  model: [{quote: "Provide on-site support to users across three offices"}]
+  expect: {"Provide on-site support to users across three offices": {eligibility_type: null}}
+  recall: []
+
+- id: not_elig_local_to_node
+  area: eligibility
+  text: "Requirements:\n- Experience caching data local to each node."
+  model: [{quote: "Experience caching data local to each node"}]
+  expect: {"Experience caching data local to each node": {eligibility_type: null, final_class: negotiable}}
+  recall: []

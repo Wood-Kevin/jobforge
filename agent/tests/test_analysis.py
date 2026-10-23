@@ -17,6 +17,7 @@ from conftest import NOW, seed_basics
 from jobforge_agent import ipc
 from jobforge_agent.agent import AgentRuntime
 from jobforge_agent.analysis import extract, store
+from jobforge_agent.analysis.versions import EXTRACTION_PROMPT_VERSION, INTERPRETER_VERSION, SEGMENTER_VERSION
 from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db.connect import open_connection
 from jobforge_agent.filtering import pipeline
@@ -117,8 +118,9 @@ def logged(caplog, capsys) -> str:
 def queue(db, ids, raw=None, job=None) -> int:
     return db.execute(
         "INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
-        "interpreter_version, created_at_ms) VALUES (?, ?, ?, 'e1-v1', 'seg-v1', 'interp-v1', ?) RETURNING id",
-        (raw or ids["raw7"], job or ids["job7"], ids["model"], NOW)).fetchone()[0]
+        "interpreter_version, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id",
+        (raw or ids["raw7"], job or ids["job7"], ids["model"], EXTRACTION_PROMPT_VERSION, SEGMENTER_VERSION,
+         INTERPRETER_VERSION, NOW)).fetchone()[0]
 
 
 def row(db, aid):

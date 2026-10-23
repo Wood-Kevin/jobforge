@@ -839,6 +839,11 @@ compares it to the model's:
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
   `quote_not_found`, `unextracted_eligibility`.
+- **`interp-v2` (P1.7, from the real profile run):** the residency lexicon also reads "be local to" / "local to the ... area,
+  office, region, metro, city, campus, site" and on-site / in-office attendance with a days-per-week count. Keeper's "be local
+  to the El Dorado Hills area" and "on-site a minimum of 3 days per week" had reached Kevin as experience questions instead of
+  eligibility. Not "data local to each node" or "provide on-site support" (layer-A controls). Precision check over all 13,493
+  stored postings: 542 matching sentences, 127 distinct, a sample of 25 all genuine location or attendance conditions.
 - **Benefits and about text can hold eligibility conditions** (P1.6 live, 5 of the first 8
   real postings: Vultr's state-residency list under "Compensation", Lyft's "must be based in the
   US" under "Benefits:"). A quote with an eligibility cue in a benefits or about section keeps the
@@ -1051,7 +1056,7 @@ only because Gemma typed it `work_authorization`; under the rule "any conflictin
 requirement -> UNKNOWN" such a job is REVIEW whatever the profile says, a question no profile
 answer resolves. Left as written (it is Kevin's rule); the evidence file counts how many
 REVIEWs come only from such type-only conflicts (DEFERRED_COMPLEXITY.md).
-Rules **v2** (`verdict_rules/v2.yaml`, built for measurement, not active) checks a type-only
+Rules **v2** (`verdict_rules/v2.yaml`, **active since 2026-10-23**, Kevin's decision after the measurement; v1 kept for comparison) checks a type-only
 conflict under both readings, the code's type and the model's, through the evaluated snapshot's facts
 (`store.write_recommendation` passes `alt_check`); it is answered only when verified facts meet both (a
 model type of `none` adds no condition), and still never blocks. Compare with

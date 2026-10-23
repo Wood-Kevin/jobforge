@@ -242,3 +242,13 @@ database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_7replay\data\jobforg
 - Pre-review code on the same answers: SKIP 9 / REVIEW 30 / STRETCH 5. The Codex finding (uncited gaps) moved
   8 SKIP and 2 STRETCH to REVIEW.
 - Thresholds are not tuned here: 6.5 / Q16 tune them against the golden-set labels (P1.9), with his real profile.
+
+== Follow-ups (2026-10-23)
+- Reuse of stored E3 answers (migration 0005): in a copy of the replayed data, verifying one cert re-evaluated
+  all 44 jobs in 0.2 s, 0 model calls (transport raised on any call).
+- interp-v2 (residency cues "local to", on-site days per week): over all 13,493 stored postings the new patterns
+  match 542 sentences (127 distinct); a random sample of 25 were all genuine location/attendance conditions.
+  In an evidence copy with the real profile: 44 analyses re-run with E1 replayed (0 calls), E3 reused on 41 of 44
+  (3 Gemma calls, 1.9 min); 4 location rules that had been read as experience are now hard residency rows
+  (status conflict: the model gave no type), never a block. Per-job results with the real profile are not kept here.
+- Rules v2 made active (Kevin).
