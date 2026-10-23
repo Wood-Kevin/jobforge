@@ -9,10 +9,12 @@ import Jobs from "./pages/Jobs";
 import Preferences from "./pages/Preferences";
 import Profile from "./pages/Profile";
 import Review from "./pages/Review";
+import Setup from "./pages/Setup";
+import { api } from "./api";
 
-type Page = "dashboard" | "jobs" | "review" | "profile" | "applications" | "preferences";
-const PAGES: [Page, string][] = [["jobs", "Jobs"], ["review", "REVIEW questions"], ["profile", "Profile"],
-  ["applications", "Applications"], ["dashboard", "Dashboard"], ["preferences", "Preferences"]];
+type Page = "setup" | "dashboard" | "jobs" | "review" | "profile" | "applications" | "preferences";
+const PAGES: [Page, string][] = [["jobs", "Jobs"], ["review", "Needs your input"], ["profile", "Your profile"],
+  ["applications", "Applications"], ["dashboard", "Status"], ["preferences", "Preferences"], ["setup", "Setup"]];
 
 export default function App() {
   const [page, setPage] = useState<Page>("jobs");
@@ -23,6 +25,12 @@ export default function App() {
     const un = onSupervisorChange(setSup);
     return () => { un.then((fn) => fn()); };
   }, []);
+  // First run: open the setup guide until companies, a search profile and the model are in place.
+  const [checkedSetup, setCheckedSetup] = useState(false);
+  useEffect(() => {
+    if (checkedSetup || sup?.state !== "running") return;
+    api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setCheckedSetup(true); }).catch(() => undefined);
+  }, [sup, checkedSetup]);
   const go = (p: Page) => { setJob(null); setPage(p); };
   const open = (id: number) => setJob(id);
   useEffect(() => { window.scrollTo(0, 0); }, [page, job]); // a new view starts at its top
@@ -34,16 +42,17 @@ export default function App() {
         <h1>JobForge</h1>
         {PAGES.map(([p, label]) => (
           <button key={p} className={page === p && job === null ? "nav active" : "nav"} onClick={() => go(p)}>{label}</button>))}
-        <p className="muted foot"><span className={`dot ${sup?.state ?? "starting"}`} /> agent {sup?.state?.replace(/_/g, " ") ?? "connecting"}</p>
+        <p className="muted foot"><span className={`dot ${sup?.state ?? "starting"}`} /> {sup?.state === "running" ? "Running in the background" : sup?.state === "starting" || !sup ? "Starting..." : "Not running - see Status"}</p>
       </nav>
       <main>
         {down && <p className="banner">{supervisorText(sup!)}</p>}
         {job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
-          : page === "dashboard" ? <Dashboard sup={sup} />
+          : page === "dashboard" ? <Dashboard sup={sup} onSetup={() => go("setup")} />
           : page === "jobs" ? <Jobs onOpen={open} />
           : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
           : page === "profile" ? <Profile />
           : page === "applications" ? <Applications onOpen={open} />
+          : page === "setup" ? <Setup onDone={() => go("jobs")} />
           : <Preferences />}
         <p className="muted">Closing this window keeps JobForge running in the tray. Use the tray menu to exit.</p>
       </main>

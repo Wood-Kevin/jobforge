@@ -27,7 +27,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
         <div className="tabs">
           {(["recommended", "rejected", "all"] as View[]).map((v) => (
             <button key={v} className={view === v ? "tab active" : "tab"} onClick={() => setView(v)}>
-              {v === "recommended" ? "Recommended" : v === "rejected" ? "Rejected by filter" : "All open"}</button>))}
+              {v === "recommended" ? "For you" : v === "rejected" ? "Filtered out" : "Everything found"}</button>))}
         </div>
         {view === "recommended" && (
           <div className="chips">{(["APPLY", "STRETCH", "REVIEW", "SKIP"] as Category[]).map((c) => (
@@ -36,9 +36,9 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
           </div>)}
         <ErrorBox error={list.error} />
         {list.loading && !list.data ? <p className="muted">Loading...</p> : rows.length === 0 ? (
-          <p className="muted">{view === "recommended" ? "No jobs in the selected categories yet." : "Nothing here."}</p>) : (
+          <p className="muted">{view === "recommended" ? "No jobs here yet. New postings are checked every 15 minutes and each one is read by the AI model before it shows up here. Jobs that need an answer from you are under Needs your input." : "Nothing here."}</p>) : (
           <table className="jobs">
-            <thead><tr><th>Job</th><th>{view === "rejected" ? "Filter reason" : "Recommendation"}</th><th>Eligibility</th><th>Fit</th><th>Value</th><th>Seen</th></tr></thead>
+            <thead><tr><th>Job</th><th>{view === "rejected" ? "Why it was filtered out" : "Recommendation"}</th><th>Eligibility</th><th>Fit</th><th>Pay, place, level</th><th>Found</th></tr></thead>
             <tbody>{rows.map((j) => <Row key={j.id} j={j} view={view} onOpen={onOpen} />)}</tbody>
           </table>)}
         <p className="muted">{rows.length} shown{list.data ? ` of ${list.data.total}` : ""}</p>
@@ -53,11 +53,21 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
     <tr className="clickable" onClick={() => onOpen(j.id)}>
       <td><strong>{j.title}</strong><div className="muted">{j.company}{j.location ? ` · ${j.location}` : ""}
         {j.application_status && <> · <Badge value={j.application_status} /></>}</div></td>
-      <td>{view === "rejected" ? <span className="muted">{j.filter_primary}{j.override ? " (evaluate anyway)" : ""}</span>
-        : r ? <><Badge value={r.recommendation} />{!r.current && <span className="muted" title="computed against an earlier profile; re-evaluation pending"> (updating)</span>}</>
-        : <span className="muted">{j.filter_verdict === "pass" ? "not evaluated yet" : "-"}</span>}</td>
+      <td>{view === "rejected" ? <span className="muted">{filterReason(j.filter_primary)}{j.override ? " (assessing anyway)" : ""}</span>
+        : r ? <><Badge value={r.recommendation} />{!r.current && <span className="muted" title="based on your profile before your latest edit"> (updating)</span>}</>
+        : <span className="muted">{j.filter_verdict === "pass" ? "being read" : "-"}</span>}</td>
       <td><Badge value={r?.eligibility} /></td><td><Badge value={r?.fit} /></td><td><Badge value={r?.opportunity} /></td>
       <td className="muted">{ago(j.first_seen_at_ms)}</td>
     </tr>
   );
+}
+
+function filterReason(primary: string | null): string {
+  const r = (primary ?? "").split(":")[0];
+  const text: Record<string, string> = {
+    TITLE_NO_MATCH: "Title not on your list", TITLE_SENIORITY: "Level too senior", TITLE_NON_IT: "A field you skip",
+    LOCATION_NOT_ELIGIBLE: "On-site, too far", REMOTE_EXCLUDES_HOME: "Remote, not open where you live",
+    REMOTE_ANCHORED: "Tied to an office elsewhere", STALE_POSTING: "Too old", SALARY_BELOW_FLOOR: "Pay below your minimum",
+  };
+  return text[r] ?? "Doesn't match your search";
 }

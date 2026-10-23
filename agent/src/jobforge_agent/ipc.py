@@ -316,6 +316,65 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         a = runtime.job_analysis(job_id)
         return a if a is not None else JSONResponse({"error": "no finished analysis for this job"}, status_code=404)
 
+    # ----- first-run setup (P1.8b): plain inputs, never JSON or patterns from the user -----
+
+    async def _text_body(request: Request) -> str | None:
+        body = await _body(request)
+        return body.get("text") if isinstance(body, dict) and isinstance(body.get("text"), str) else None
+
+    @app.get("/v1/setup/status")
+    async def setup_status():
+        return runtime.setup_status()
+
+    @app.get("/v1/search-profile/form")
+    async def search_profile_form():
+        return runtime.search_profile_form()
+
+    @app.post("/v1/search-profile/form")
+    async def save_search_profile_form(request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        try:
+            return runtime.save_search_profile_form(body)
+        except ProfileError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
+    @app.post("/v1/search-profile/import-scanner")
+    async def import_scanner_config(request: Request):
+        text = await _text_body(request)
+        if text is None:
+            return JSONResponse({"error": "send the file's text as {\"text\": ...}"}, status_code=422)
+        try:
+            return runtime.import_scanner_config(text)
+        except (ValueError, ProfileError) as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
+    @app.post("/v1/employers/add")
+    async def add_employers(request: Request):
+        text = await _text_body(request)
+        if text is None:
+            return JSONResponse({"error": "send the links as {\"text\": ...}"}, status_code=422)
+        return runtime.add_employers_from_text(text)
+
+    @app.post("/v1/employers/import-watchlist")
+    async def import_watchlist(request: Request):
+        text = await _text_body(request)
+        if text is None:
+            return JSONResponse({"error": "send the file's text as {\"text\": ...}"}, status_code=422)
+        try:
+            return runtime.import_watchlist_text(text)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
+    @app.post("/v1/employers/{employer_id}/enable")
+    async def enable_employer(employer_id: int):
+        return {"enabled": True} if runtime.set_employer_enabled(employer_id, True) else JSONResponse({"error": "unknown employer"}, status_code=404)
+
+    @app.post("/v1/employers/{employer_id}/disable")
+    async def disable_employer(employer_id: int):
+        return {"enabled": False} if runtime.set_employer_enabled(employer_id, False) else JSONResponse({"error": "unknown employer"}, status_code=404)
+
     # ----- window read models and applications (P1.8) -----
 
     @app.get("/v1/jobs")

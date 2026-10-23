@@ -1,6 +1,7 @@
 // Shared hooks and small components for the window.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AgentError, onAgentEvent, onSupervisorChange, type ChangeEvent } from "./agent";
+import { plain } from "./labels";
 
 /** Loads data, and loads it again when an agent event of one of `types` arrives (live refresh,
  * ARCHITECTURE 5: the host relays the agent's events; nothing polls the database). `types` empty =
@@ -90,12 +91,13 @@ const TONE: Record<string, string> = {
   verified: "ok", self_reported: "muted", none: "muted",
   confirmed: "ok", conflict: "warn", unverifiable: "bad",
   favorable: "ok", neutral: "muted", unfavorable: "bad",
-  pass: "ok", reject: "bad",
+  pass: "ok", reject: "bad", material: "bad", minor: "warn", hard: "bad", negotiable: "info", preferred: "muted",
+  saved: "info", applied: "ok", interviewing: "ok", offer: "ok", rejected: "bad", withdrawn: "muted",
 };
 
 export function Badge({ value, title }: { value: string | null | undefined; title?: string }) {
   if (!value) return null;
-  return <span className={`badge ${TONE[value] ?? "muted"}`} title={title}>{value.replace(/_/g, " ")}</span>;
+  return <span className={`badge ${TONE[value] ?? "muted"}`} title={title}>{plain(value)}</span>;
 }
 
 export function ago(ms: number | null | undefined): string {

@@ -1,6 +1,6 @@
 // Profile (P1.8): experience items, typed eligibility facts, verify, completeness, resumes, the
 // inferred-claims inbox, and import of a reviewed profile file. Everything created here is
-// self-reported; "verified" only ever comes from the Verify button (SPEC D2, Q6).
+// self-reported; "verified" only ever comes from the Confirm button (verify route; SPEC D2, Q6).
 import { useState, type ChangeEvent } from "react";
 import { api, type Item, type Schema } from "../api";
 import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
@@ -51,8 +51,8 @@ function ItemRow({ item, reload }: { item: Item; reload: () => void }) {
         {item.years !== null && <span className="muted">{item.years} yrs</span>}
         <span className="actions">
           {item.status === "verified"
-            ? <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.unverifyItem(item.id); reload(); })}>Unverify</button>
-            : <button className="small primary" disabled={act.busy} onClick={() => act.run(async () => { await api.verifyItem(item.id, null); reload(); })}>Verify</button>}
+            ? <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.unverifyItem(item.id); reload(); })}>Undo confirm</button>
+            : <button className="small primary" disabled={act.busy} onClick={() => act.run(async () => { await api.verifyItem(item.id, null); reload(); })} title="Confirm this is accurate">Confirm</button>}
           <button className="small" onClick={() => setEditing(true)}>Edit</button>
           <ConfirmButton label="Delete" disabled={act.busy} onConfirm={() => act.run(async () => { await api.deleteItem(item.id); reload(); })} />
         </span>
@@ -81,7 +81,7 @@ function ItemForm({ kind, item, onSaved, onCancel }: { kind: string; item?: Item
         <input value={start} onChange={(e) => setStart(e.target.value)} placeholder="start YYYY-MM" />
         <input value={end} onChange={(e) => setEnd(e.target.value)} placeholder="end YYYY-MM (empty = present)" />
       </div>}
-      {item?.status === "verified" && <p className="muted">Changing what this item says clears its verification.</p>}
+      {item?.status === "verified" && <p className="muted">Changing what this says removes its confirmation; confirm it again after.</p>}
       <div className="row"><button className="primary" disabled={act.busy || !statement.trim()} onClick={save}>Save</button>
         {onCancel && <button onClick={onCancel}>Cancel</button>}</div>
       <ErrorBox error={act.error} />
@@ -94,8 +94,8 @@ function ItemForm({ kind, item, onSaved, onCancel }: { kind: string; item?: Item
 function Facts({ schema, items, reload }: { schema: Schema; items: Item[]; reload: () => void }) {
   return (
     <Card title="Eligibility facts">
-      <p className="muted">Checked by code against hard requirements (citizenship, residency, clearance...). A fact decides a
-        job only once you verify it; a self-reported fact leaves eligibility UNKNOWN.</p>
+      <p className="muted">Things like citizenship, where you live and clearance. JobForge checks job requirements against these
+        itself (not the AI). A fact only settles a job once you confirm it.</p>
       <table className="facts"><tbody>
         {Object.entries(schema.eligibility).map(([type, fields]) => {
           const existing = items.filter((i) => i.attributes.type === type);
@@ -126,8 +126,8 @@ function FactRow({ type, fields, item, reload }: { type: string; fields: Schema[
       <th>{title(type)}</th>
       <td>{item ? <><Badge value={item.status} /> {item.statement} <span className="muted">{fmtAttrs(item.attributes)}</span></> : <span className="muted">not declared</span>}</td>
       <td className="actions">
-        {item && item.status !== "verified" && <button className="small primary" disabled={act.busy} onClick={() => act.run(async () => { await api.verifyItem(item.id, null); reload(); })}>Verify</button>}
-        {item && item.status === "verified" && <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.unverifyItem(item.id); reload(); })}>Unverify</button>}
+        {item && item.status !== "verified" && <button className="small primary" disabled={act.busy} onClick={() => act.run(async () => { await api.verifyItem(item.id, null); reload(); })}>Confirm</button>}
+        {item && item.status === "verified" && <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.unverifyItem(item.id); reload(); })}>Undo confirm</button>}
         <button className="small" onClick={() => setEditing(true)}>{item ? "Edit" : "Declare"}</button>
         <ErrorBox error={act.error} />
       </td>
@@ -165,7 +165,7 @@ function Completeness({ c, reload }: { c: { cert_list_complete: boolean; eligibi
   if (!c) return null;
   const toggle = (k: "cert_list_complete" | "eligibility_facts_complete") => act.run(async () => { await api.setCompleteness({ [k]: !c[k] }); reload(); });
   return (
-    <Card title="Completeness">
+    <Card title="Is your profile complete?">
       <label className="check"><input type="checkbox" checked={c.cert_list_complete} onChange={() => toggle("cert_list_complete")} disabled={act.busy} />
         My certification list is complete <span className="muted">(a cert not listed counts as a gap instead of unknown)</span></label>
       <label className="check"><input type="checkbox" checked={c.eligibility_facts_complete} onChange={() => toggle("eligibility_facts_complete")} disabled={act.busy} />
@@ -189,7 +189,7 @@ function parseImport(text: string): { items: ImportItem[]; completeness?: Record
 
 const ITEM_FIELDS = ["kind", "statement", "attributes", "start_date", "end_date", "years", "source"] as const;
 
-function Import({ existing, onDone }: { existing: Item[]; onDone: () => void }) {
+export function Import({ existing, onDone }: { existing: Item[]; onDone: () => void }) {
   const act = useAction();
   const [plan, setPlan] = useState<{ name: string; items: ImportItem[]; dupes: number; completeness?: Record<string, boolean> } | null>(null);
   const [report, setReport] = useState<string[]>([]);
@@ -206,7 +206,7 @@ function Import({ existing, onDone }: { existing: Item[]; onDone: () => void }) 
       setPlan({ name: f.name, items: fresh, dupes: parsed.items.length - fresh.length, completeness: parsed.completeness });
     } catch (err) {
       setPlan(null);
-      setReport([`Not a profile file: ${String(err)}`]);
+      setReport(["This does not look like a profile file."]);
     }
   };
   const run = () => act.run(async () => {
@@ -218,14 +218,14 @@ function Import({ existing, onDone }: { existing: Item[]; onDone: () => void }) 
       catch (e) { out.push(`${raw.kind}: "${raw.statement.slice(0, 60)}" - ${e instanceof Error ? e.message : String(e)}`); }
     }
     if (plan!.completeness && Object.keys(plan!.completeness).length) await api.setCompleteness(plan!.completeness);
-    setReport([`Imported ${ok} of ${plan!.items.length} (all self-reported).`, ...out]);
+    setReport([`Added ${ok} of ${plan!.items.length} (not confirmed yet).`, ...out]);
     setPlan(null);
     onDone();
   });
   return (
-    <Card title="Import a profile file">
-      <p className="muted">A JSON file of items you reviewed (for example the draft built from your resumes). Everything is
-        imported as self-reported; items already in your profile are skipped. Verify afterwards, item by item.</p>
+    <Card title="Load a profile file">
+      <p className="muted">A profile file you reviewed (for example the one built from your resumes). Everything comes in as
+        not confirmed; anything already in your profile is skipped. Confirm items afterwards.</p>
       <input type="file" accept=".json,application/json" onChange={onFile} />
       {plan && (
         <div className="row">
@@ -245,9 +245,9 @@ function Claims() {
   const act = useAction();
   const rows = claims.data ?? [];
   return (
-    <Card title={`Suggested experience (${rows.length})`}>
+    <Card title={`Experience the AI thinks you may have (${rows.length})`}>
       <p className="muted">The model's guesses about experience you probably have but did not state. They never count until you
-        accept one, and an accepted one is still self-reported.</p>
+        accept one, and an accepted one still needs your confirmation.</p>
       {rows.length === 0 ? <p className="muted">Nothing suggested.</p> : (
         <ul className="items">{rows.map((c) => (
           <li key={c.id}><div className="item-line"><Badge value={c.kind} /><span className="statement">{c.statement}</span>

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import uvicorn
 
-from jobforge_agent import PROTOCOL_VERSION, __version__, applications, ipc, logs, views, winutil
+from jobforge_agent import PROTOCOL_VERSION, __version__, applications, ipc, logs, setup, views, winutil
 from jobforge_agent.analysis import store as analysis_store
 from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
@@ -26,7 +26,8 @@ from jobforge_agent.discovery.http import HttpClient
 from jobforge_agent.discovery.service import DiscoveryService
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
-from jobforge_agent.filtering.profile import compile_profile
+from jobforge_agent.filtering import simple as simple_profile
+from jobforge_agent.filtering.profile import compile_profile, from_scanner_config
 from jobforge_agent.inference import configs as model_configs
 from jobforge_agent.inference.client import InferenceClient, load_config
 from jobforge_agent.paths import Paths
@@ -435,6 +436,49 @@ class AgentRuntime:
             self.notify_events()
         return {"snapshot_id": r.snapshot_id, "snapshot_created": r.snapshot_created, "queued": r.queued,
                 "superseded": r.superseded, "recomputed": r.recomputed}
+
+    # ----- first-run setup (P1.8b) -----
+
+    def setup_status(self) -> dict:
+        assert self.reader is not None
+        return setup.status(self.reader)
+
+    def search_profile_form(self) -> dict:
+        p = self.search_profile()
+        return simple_profile.to_form(p["rules"] if p else None)
+
+    def save_search_profile_form(self, form: dict) -> dict:
+        """Raises ProfileError with a plain message naming the field."""
+        p = self.search_profile()
+        return self.save_search_profile(simple_profile.from_form(form, p["rules"] if p else None))
+
+    def import_scanner_config(self, text: str) -> dict:
+        return self.save_search_profile(from_scanner_config(setup.parse_scanner_config(text)))
+
+    def add_employers_from_text(self, text: str) -> dict:
+        entries, not_understood = setup.parse_board_lines(text)
+        result = self.import_employers(entries) if entries else {"added": 0, "existing": 0, "skipped_unsupported": []}
+        return {**result, "not_understood": not_understood}
+
+    def import_watchlist_text(self, text: str) -> dict:
+        return self.import_employers(setup.parse_watchlist(text))
+
+    def set_employer_enabled(self, employer_id: int, enabled: bool) -> bool:
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            n = self.user.execute("UPDATE employers SET enabled = ? WHERE id = ?", (int(enabled), employer_id)).rowcount
+            if n:
+                self.user.execute("INSERT INTO change_events (type, employer_id, created_at_ms) VALUES (?, ?, ?)",
+                                  ("employer_enabled" if enabled else "employer_disabled", employer_id, now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        if n:
+            self.log.info("employer_enabled" if enabled else "employer_disabled", employer_id=employer_id)
+            self.notify_events()
+        return bool(n)
 
     # ----- window read models and applications (P1.8) -----
 

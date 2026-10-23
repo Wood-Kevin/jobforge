@@ -1,0 +1,374 @@
+# Generic defaults for a new search profile (P1.8b first-run setup). Geography and job-title words only:
+# no person's titles, home towns or preferences. Origin: the generic lists of job-scanner's config.yaml (edd1528).
+# The setup form adds the user's own titles, home state and towns on top of these.
+# The two skip lists are plain words and phrases (P1.8b: users see these in the setup form).
+us_markers:
+- united states
+- usa?
+- u\.s\.(a\.)?
+- north america
+- americas
+- amer
+- anywhere
+- worldwide
+us_state_markers:
+- alabama
+- alaska
+- arizona
+- arkansas
+- california
+- colorado
+- connecticut
+- delaware
+- georgia
+- hawaii
+- idaho
+- illinois
+- indiana
+- iowa
+- kansas
+- kentucky
+- louisiana
+- maine
+- maryland
+- massachusetts
+- michigan
+- minnesota
+- mississippi
+- missouri
+- montana
+- nebraska
+- nevada
+- new hampshire
+- new jersey
+- new mexico
+- new york
+- north carolina
+- north dakota
+- ohio
+- oklahoma
+- oregon
+- pennsylvania
+- rhode island
+- south carolina
+- south dakota
+- tennessee
+- texas
+- utah
+- vermont
+- virginia
+- washington
+- west virginia
+- wisconsin
+- wyoming
+- district of columbia
+- washington dc
+non_us_location_markers:
+- latam
+- latin america
+- emea
+- apac
+- asia
+- europe
+- eu
+- african?
+- middle east
+- oceania
+- antigua
+- cape verde
+- costa rica
+- czech republic
+- dominican republic
+- el salvador
+- equatorial guinea
+- hong kong
+- ivory coast
+- new zealand
+- north macedonia
+- saudi arabia
+- sierra leone
+- south africa
+- south korea
+- sri lanka
+- united arab emirates
+- united kingdom
+- northern ireland
+- afghanistan
+- albania
+- algeria
+- andorra
+- angola
+- argentina
+- armenia
+- australia
+- austria
+- azerbaijan
+- bahamas
+- bahrain
+- bangladesh
+- barbados
+- belarus
+- belgium
+- belize
+- benin
+- bhutan
+- bolivia
+- bosnia
+- botswana
+- brazil
+- brunei
+- bulgaria
+- burkina
+- burundi
+- cambodia
+- cameroon
+- canada
+- chad
+- chile
+- china
+- colombia
+- comoros
+- congo
+- croatia
+- cuba
+- cyprus
+- czechia
+- denmark
+- djibouti
+- dominica
+- ecuador
+- egypt
+- eritrea
+- estonia
+- eswatini
+- ethiopia
+- fiji
+- finland
+- france
+- gabon
+- gambia
+- germany
+- phl|gbr|deu
+- ind
+- gurgaon|gurugram|noida
+- ghana
+- greece
+- grenada
+- guatemala
+- guinea
+- guyana
+- haiti
+- honduras
+- hungary
+- iceland
+- india
+- indonesia
+- iran
+- iraq
+- ireland
+- israel
+- italy
+- jamaica
+- japan
+- jordan
+- kazakhstan
+- kenya
+- kiribati
+- kosovo
+- kuwait
+- kyrgyzstan
+- laos
+- latvia
+- lebanon
+- lesotho
+- liberia
+- libya
+- liechtenstein
+- lithuania
+- luxembourg
+- madagascar
+- malawi
+- malaysia
+- maldives
+- mali
+- malta
+- mauritania
+- mauritius
+- mexico
+- moldova
+- monaco
+- mongolia
+- montenegro
+- morocco
+- mozambique
+- myanmar
+- namibia
+- nepal
+- netherlands
+- nicaragua
+- niger
+- nigeria
+- norway
+- oman
+- pakistan
+- palestine
+- panama
+- paraguay
+- peru
+- philippines
+- poland
+- portugal
+- qatar
+- romania
+- russia
+- rwanda
+- senegal
+- serbia
+- seychelles
+- singapore
+- slovakia
+- slovenia
+- somalia
+- korea
+- spain
+- sudan
+- suriname
+- sweden
+- switzerland
+- syria
+- taiwan
+- tajikistan
+- tanzania
+- thailand
+- togo
+- trinidad
+- tunisia
+- turkey
+- turkiye
+- turkmenistan
+- uganda
+- ukraine
+- uae
+- uk
+- england
+- scotland
+- wales
+- uruguay
+- uzbekistan
+- vanuatu
+- venezuela
+- vietnam
+- yemen
+- zambia
+- zimbabwe
+- ontario
+- quebec
+- british columbia
+- alberta
+- manitoba
+- saskatchewan
+- nova scotia
+- new brunswick
+- newfoundland
+- prince edward island
+- london
+- toronto
+- vancouver
+- montreal
+- ottawa
+- calgary
+- dublin
+- berlin
+- munich
+- amsterdam
+- paris
+- madrid
+- barcelona
+- lisbon
+- warsaw
+- krakow
+- prague
+- budapest
+- bucharest
+- sofia
+- tallinn
+- stockholm
+- copenhagen
+- oslo
+- helsinki
+- zurich
+- tel aviv
+- bangalore
+- bengaluru
+- hyderabad
+- pune
+- mumbai
+- delhi
+- chennai
+- manila
+- tokyo
+- seoul
+- sydney
+- melbourne
+- auckland
+- sao paulo
+- buenos aires
+- bogota
+- mexico city
+- singapore
+description_restricted_markers:
+- (latam|emea|apac|europe|uk|canada|india)[- ]only
+- only (open to|hiring|accepting)[^.]{0,40}(canada|europe|uk|united kingdom|latam|latin america|emea|india|mexico)
+- must (be located|reside|live) in[^.]{0,30}(canada|europe|the uk|united kingdom|latam|latin america|emea|india|mexico)
+residency_markers:
+- (must|required to) (reside|live|be located|be based) (in|within) (the )?(?P<place>[^,;()|]{2,40})
+exclude_seniority:
+- senior
+- sr
+- snr
+- staff
+- principal
+- lead
+- manager
+- director
+- head of
+- architect
+- vp
+- vice president
+- distinguished
+- fellow
+- intern
+- internship
+- iii
+- iv
+exclude_non_it:
+- sales
+- account executive
+- recruiter
+- recruiters
+- recruiting
+- recruitment
+- marketing
+- legal
+- counsel
+- paralegal
+- finance
+- accountant
+- nurse
+- nursing
+- physician
+- customer success
+- business development
+- global security operations center
+- gsoc
+- presales
+- pre-sales
+- sled
+- qa
+- quality assurance
+- software tester
+- software testing
+- test engineer
+- test analyst
+- distributed systems
+- embedded

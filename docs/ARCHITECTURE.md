@@ -649,13 +649,22 @@ only by the Rust host.**
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
   REVIEW questions grouped across jobs, Profile (items by kind, typed eligibility-fact forms built from
   `GET /v1/profile/schema`, verify/unverify, completeness, resumes, inferred claims, import of a reviewed JSON file, all
-  self-reported), Applications, Dashboard, Preferences (search profile form + full rules JSON, model configs). Views reload
+  self-reported), Applications, Dashboard, Preferences (search profile form + full rules JSON, model configs; P1.8b replaced
+  the JSON editor with the plain form below and renamed Dashboard to Status). Views reload
   on the agent events that concern them and when the agent becomes reachable; no view polls the database.
   Agent routes added: `GET /v1/jobs?view=recommended|rejected|all&q=&limit=&offset=`, `GET /v1/jobs/{id}`,
   `PUT /v1/jobs/{id}/application`, `GET /v1/applications`, `GET /v1/profile/schema`. Recommendation rows carry `current`
   and `newer_evaluation_pending`. Every route the window calls is in `desktop/src/api.ts`; a test fails if one is not served.
   UI types are written by hand (the routes return plain JSON objects with no response models, so the D14 plan of
   generating them from OpenAPI had nothing to generate; corrected in P1.8).
+- **First-run setup and plain settings (P1.8b):** `GET /v1/setup/status` (companies, search profile, model, profile:
+  each `done` plus counts; the window opens Setup until the first three are done), `GET|POST /v1/search-profile/form`
+  (the search profile as plain fields; `filtering/simple.py` maps them to rules over the current version and keeps every
+  field the form does not own; a pattern with regex logic is kept exactly and returned in `kept_patterns`, never dropped;
+  rejected alternative: rebuilding rules from the form, which would silently lose tuned patterns),
+  `POST /v1/search-profile/import-scanner {text}` (job-scanner config.yaml), `POST /v1/employers/add {text}` (careers
+  links, one per line), `POST /v1/employers/import-watchlist {text}`, `POST /v1/employers/{id}/enable|disable`. The
+  window shows no JSON or regex; internal values are translated in `desktop/src/labels.ts`.
 - **Host bridge (P1.8):** `agent_call(method, path, body?)` (GET/POST/PUT/PATCH/DELETE, JSON; 4xx/5xx come back with the
   agent's own message), `agent_upload(path, bytes)` (resumes only, raw bytes), `open_url(url)` (system browser; http(s)
   only, no credentials, no control characters, <= 2048 chars; `javascript:`, `file:`, `ms-settings:`, UNC refused). The
@@ -1340,6 +1349,7 @@ reload, with the inference server optional.
 | **P1.6 Posting analysis (E0-E2)** | Segmenter, E1 prompt v1, interpreter | Layer A interpretation suite passes. Conflict and unverifiable cases stored with both readings. Analysis not rerun on profile edit. |
 | **P1.7 Evaluation + recommendation (E3-E6)** | Match, validate, assess, recommend, recompute, resume-on-return | Layer B suite passes incl. SKIP property test and FK-rejected inferred citation. LM Studio stopped for 1 h: discovery freshness unchanged, evaluations pending; LM Studio started: queue drains with no restart (log `inference_available` then `evaluation_done`). Rule change -> recompute with zero inference calls. Long fake model call does not block a user action (> 1 s). |
 | **P1.8 UI** | Discovery dashboard, live refresh, job list/detail, rejected view, REVIEW questions, profile, preferences, applications | Screenshots of dashboard and a real job detail. New posting appears in the open window without reload; host restart replays missed events from cursor. `<script>`/`onerror` posting renders inert. Application status change -> `application_events` row. No code path submits to an employer (grep: outbound HTTP only in `discovery/` and `inference/`). |
+| **P1.8b Usability pass** (added 2026-10-23, Kevin) | Installed current build, first-run Setup, plain search-profile form, plain wording, less on screen | Fresh data dir: Setup opens by itself and shows no regex or JSON (screenshot). Form round trip keeps imported regex patterns exactly (`test_setup.py`). Installer layout check requires `v2.yaml` and `defaults.yaml`. |
 | **P1.9 Release drill + evidence** | Installer upgrade with migration, rollback, verify.sh, golden + interpretation reports | Install v0.1, use it, install v0.2 (with a migration) while the agent runs -> hook stops agent, pre-migration backup created, v0.2 agent runs. Reinstall v0.1 -> agent refuses (exit 4, tray message); restore backup -> v0.1 runs with pre-upgrade data. verify.sh prints every SPEC section 6 row. Golden report prints false SKIP, false APPLY, REVIEW share, confusion table. |
 
 Out of Phase 1: auto-updater, code signing, Windows Service mode, named-pipe

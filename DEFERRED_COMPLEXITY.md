@@ -211,7 +211,15 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
   requirement, 85 employers), manual setup (watchlist, search profile, model test/enable, profile import), and JSON in
   front of users ("most users aren't going to know what json even is").
 - **Why deferred:** P1.8 acceptance is functional; Kevin chose to commit it and do a focused usability pass before P1.9.
-- **Trigger:** next step (P1.8b).
+- **Resolved in P1.8b** (SPEC change log), except the profile step below.
+
+## Building a profile inside the app (P1.8b)
+- **What:** Setup step 4 loads a prepared profile file (one was drafted from resumes outside the app and reviewed
+  by him). A new user has no such file; their only path is adding items one by one in Profile. Uploaded resumes are stored
+  and their text extracted (P1.5), but nothing turns that text into proposed items.
+- **Why deferred:** doing it well is a model call whose output must land as unconfirmed claims (D2: inferred items are
+  never cited or verified) with a review screen; that is a feature of its own, not wording.
+- **Trigger:** a second user, or Kevin rebuilding the profile from a new resume.
 
 ## UI interaction tests are manual (P1.8)
 - **What:** Component behavior (clicks, forms, live reload) was verified in the real window by screenshot and scripted clicks;

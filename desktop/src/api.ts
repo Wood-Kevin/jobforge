@@ -58,6 +58,15 @@ export type ReviewGroup = { kind: string; type: string | null; example: string; 
 export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; enabled: boolean; tested_at_ms: number | null; default: boolean };
 export type ApplicationRow = { id: number; job_id: number; status: string; notes: string | null; title: string; company: string; job_closed: boolean; last_change_ms: number };
 
+export type SetupStatus = {
+  employers: { done: boolean; enabled: number }; search_profile: { done: boolean; version: number | null };
+  model: { done: boolean; name: string | null; model_id: string | null; base_url: string | null; tested: boolean };
+  profile: { done: boolean; items: number; facts: number; facts_verified: number }; complete: boolean };
+export type SearchForm = { titles: string[]; skip_seniority: string[]; skip_fields: string[]; home_state: string; home_towns: string[];
+  salary_floor: number | null; pay_target: number | null; work_modes: Record<string, string>; favorite_titles: string[];
+  favorite_levels: string[]; max_age_days: number | null; has_profile?: boolean; kept_patterns?: Record<string, string[]> };
+export type EmployerAdd = { added: number; existing: number; skipped_unsupported: string[]; not_understood?: string[] };
+
 const q = (v: string) => encodeURIComponent(v);
 
 export const api = {
@@ -96,8 +105,14 @@ export const api = {
   uploadResume: (filename: string, bytes: Uint8Array) => agentUpload<Resume>(`/v1/resumes?filename=${q(filename)}`, bytes),
   deleteResume: (id: number) => agentCall<{ deleted: number }>("DELETE", `/v1/resumes/${id}`),
 
-  searchProfile: () => agentCall<{ id: number; version: number; rules: Record<string, unknown>; created_at_ms: number }>("GET", "/v1/search-profile"),
-  saveSearchProfile: (rules: Record<string, unknown>) => agentCall<{ version: number }>("POST", "/v1/search-profile", { rules }),
+  setupStatus: () => agentCall<SetupStatus>("GET", "/v1/setup/status"),
+  searchForm: () => agentCall<SearchForm>("GET", "/v1/search-profile/form"),
+  saveSearchForm: (form: SearchForm) => agentCall<{ version: number }>("POST", "/v1/search-profile/form", form),
+  importScannerConfig: (text: string) => agentCall<{ version: number }>("POST", "/v1/search-profile/import-scanner", { text }),
+  addEmployers: (text: string) => agentCall<EmployerAdd>("POST", "/v1/employers/add", { text }),
+  importWatchlist: (text: string) => agentCall<EmployerAdd>("POST", "/v1/employers/import-watchlist", { text }),
+  enableEmployer: (id: number) => agentCall<{ enabled: boolean }>("POST", `/v1/employers/${id}/enable`),
+  disableEmployer: (id: number) => agentCall<{ enabled: boolean }>("POST", `/v1/employers/${id}/disable`),
   modelConfigs: () => agentCall<ModelConfig[]>("GET", "/v1/model-configs"),
   testModelConfig: (id: number) => agentCall<{ ok: boolean; error?: string; seconds?: number }>("POST", `/v1/model-configs/${id}/test`),
   enableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/enable`),
