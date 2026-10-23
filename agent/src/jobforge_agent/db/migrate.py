@@ -59,16 +59,26 @@ class MigrateResult:
     backup: Path | None
 
 
+# The schema this code is written for. Pinned in code, not taken from the files on disk: an installer
+# that downgrades JobForge replaces files but does not remove newer ones, and a leftover newer
+# migration file once made an older agent treat a newer database as current instead of exiting 4
+# (P1.9 release drill). Files above this number are ignored; a test ties it to the migration files.
+SCHEMA_VERSION = 8
+
+
 def bundled_migrations() -> list[Migration]:
     folder = resources.files("jobforge_agent.db") / "migrations"
-    return load_migrations(folder)
+    found = load_migrations(folder, max_version=SCHEMA_VERSION)
+    if len(found) != SCHEMA_VERSION:
+        raise MigrationFailed(f"expected migrations 1..{SCHEMA_VERSION}, found {[mg.version for mg in found]}")
+    return found
 
 
-def load_migrations(folder) -> list[Migration]:
+def load_migrations(folder, max_version: int | None = None) -> list[Migration]:
     found = []
     for entry in folder.iterdir():
         m = _NAME.match(entry.name)
-        if m:
+        if m and (max_version is None or int(m.group(1)) <= max_version):
             found.append(Migration(int(m.group(1)), entry.name, entry.read_text(encoding="utf-8")))
     found.sort(key=lambda mg: mg.version)
     expected = list(range(1, len(found) + 1))

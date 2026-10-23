@@ -10,6 +10,11 @@
 
 !macro NSIS_HOOK_PREINSTALL
   !insertmacro JOBFORGE_STOP_AGENT update
+  ; The installer overwrites files but never removes ones the new package lacks. After a downgrade a
+  ; newer migration file stayed behind and the older agent treated a newer database as current
+  ; (P1.9 release drill), so the agent folder is cleared first. It holds program files only; user
+  ; data lives in %LOCALAPPDATA%\dev.kevin.jobforge, never here.
+  RMDir /r "$INSTDIR\agent"
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL

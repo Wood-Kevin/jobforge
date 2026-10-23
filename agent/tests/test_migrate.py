@@ -1,4 +1,5 @@
 """Forward-only migrations with backup first and refuse-newer (SPEC D12)."""
+from importlib import resources
 import sqlite3
 
 import pytest
@@ -63,3 +64,23 @@ def test_migration_numbers_must_be_contiguous(tmp_path):
     (tmp_path / "0003_c.sql").write_text("SELECT 1;")
     with pytest.raises(migrate.MigrationFailed, match="without gaps"):
         migrate.load_migrations(tmp_path)
+
+
+def test_schema_version_matches_the_bundled_files():
+    """Adding migration NNNN means raising SCHEMA_VERSION to NNNN in db/migrate.py."""
+    files = migrate.load_migrations(resources.files("jobforge_agent.db") / "migrations")
+    assert [mg.version for mg in files] == list(range(1, migrate.SCHEMA_VERSION + 1))
+
+
+def test_a_leftover_newer_migration_file_does_not_hide_a_newer_database(tmp_path, paths):
+    """P1.9 drill: a downgrade left 0008 in the install dir and the older agent ran on the newer DB."""
+    for mg in migrate.bundled_migrations():
+        (tmp_path / mg.name).write_text(mg.sql, encoding="utf-8")
+    (tmp_path / f"{migrate.SCHEMA_VERSION + 1:04d}_from_a_newer_install.sql").write_text("CREATE TABLE x (a INTEGER) STRICT;", encoding="utf-8")
+    kept = migrate.load_migrations(tmp_path, max_version=migrate.SCHEMA_VERSION)
+    assert migrate.target_version(kept) == migrate.SCHEMA_VERSION
+    conn = open_connection(paths.db, "migration")
+    migrate.migrate(conn, paths.db, paths.backups)
+    conn.execute(f"PRAGMA user_version = {migrate.SCHEMA_VERSION + 1}")
+    with pytest.raises(migrate.DatabaseNewer):
+        migrate.migrate(conn, paths.db, paths.backups, kept)

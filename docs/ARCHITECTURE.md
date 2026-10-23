@@ -609,8 +609,15 @@ a named replacement and a test, or it silently disappears.
   to `backups\pre-migrate-v<old>-<timestamp>.db`, then an integrity check of the copy. No
   backup, no migration. Implemented in `agent/src/jobforge_agent/db/backup.py`.
 - **Newer database than the agent** (user rolled back the app): the agent
-  refuses to start, exits 4, and the tray shows which backup matches this
-  version. It never runs on a schema it does not know.
+  refuses to start, exits 4, and the window shows the restore screen (section 5). It never runs
+  on a schema it does not know. The schema the agent knows is `migrate.SCHEMA_VERSION`, a
+  constant in code; migration files above it are ignored. Before P1.9 it was the highest file
+  on disk, and the release drill showed why that fails: a downgrade installer replaces files
+  but leaves newer ones, so v0.1 found v0.2's `0008` file and ran on the schema-8 database
+  (`docs/evidence/p1_9_release_drill.txt`). The installer now also clears `agent\` before
+  copying (7.2).
+- **Backup files** are written in rollback-journal mode (`journal_mode = DELETE`), so checking
+  or restoring one read-only leaves no `-wal`/`-shm` files (the drill found two per backup).
 - **Rollback procedure:** install the previous version's installer, then
   `jobforge-agent --restore <pre-migrate backup>` (also a button in the host's
   error screen). Restore takes the agent lock first, so it cannot run under a
@@ -1292,7 +1299,9 @@ section 2. Spike P1.0d proves it before the decision is final (9).
   terminates `jobforge-agent.exe` processes owned by the current user, and a
   `taskkill` backstop runs regardless, because NSIS `nsExec` has no timeout and
   the hook must not depend on the old agent being healthy. Spike: update with a
-  running agent took 3.8 s with a graceful stop (`stop_reason = update`). Files
+  running agent took 3.8 s with a graceful stop (`stop_reason = update`). The `PREINSTALL`
+  hook then deletes `$INSTDIR\agent` (program files only) so no file from another version stays
+  behind (P1.9 drill finding, see 4.4). Files
   are replaced only after the lock is free (Windows will not overwrite a
   running exe anyway; this makes that deterministic instead of a failed install).
   The host is closed by the installer's normal app-running check.

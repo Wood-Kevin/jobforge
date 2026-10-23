@@ -49,3 +49,9 @@ def test_restore_keeps_the_current_database_and_refuses_a_newer_source(db, paths
     old.close()
     conn = open_connection(paths.db, "readonly", readonly=True)
     assert conn.execute("SELECT value FROM settings WHERE key = 'discovery_paused'").fetchone()[0] == "1"
+
+
+def test_backup_leaves_no_side_files(db, paths):
+    dest = backup.backup_to(paths.db, paths.backups / "daily-x.db")
+    assert backup.integrity(dest) == "ok" and backup.schema_version(dest) >= 1
+    assert sorted(p.name for p in paths.backups.iterdir()) == ["daily-x.db"]
