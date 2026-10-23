@@ -377,6 +377,43 @@ long inference outage cannot grow the queue beyond the number of qualifying jobs
   Evidence script: `scripts/verify_filter.py` (with `--scanner DIR`, a differential run of the
   scanner's own `pass2` on the same stored postings).
 
+#### Company directory (P1.10, SPEC D17)
+
+The three boards answer only per company, so discovery needs a list of companies. Instead of
+asking the person for board links, the agent ships `discovery/directory.json`:
+- **Built by** `scripts/build_directory.py` (maintainer tool, run from `agent/`): Common Crawl's
+  URL index for `boards.greenhouse.io`, `job-boards.greenhouse.io`, `jobs.lever.co` and
+  `jobs.ashbyhq.com` over the latest crawls gives candidate board ids (first path segment); each
+  candidate is fetched once from its board's list endpoint under the agent's User-Agent, one
+  request per host every 1.2 s, and kept only with at least one open job. Greenhouse names come
+  from the job list's `company_name`; Lever and Ashby expose no company name, so the id is title-cased.
+  Index queries that fail after six tries are listed in the file (`index_queries_failed`), never
+  dropped silently. Rejected: YC's company list (start-ups only), any list that guesses ids.
+- **Startup sync** (`directory.sync`, discovery connection; the authorizer allows it to insert
+  employers, not to update `enabled` or `origin`): rows missing from `employers` are added with
+  `origin = 'directory'`, `poll_interval_s = 86400` and a first poll spread uniformly over a day;
+  existing rows are never changed, so a company the person stopped watching stays stopped. The
+  `directory_synced` log line carries `added` and `listed`. A broken file is logged
+  (`directory_sync_failed`) and shown on Status; the person's own companies keep working.
+  `JOBFORGE_BUILT_IN_LIST=0` skips it (tests and drills, so they never poll real boards).
+- **Why 24 h:** the per-host budgets (300/h Greenhouse, 120/h Lever and Ashby, 0002) are shared
+  with the person's companies at 15 min; 24 h is also `MAX_INTERVAL_S`. A host at its hourly
+  budget is skipped (`budget_deferred`) until the count drops, then the longest-overdue polls go
+  first, so everything stretches evenly rather than failing.
+- **The switch** (`POST /v1/employers/built-in {watch}`): stores `settings.directory_watch` and
+  sets `enabled` on every `origin = 'directory'` row; rows added later follow it.
+- **Add by name** (`POST /v1/employers/add`): each line is a board link, `greenhouse:acme`, or a
+  name. Names (at most 10 per request) are matched in the list (case, punctuation and legal
+  suffixes ignored), else probed on each enabled board under two spellings (`redhat`,
+  `red-hat`) through the shared `HttpClient`, so the per-host spacing holds. 404 means "not on
+  this board"; any other answer or a network error is returned as `check_failed`, never as
+  `not_found`. A named company that already exists becomes `origin = 'user'` and is watched
+  again (`watched_again`); a list row named this way drops the list's 24 h interval for the source
+  default, and its next poll comes no later than a new company's would.
+- **Status** lists only `origin = 'user'` rows and summarizes the list (`built_in`: total,
+  enabled, dead, blocked, failing, checked once), so the window's 15 s refresh stays small.
+  Dead or failing list boards are counted under Details, not raised as "Needs attention".
+
 ### 3.4 Inside the agent: tasks and database access
 
 One process, one asyncio event loop, these tasks:
@@ -470,6 +507,8 @@ labeled posting version, state (active/withdrawn), recommendation, optional elig
 note, `labeled_by`, `reviewed_by`, `shown_recommendation_id` (what JobForge showed at the time). The latest row per job is
 the label. The append-only trigger check (`migrate.check_append_only_triggers`) now checks a table only once the database
 has reached the migration that creates it (`TABLE_SINCE_VERSION`, pinned by a test against the migration files).
+Migration 0009 (P1.10) adds `employers.origin` (`user` | `directory`, default `user`, CHECK): directory rows come from the
+built-in company list (3.3 "Company directory") and follow its switch; existing rows are the person's.
 Migration 0007 (P1.8c) adds `inferred_claims.proposed_by_resume_id` (no foreign key: deleting a resume must neither fail
 nor take accepted suggestions with it) and `inferred_claims.proposed_fields` (JSON: dates or `dates_as_written`, applied on
 accept).
@@ -689,7 +728,8 @@ only by the Rust host.**
   field the form does not own; a pattern with regex logic is kept exactly and returned in `kept_patterns`, never dropped;
   rejected alternative: rebuilding rules from the form, which would silently lose tuned patterns),
   `POST /v1/search-profile/import-scanner {text}` (job-scanner config.yaml), `POST /v1/employers/add {text}` (careers
-  links, one per line), `POST /v1/employers/import-watchlist {text}`, `POST /v1/employers/{id}/enable|disable`. The
+  links or company names, one per line; P1.10, host timeout 150 s), `POST /v1/employers/import-watchlist {text}`,
+  `POST /v1/employers/{id}/enable|disable`, `POST /v1/employers/built-in {watch}` (the built-in list switch). The
   window shows no JSON or regex; internal values are translated in `desktop/src/labels.ts`.
 - **Golden set (P1.9):** `POST /v1/jobs/{id}/golden-label` (`{recommendation, eligibility?, obvious?,
   misread_requirement_ids?, note?}`; requirement ids must belong to the job), `POST /v1/jobs/{id}/golden-label/withdraw`,
@@ -1392,6 +1432,7 @@ reload, with the inference server optional.
 | **P1.8b Usability pass** (added 2026-10-23, Kevin) | Installed current build, first-run Setup, plain search-profile form, plain wording, less on screen | Fresh data dir: Setup opens by itself and shows no regex or JSON (screenshot). Form round trip keeps imported regex patterns exactly (`test_setup.py`). Installer layout check requires `v2.yaml` and `defaults.yaml`. |
 | **P1.8c Profile from a resume** (added 2026-10-23, Kevin) | "Suggest items" on an uploaded resume; suggestions in the inbox; Setup step 4 uses it | Quotes not in the resume are dropped; year-only dates are not padded; accepting gives self-reported items with the resume's dates (`test_suggest.py`). Live on two real resumes with the default model: counts, timing, window run (`docs/evidence/p1_8c_resume_suggestions_live.txt`). |
 | **P1.9 Release drill + evidence** (drill passed on run 2, 2026-10-23; interpretation and golden numbers wait for LM Studio and the hand labels) | Installer upgrade with migration, rollback, verify.sh, golden + interpretation reports | Install v0.1, use it, install v0.2 (with a migration) while the agent runs -> hook stops agent, pre-migration backup created, v0.2 agent runs. Reinstall v0.1 -> agent refuses (exit 4, tray message); restore backup -> v0.1 runs with pre-upgrade data. verify.sh prints every SPEC section 6 row. Golden report prints false SKIP, false APPLY, REVIEW share, confusion table. |
+| **P1.10 Built-in company list** (2026-10-23) | No board links needed: `directory.json` watched by default, add by name, list switch | Fresh install: Setup step 1 done with no input; Status counts the list; a restart adds 0 rows; a stopped company stays stopped; typing a name finds its board or says why not; requests per host stay within budget |
 
 Out of Phase 1: auto-updater, code signing, Windows Service mode, named-pipe
 IPC, macOS/Linux, Workday and other sources, shared multi-user, notifications

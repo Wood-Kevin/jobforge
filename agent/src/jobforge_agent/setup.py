@@ -45,6 +45,20 @@ def parse_board_lines(text: str) -> tuple[list[dict], list[str]]:
     return list(found.values()), bad
 
 
+def parse_company_lines(text: str) -> tuple[list[dict], list[str], list[str]]:
+    """Board links plus company names (P1.10). Returns (employers from links, names to look up,
+    lines not understood). A line that looks like a link but is not one of the three boards (a
+    Workday page, say) is not understood rather than looked up as a name."""
+    found, rest = parse_board_lines(text)
+    names, bad = [], []
+    for line in rest:
+        if "/" in line or "://" in line or not re.search(r"[A-Za-z0-9]", line):
+            bad.append(line)
+        else:
+            names.append(re.sub(r"\.(com|io|co|ai|net|org)$", "", line, flags=re.I).strip())
+    return found, list(dict.fromkeys(names)), bad
+
+
 def parse_watchlist(text: str) -> list[dict]:
     """job-scanner's watchlist.yaml (employers: [{name, ats, slug}]) or a plain list of the same."""
     data = yaml.safe_load(text or "")

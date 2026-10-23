@@ -11,6 +11,13 @@ from jobforge_agent.paths import Paths
 NOW = 1_800_000_000_000  # fixed epoch ms for seeded rows
 
 
+@pytest.fixture(autouse=True)
+def no_built_in_list(monkeypatch):
+    """Agents started by tests skip the built-in company list (thousands of real boards, P1.10).
+    tests/test_directory.py turns it back on with a small list of its own."""
+    monkeypatch.setenv("JOBFORGE_BUILT_IN_LIST", "0")
+
+
 @pytest.fixture
 def paths(tmp_path) -> Paths:
     p = Paths(tmp_path / "jf")

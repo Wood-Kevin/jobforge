@@ -41,7 +41,8 @@ def _cmd_line(args: list[str]) -> str:
 
 def start_agent(data_dir: Path, *args: str) -> subprocess.Popen | None:
     """Start an agent without waiting. Returns the Popen when not elevated, else None."""
-    env = {"JOBFORGE_DATA_DIR": str(data_dir)}
+    # Test agents never load the built-in company list: it would start polling real job boards (P1.10).
+    env ={"JOBFORGE_DATA_DIR": str(data_dir), "JOBFORGE_BUILT_IN_LIST": "0"}
     if not winutil.is_elevated():
         return subprocess.Popen([PYTHON, "-m", "jobforge_agent", *args], env={**os.environ, **env},
                                 creationflags=winutil.CREATE_NO_WINDOW)
@@ -55,7 +56,7 @@ def start_agent(data_dir: Path, *args: str) -> subprocess.Popen | None:
 
 def run_agent(data_dir: Path, *args: str, timeout: float = 60) -> int:
     """Run an agent command to completion unelevated; return its exit code."""
-    env = {"JOBFORGE_DATA_DIR": str(data_dir)}
+    env = {"JOBFORGE_DATA_DIR": str(data_dir), "JOBFORGE_BUILT_IN_LIST": "0"}
     if not winutil.is_elevated():
         return subprocess.run([PYTHON, "-m", "jobforge_agent", *args], env={**os.environ, **env},
                               creationflags=winutil.CREATE_NO_WINDOW, timeout=timeout).returncode

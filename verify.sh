@@ -56,10 +56,13 @@ section() {
 
 probe() {
   # probe "label" cmd args...
-  # Prints the label, the exact command, then the raw output.
+  # Prints the label, the exact command (IPC token masked: output gets pasted into evidence
+  # files), then the raw output.
   local label="$1"; shift
+  local shown="$*"
+  [[ -n "${TOKEN:-}" ]] && shown="${shown//$TOKEN/<token>}"
   printf '\n── %s\n' "$label"
-  printf '   $ %s\n' "$*"
+  printf '   $ %s\n' "$shown"
   "$@" 2>&1
 }
 
@@ -185,7 +188,15 @@ if run discovery; then
   section "DISCOVERY — continuity, intervals, conditional requests, jitter, budget, recovery, change detection"
   probe "scripts/verify_discovery.py (every discovery row in SPEC 6)" "$PY" "$ROOT/scripts/verify_discovery.py" "$DB"
   [[ -n "$PORT" ]] && probe "Source errors as the agent reports them (compare with the SQL above)" \
-    bash -c "curl -sS --max-time 10 -H 'Authorization: Bearer $TOKEN' http://127.0.0.1:$PORT/v1/discovery/status | '$PY' -c 'import json,sys; d=json.load(sys.stdin); print(\"paused\", d[\"paused\"], \"jobs_open\", d[\"jobs_open\"]); [print(e[\"id\"], e[\"name\"], e[\"status\"], e[\"consecutive_failures\"], e[\"last_error\"]) for e in d[\"employers\"] if e[\"status\"] != \"ok\" or e[\"consecutive_failures\"]]'"
+    bash -c "curl -sS --max-time 10 -H 'Authorization: Bearer $TOKEN' http://127.0.0.1:$PORT/v1/discovery/status | '$PY' -c 'import json,sys; d=json.load(sys.stdin); print(\"paused\", d[\"paused\"], \"jobs_open\", d[\"jobs_open\"]); [print(e[\"id\"], e[\"name\"], e[\"status\"], e[\"consecutive_failures\"], e[\"last_error\"]) for e in d[\"employers\"] if e[\"status\"] != \"active\" or e[\"consecutive_failures\"]]; print(\"built_in\", d[\"built_in\"])'"
+  probe "Built-in company list (P1.10): rows by origin, switch state, poll interval" \
+    sql "SELECT origin, enabled, status, poll_interval_s, count(*) AS n FROM employers GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4"
+  probe "The built-in-list switch (no row = on)" \
+    sql "SELECT key, value FROM settings WHERE key = 'directory_watch'"
+  probe "Shipped list (directory.json) and the last startup syncs (agent log)" \
+    bash -c "'$PY' -c 'import sys; sys.path.insert(0, sys.argv[1]); from jobforge_agent.discovery import directory as d; doc = d.load(); print(\"version\", doc[\"version\"], \"crawls\", doc[\"crawls\"], \"entries\", len(doc[\"entries\"]), \"failed index queries\", doc[\"index_queries_failed\"])' '$ROOT/agent/src'; grep -h 'directory_sync' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -3"
+  probe "Requests per board host in the last hour vs its budget (the list shares it with your companies)" \
+    sql "SELECT s.kind, s.max_requests_per_hour, count(f.id) AS fetches_last_hour FROM sources s LEFT JOIN employers e ON e.source_id = s.id LEFT JOIN source_fetches f ON f.employer_id = e.id AND f.started_at_ms > (strftime('%s','now') - 3600) * 1000 GROUP BY s.id"
 fi
 
 if run filter; then

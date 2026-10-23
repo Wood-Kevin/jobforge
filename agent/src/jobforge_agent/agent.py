@@ -21,6 +21,7 @@ from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
 from jobforge_agent.discovery import admin as discovery_admin
+from jobforge_agent.discovery import directory
 from jobforge_agent.evaluation import store as evaluation_store
 from jobforge_agent.evaluation import golden
 from jobforge_agent.evaluation.worker import EvaluationWorker
@@ -75,6 +76,7 @@ class AgentRuntime:
         self.evaluation: EvaluationWorker | None = None
         self.elevated = winutil.is_elevated()
         self.last_maintenance_error: str | None = None
+        self.directory_error: str | None = None
         # Woken after each commit that adds change_events, so the event stream pushes at once
         # instead of waiting for its fallback poll. Created on the loop in serve().
         self._events_signal: asyncio.Event | None = None
@@ -100,6 +102,7 @@ class AgentRuntime:
         self.evaluation_conn = open_connection(self.paths.db, "evaluation")
         self.reader = open_connection(self.paths.db, "readonly", readonly=True)
         report = recovery.recover(self.lifecycle, now_ms())
+        self.sync_directory()
         self.run_id = self.lifecycle.execute(
             "INSERT INTO agent_runs (pid, version, elevated, started_at_ms, heartbeat_at_ms) VALUES (?, ?, ?, ?, ?) RETURNING id",
             (os.getpid(), __version__, int(self.elevated), self.started_ms, self.started_ms)).fetchone()[0]
@@ -139,6 +142,7 @@ class AgentRuntime:
             "discovery_paused": paused is not None and paused[0] == "1",
             "uptime_s": round((now_ms() - self.started_ms) / 1000),
             "last_maintenance_error": self.last_maintenance_error,
+            "directory_error": self.directory_error,
             "data_dir": str(self.paths.root),
         }
 
@@ -162,12 +166,38 @@ class AgentRuntime:
         assert self.reader is not None
         return discovery_admin.status(self.reader, now_ms())
 
+    def sync_directory(self) -> None:
+        """Add the built-in company list's missing rows (P1.10). A broken list must not stop the
+        agent (the person's own companies still work), so the error is logged and shown on Status."""
+        assert self.discovery_conn is not None
+        if os.environ.get("JOBFORGE_BUILT_IN_LIST") == "0":  # tests and release drills: no real boards
+            self.log.info("directory_sync_skipped", reason="JOBFORGE_BUILT_IN_LIST=0")
+            return
+        try:
+            r = directory.sync(self.discovery_conn, now_ms(), random.Random())
+        except Exception as exc:
+            self.directory_error = f"{type(exc).__name__}: {exc}"
+            self.log.error("directory_sync_failed", error=self.directory_error)
+            return
+        self.directory_error = None
+        self.log.info("directory_synced", added=r["added"], listed=r["listed"], watching=r["watching"],
+                      version=directory.load()["version"])
+
     def import_employers(self, entries: list[dict]) -> dict:
         assert self.user is not None
         result = discovery_admin.import_employers(self.user, entries, now_ms(), random.Random())
         self.log.info("employers_imported", added=result["added"], existing=result["existing"],
-                      skipped_unsupported=len(result["skipped_unsupported"]))
+                      watched_again=result["watched_again"], skipped_unsupported=len(result["skipped_unsupported"]))
+        if result["added"] or result["watched_again"]:
+            self.notify_events()
         return result
+
+    def set_built_in_watch(self, watch: bool) -> dict:
+        assert self.user is not None
+        n = discovery_admin.set_built_in_watch(self.user, watch, now_ms())
+        self.log.info("built_in_list_watch", watch=watch, changed=n)
+        self.notify_events()
+        return {"watching": watch, "changed": n}
 
     def poll_now(self, employer_id: int) -> bool:
         """User action: make one employer due now (still subject to lease, backoff and budget)."""
@@ -492,10 +522,32 @@ class AgentRuntime:
     def import_scanner_config(self, text: str) -> dict:
         return self.save_search_profile(from_scanner_config(setup.parse_scanner_config(text)))
 
-    def add_employers_from_text(self, text: str) -> dict:
-        entries, not_understood = setup.parse_board_lines(text)
-        result = self.import_employers(entries) if entries else {"added": 0, "existing": 0, "skipped_unsupported": []}
-        return {**result, "not_understood": not_understood}
+    async def add_employers_from_text(self, text: str) -> dict:
+        """Links ("greenhouse:acme" too) and company names, one per line. A name is looked up in the
+        built-in list, then on the three boards' APIs (network, so outside any transaction)."""
+        assert self.reader is not None
+        entries, names, not_understood = setup.parse_company_lines(text)
+        not_found, problems, unchecked = [], [], names[directory.MAX_NAMES_PER_REQUEST:]
+        sources = self.reader.execute(
+            "SELECT kind, host, max_concurrency, max(request_spacing_ms, coalesce(crawl_delay_ms, 0)) FROM sources WHERE enabled = 1").fetchall()
+        found = 0
+        for name in names[:directory.MAX_NAMES_PER_REQUEST]:
+            hits, errs = directory.find(name), []
+            if not hits:
+                assert self.discovery is not None
+                hits, errs = await directory.probe(self.discovery.http, sources, name)
+            if hits:
+                entries += hits
+                found += 1
+            elif errs:  # a board could not be asked: "not found" would be a guess
+                problems += [f"{name}: {e}" for e in errs]
+            else:
+                not_found.append(name)
+        self.log.info("company_names_looked_up", names=len(names), found=found, not_found=len(not_found),
+                      check_failed=len(problems), not_checked=len(unchecked))
+        result = self.import_employers(entries) if entries else {"added": 0, "existing": 0, "watched_again": 0, "skipped_unsupported": []}
+        return {**result, "not_understood": not_understood, "not_found": not_found, "check_failed": problems,
+                "not_checked": unchecked}
 
     def import_watchlist_text(self, text: str) -> dict:
         return self.import_employers(setup.parse_watchlist(text))

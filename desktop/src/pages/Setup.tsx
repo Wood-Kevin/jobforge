@@ -17,11 +17,11 @@ export default function Setup({ onDone }: { onDone: () => void }) {
     <div className="page">
       <div className="card hero">
         <h2>Set up JobForge</h2>
-        <p>JobForge keeps checking the companies you choose, skips jobs that don't match what you want, and reads the rest
+        <p>JobForge keeps checking thousands of companies' job boards, skips jobs that don't match what you want, and reads the rest
           against your experience. Four steps; you can change any of them later.</p>
         {st?.complete && <p className="ok-text">All set. <button className="primary" onClick={onDone}>See your jobs</button></p>}
       </div>
-      {step(1, "Companies to watch", st?.employers.done, st?.employers.done ? `${st.employers.enabled} companies` : "Paste careers-page links or use your job-scanner watchlist.")}
+      {step(1, "Companies to watch", st?.employers.done, st?.employers.done ? `${st.employers.enabled} companies, already set up. Add any others you want.` : "Type company names or paste careers-page links.")}
       <CompaniesCard compact />
       {step(2, "What you're looking for", st?.search_profile.done, st?.search_profile.done ? "Saved" : "Job titles, where you live, and pay.")}
       <SearchFormCard onSaved={s.reload} />

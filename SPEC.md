@@ -89,6 +89,10 @@ matter"). Stays at the top level of `claude-projects`; no career-lane gate.
   state, leases, partial unique index on in-flight fetches, jitter, per-host
   budget, Retry-After, backoff, bounded catch-up, sleep/resume handling,
   persisted pause.
+- Built-in company list (D17, P1.10): `discovery/directory.json` ships with the
+  agent and is watched by default, so first-run setup asks for no board links;
+  companies can also be added by name (looked up in the list, then on the three
+  boards' APIs) or by link, and the whole list can be switched off.
 - Change detection by `source_job_id` + `material_sha256` / `payload_sha256`;
   closure after 2 successful complete listings without the job; supersession.
 - Every posting stored, including filter rejects; re-filter; "evaluate anyway".
@@ -336,6 +340,35 @@ accepted, not owned.
   install" when a safe relaunch is available); or keep the plugin and trust
   its mode selection (the spike showed it is token-dependent).
 
+### D17: A built-in company list, verified against the boards, watched by default
+- **Tier:** consequential (core product mechanic: what JobForge discovers).
+  Chosen by Kevin 2026-10-23 ("having users have to put in job boards is
+  insanity"; option "Both": built-in list plus add by name). Accepted.
+- **Choice:** The reviewed sources only answer per company, so JobForge ships
+  a list of companies (`discovery/directory.json`). `scripts/build_directory.py`
+  builds it from Common Crawl's URL index of the three board hosts and keeps a
+  company only if its board's public API answers with at least one open job.
+  At startup the agent adds the list's missing rows (`employers.origin =
+  'directory'`, polled every 24 h, first polls spread over a day) and never
+  changes an existing row. A person can type company names: the list first,
+  then each board's API under two spellings of the name, with a network
+  failure reported as such, never as "not found". Naming a company makes its
+  row the person's (`origin = 'user'`, watched, polled at the source default). One switch turns the list's
+  rows off or on and never touches the person's rows.
+- **Why:** Asking for board links (or a job-scanner watchlist) assumed the
+  person knows which board each company uses; most people don't. A list
+  checked against the APIs at build time costs no guessing at run time, keeps
+  the reviewed-sources rule (D3 scope, SPEC 2), and the search profile does
+  the narrowing it already does.
+- **Rejected alternatives and why:** Indeed/LinkedIn-style aggregators (no
+  public job API; scraping is against their terms and out of scope). Only
+  add-by-name (still needs the person to know whom to list). A list from one
+  directory such as YC's (start-ups only, a poor match for IT support/NOC
+  roles). Polling the list at the 15 min default (thousands of boards would
+  exceed the per-host budgets and starve the person's own companies).
+- **Costs, measured in P1.10:** see the change log and ARCHITECTURE 3.3
+  "Company directory" (list size, requests per host, database growth).
+
 ### D14: Stack
 - **Tier:** standard-practice.
 - **Choice:** Agent: Python 3.14, asyncio, httpx, stdlib sqlite3 (3.50.4
@@ -363,7 +396,7 @@ triggers and constraints that apply to every connection.
 
 | Table | Owned by | Access rule | Enforcement |
 |-------|----------|-------------|-------------|
-| sources, employers | global | User-action writes config; discovery updates backoff/status | Authorizer allow-lists |
+| sources, employers | global | User-action writes config; discovery updates backoff/status and inserts built-in list rows (`origin = 'directory'`, never updates enabled/origin) | Authorizer allow-lists; `origin` CHECK |
 | employer_poll_state, robots_cache | global | Discovery only (user action may set next_poll_at for poll-now) | Authorizer |
 | source_fetches | global | Discovery only | Authorizer + partial unique index on in-flight rows |
 | raw_postings | global | Insert only | Append-only triggers + unique (source_job_id, material_sha256) |
@@ -461,6 +494,7 @@ PowerShell for process, registry and ACL probes.
 | Retry-After / backoff honored | SQL rows with retry_after_s and the next request to that host | Next request >= response + Retry-After |
 | Request volume within budget | SQL requests/hour per host vs `max_requests_per_hour` | Printed numbers |
 | Source errors visible | SQL employers with failures or dead/blocked + `/v1/discovery/status` | Same set in both |
+| Built-in company list | SQL employers by origin/enabled/status/interval; `directory_watch` setting; `directory_synced` log line; requests per host vs budget | Directory rows at 86400 s and enabled iff the switch is on; user rows untouched; sync `added` 0 on a restart; fetches/hour within each host's budget |
 | Recovery from interruption | SQL INTERRUPTED fetches and their successors; `running` items older than agent start | Each INTERRUPTED has a later fetch; zero stale `running` |
 | Bounded catch-up | SQL requests per host in the first interval after each `agent_runs` start or detected gap | Printed numbers vs budget |
 | Change detection | SQL 24 h new / changed / closed per source; raw rows vs fetches | Raw rows only for new/changed |
@@ -535,6 +569,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-10-23 | P1.10 built-in company list (D17): `discovery/directory.json` version 2026-10-23, 5,855 boards (Greenhouse 3,185, Ashby 2,460, Lever 210; 217,026 open jobs) from 7,433 Common Crawl candidates (CC-MAIN-2026-43, -39), each checked against its board API; 4 index pages failed and are listed in the file. Migration 0009 `employers.origin`; startup sync adds missing rows only (`origin = 'directory'`, 24 h, first polls spread over a day); add by name (list, then board APIs; `check_failed` never `not_found`); list switch; Status summarizes the list. Fixed from the live run: a named list company kept the list's 24 h interval (now polls like the person's, test). Live (evidence data root, 30 min): sync added 5,855 then 0 on restart; Setup step 1 done with no input; "Mistral" found on Lever by probe, a made-up name `not_found`; switch changed 5,853 rows and no user rows; fetches/hour Greenhouse 77/300, Ashby 58/120, Lever 5/120, 0 `budget_deferred`; 30.0 KB per posting, about 6.5 GB projected for a full day (DEFERRED_COMPLEXITY.md, open decision). Window changes built, not seen live (the installed JobForge held the single instance). Evidence: `docs/evidence/p1_10_built_in_list_live.txt` | Kevin: "having users have to put in job boards is insanity"; chose "Both" |
 | 2026-10-23 | P1.9 closed except two measurements that need inputs (DEFERRED_COMPLEXITY.md): drill run 2 passed every leg (upgrade while running 8 -> 9, refusal with exit 4 after downgrade, restore from the window's restore screen with pre-upgrade data back and the newer data kept as `before-restore-v9`), repeated on the final v0.2.0 build. `verify.sh` added at the root: raw evidence for every section 6 row (IPC exposure, process, data dirs, DB, discovery, filter, analysis, evaluation, profile, window, golden, tests, repo, logs), manual rows printed as instructions, no verdicts. Restore state now shows only the restore screen. Interpretation report: not measured (LM Studio not running; the run now stops at the first unreachable-model error). Golden report: tooling live, waiting for Kevin's 20-30 labels | Release drill (P1.9 acceptance) |
 | 2026-10-23 | P1.9 release drill, first run (v0.1.0 -> v0.2.0 -> v0.1.0): upgrade while running passed (hook stop `update`, pre-migrate backup, 7 -> 8, counts unchanged). Downgrade failed its acceptance: the v0.1 installer left v0.2's `0008` migration file in the install dir and the v0.1 agent ran on the schema-8 database instead of exiting 4. Fixed: `SCHEMA_VERSION` pinned in code (files above it ignored), the install hook clears `agent\`, and backups no longer leave `-wal`/`-shm` files. Drill repeated with the fixed v0.2.0 and a drill-only v0.3.0 (`docs/evidence/p1_9_release_drill.txt`) | Release drill (P1.9 acceptance) |
 | 2026-10-23 | P1.9 part 1, v0.2.0: golden-set labels (migration 0008 `golden_labels`, append-only; "Your call" on a job; `jobforge-agent golden` report per model/prompt/rule version with false SKIP, false APPLY, REVIEW share, REVIEWs labeled obvious, confusion table; `golden --suite interpretation` runs E1 with a real model on the layer-A snippets, which moved into the package so the installed agent has them). Restore screen in the window for the stopped-database-newer state (host `list_backups` / `restore_backup`). `--restore` now keeps the live database as a `before-restore-*` backup and refuses a backup newer than the agent (exit 4): a rollback no longer destroys post-upgrade data. Spec correction: the lifecycle suites row named `agent/tests/lifecycle`, which never existed (they are `agent/tests/integration/` and `tests/test_migrate.py`, `test_backup.py`, `test_recovery.py`) | Kevin: proceed to P1.9 |

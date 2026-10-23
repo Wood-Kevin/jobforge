@@ -367,8 +367,15 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     async def add_employers(request: Request):
         text = await _text_body(request)
         if text is None:
-            return JSONResponse({"error": "send the links as {\"text\": ...}"}, status_code=422)
-        return runtime.add_employers_from_text(text)
+            return JSONResponse({"error": "send the links or names as {\"text\": ...}"}, status_code=422)
+        return await runtime.add_employers_from_text(text)
+
+    @app.post("/v1/employers/built-in")
+    async def set_built_in_watch(request: Request):
+        body = await _body(request)
+        if not isinstance(body, dict) or not isinstance(body.get("watch"), bool):
+            return JSONResponse({"error": "expected {\"watch\": true|false}"}, status_code=422)
+        return runtime.set_built_in_watch(body["watch"])
 
     @app.post("/v1/employers/import-watchlist")
     async def import_watchlist(request: Request):

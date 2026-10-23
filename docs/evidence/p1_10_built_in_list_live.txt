@@ -1,0 +1,145 @@
+﻿05:38:51 P1.10 live run. Data root: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_10 (fresh). Agent from source, JOBFORGE_BUILT_IN_LIST unset (real list, real polling).
+05:38:54 health: pid=35332 directory_error=
+05:38:54 log: {"added": 5855, "listed": 5855, "watching": true, "version": "2026-10-23", "event": "directory_synced", "level": "info", "timestamp": "2026-10-23T09:38:52.090737Z"}
+05:38:54 setup status: {"employers":{"done":true,"enabled":5855},"search_profile":{"done":false,"version":null},"model":{"done":false,"name":"Gemma 4 12B (LM Studio, reasoning off)","model_id":"google/gemma-4-12b-qat","base_url":"http://127.0.0.1:1234/v1","tested":false},"profile":{"done":false,"items":0,"facts":0,"facts_verified":0},"complete":false}
+05:38:54 discovery built_in: {"watching":true,"total":5855,"enabled":5855,"dead":0,"blocked":0,"failing":0,"checked_once":0,"last_success_age_s":null} user rows: 0
+05:39:06 add by name (3 s): {"added":0,"existing":2,"watched_again":0,"skipped_unsupported":[],"watched_again_ids":[],"not_understood":["https://example.com/careers/foo"],"not_found":["Zzqxv Nonexistent Widgets"],"check_failed":[],"not_checked":[]}
+05:39:06 user rows now: greenhouse: enabled=True, greenhouse: enabled=True
+05:39:06 switch off: {"watching":false,"changed":5853} built_in={"watching":false,"total":5853,"enabled":0,"dead":0,"blocked":0,"failing":0,"checked_once":0,"last_success_age_s":null} user rows enabled: 2
+05:39:06 switch on: {"watching":true,"changed":5853} built_in={"watching":true,"total":5853,"enabled":5853,"dead":0,"blocked":0,"failing":0,"checked_once":0,"last_success_age_s":null}
+05:39:06 log: {"names": 3, "found": 2, "not_found": 1, "check_failed": 0, "not_checked": 0, "event": "company_names_looked_up", "level": "info", "timestamp": "2026-10-23T09:39:06.694623Z"}
+05:39:06 log: {"watch": false, "changed": 5853, "event": "built_in_list_watch", "level": "info", "timestamp": "2026-10-23T09:39:06.735578Z"}
+05:39:06 log: {"watch": true, "changed": 5853, "event": "built_in_list_watch", "level": "info", "timestamp": "2026-10-23T09:39:06.749103Z"}
+05:39:19 add 'Mistral' (not in list; 0 s): {"added":1,"existing":0,"watched_again":0,"skipped_unsupported":[],"watched_again_ids":[],"not_understood":[],"not_found":[],"check_failed":[],"not_checked":[]}
+05:39:19 user rows: {"id":3384,"source":"greenhouse","slug":"datadog","name":"Datadog","enabled":true,"status":"active","interval_s":86400,"next_poll_in_s":35649,"last_success_age_s":null,"last_attempt_age_s":null,"consecutive_failures":0,"last_outcome":null,"last_error":null} | {"id":5154,"source":"greenhouse","slug":"stripe","name":"Stripe","enabled":true,"status":"active","interval_s":86400,"next_poll_in_s":22448,"last_success_age_s":null,"last_attempt_age_s":null,"consecutive_failures":0,"last_outcome":null,"last_error":null} | {"id":5856,"source":"lever","slug":"mistral","name":"Mistral","enabled":true,"status":"active","interval_s":900,"next_poll_in_s":440,"last_success_age_s":null,"last_attempt_age_s":null,"consecutive_failures":0,"last_outcome":null,"last_error":null}
+05:40:07 restart (with the named-company interval fix): pid=28148
+05:40:07 log: {"added": 0, "listed": 5855, "watching": true, "version": "2026-10-23", "event": "directory_synced", "level": "info", "timestamp": "2026-10-23T09:40:04.103840Z"}
+05:40:07 name Stripe, Datadog again: {"added":0,"existing":2,"watched_again":0,"skipped_unsupported":[],"watched_again_ids":[],"not_understood":[],"not_found":[],"check_failed":[],"not_checked":[]}
+05:40:07 user rows: greenhouse:datadog interval_s=86400 next_poll_in_s=35601, greenhouse:stripe interval_s=86400 next_poll_in_s=22400, lever:mistral interval_s=900 next_poll_in_s=393
+05:40:15 name Cloudflare (in the list, after the fix): {"added":0,"existing":1,"watched_again":0,"skipped_unsupported":[],"watched_again_ids":[],"not_understood":[],"not_found":[],"check_failed":[],"not_checked":[]}
+05:40:15 user rows: greenhouse:cloudflare interval_s=900 next_poll_in_s=382, greenhouse:datadog interval_s=86400 next_poll_in_s=35593, greenhouse:stripe interval_s=86400 next_poll_in_s=22392, lever:mistral interval_s=900 next_poll_in_s=385
+05:40:15 Note: Stripe/Datadog were made the user's by the pre-fix code earlier in this run, so they keep 86400 in this evidence DB only.
+label=baseline db_bytes=16874104
+fetches last hour per host vs budget:
+   ('greenhouse', 300, 4)
+   ('lever', 120, 1)
+   ('ashby', 120, 2)
+fetch outcomes (all time):
+   ('ashby', 'OK', 2)
+   ('greenhouse', 'OK', 4)
+   ('lever', 'OK', 1)
+boards_polled=7 jobs=244 raw_postings=244 payload_bytes=3710073 description_raw_bytes=2868202 description_text_bytes=1628102
+db_bytes_per_board_polled=2410586 raw_postings_per_board=34.9
+db_bytes_per_raw_posting=69156
+employers by origin/enabled/status: [('directory', 1, 'active', 5852), ('user', 1, 'active', 4)]
+filter_results: 0 posting_analyses: 0
+log warnings/errors/budget_deferred: {}
+label=after 30 min db_bytes=150895296
+fetches last hour per host vs budget:
+   ('greenhouse', 300, 76)
+   ('lever', 120, 5)
+   ('ashby', 120, 57)
+fetch outcomes (all time):
+   ('ashby', 'OK', 57)
+   ('greenhouse', 'NOT_MODIFIED', 1)
+   ('greenhouse', 'OK', 75)
+   ('lever', 'EMPTY', 1)
+   ('lever', 'NOT_MODIFIED', 1)
+   ('lever', 'OK', 3)
+boards_polled=136 jobs=5029 raw_postings=5029 payload_bytes=52913233 description_raw_bytes=40243394 description_text_bytes=27185547
+db_bytes_per_board_polled=1109524 raw_postings_per_board=37.0
+db_bytes_per_raw_posting=30005
+employers by origin/enabled/status: [('directory', 1, 'active', 5852), ('user', 1, 'active', 4)]
+filter_results: 0 posting_analyses: 0
+log warnings/errors/budget_deferred: {}
+data root: C:\Users\kevin\AppData\Local/jobforge-evidence-p1_10
+database:  C:\Users\kevin\AppData\Local/jobforge-evidence-p1_10/data/jobforge.db
+install:   C:\Users\kevin\AppData\Local/JobForge
+agent ipc: port=52200 token=<read from ipc.json>
+
+════════════════════════════════════════════════════════════
+  DISCOVERY — continuity, intervals, conditional requests, jitter, budget, recovery, change detection
+════════════════════════════════════════════════════════════
+
+── scripts/verify_discovery.py (every discovery row in SPEC 6)
+   $ /c/Users/kevin/Desktop/claude-projects/job-search-app/agent/.venv/Scripts/python.exe /c/Users/kevin/Desktop/claude-projects/job-search-app/scripts/verify_discovery.py C:\Users\kevin\AppData\Local/jobforge-evidence-p1_10/data/jobforge.db
+database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_10\data\jobforge.db
+now: 2026-10-23 06:10:53  schema: 9  paused: 0
+
+== Discovery is continuous: per source, enabled employers and max age of last success (s)
+  greenhouse  boards-api.greenhouse.io   employers=3185 max_success_age_s=1872  never_succeeded=3110  interval_s=900
+  lever       api.lever.co               employers=211  max_success_age_s=1857  never_succeeded=207  interval_s=900
+  ashby       api.ashbyhq.com            employers=2460 max_success_age_s=1863  never_succeeded=2402  interval_s=900
+
+== Employers not active or failing (status, consecutive failures, last outcome, last error)
+  (none)
+
+== Outcomes per source, last 24 h
+  ashby       OK              58
+  greenhouse  OK              75
+  greenhouse  NOT_MODIFIED    1
+  greenhouse  IN_FLIGHT       1
+  lever       OK              3
+  lever       NOT_MODIFIED    1
+  lever       EMPTY           1
+
+== Request volume per host: last hour and last 24 h (requests, bytes on the wire) vs hourly budget
+  greenhouse  last_hour: 77 req, 13.37 MB (budget 300/h)   last_24h: 77 req, 13.37 MB
+  lever       last_hour: 6 req, 3.74 MB (budget 120/h)   last_24h: 6 req, 3.74 MB
+  ashby       last_hour: 59 req, 1.41 MB (budget 120/h)   last_24h: 59 req, 1.41 MB
+
+== Intervals as configured: median gap between successive fetch starts per employer (s), last 24 h
+  gaps=2  min=837  median=917  max=917
+
+== No overlapping polls: pairs of fetches for one employer whose [start, finish] overlap
+  overlapping pairs: 0
+  unfinished fetches now: 1
+
+== Retry-After honored: rows with retry_after_s and the next request to that host
+  (no Retry-After seen)
+
+== Jitter, no bursts: fetch starts per minute per host, last 2 h (minutes with any fetch)
+  ashby       minutes_active=26  max_per_minute=5  distribution={1: 8, 2: 8, 3: 7, 4: 2, 5: 1}
+  greenhouse  minutes_active=29  max_per_minute=6  distribution={1: 6, 2: 9, 3: 8, 4: 3, 5: 1, 6: 2}
+  lever       minutes_active=5  max_per_minute=1  distribution={1: 5}
+
+== Change detection, last 24 h
+  employer_disabled 1
+  employer_enabled 1
+  posting_new      5081
+  jobs open/total: 5081/5081   raw_postings: 5081   200 polls: 137   304 polls: 2
+
+== Recovery: INTERRUPTED fetches and whether each was followed by another fetch
+
+── Source errors as the agent reports them (compare with the SQL above)
+   $ bash -c curl -sS --max-time 10 -H 'Authorization: Bearer <redacted>' http://127.0.0.1:52200/v1/discovery/status | '/c/Users/kevin/Desktop/claude-projects/job-search-app/agent/.venv/Scripts/python.exe' -c 'import json,sys; d=json.load(sys.stdin); print("paused", d["paused"], "jobs_open", d["jobs_open"]); [print(e["id"], e["name"], e["status"], e["consecutive_failures"], e["last_error"]) for e in d["employers"] if e["status"] != "active" or e["consecutive_failures"]]; print("built_in", d["built_in"])'
+paused False jobs_open 5090
+built_in {'watching': True, 'total': 5852, 'enabled': 5852, 'dead': 0, 'blocked': 0, 'failing': 0, 'checked_once': 136, 'last_success_age_s': 0}
+
+── Built-in company list (P1.10): rows by origin, switch state, poll interval
+   $ sql SELECT origin, enabled, status, poll_interval_s, count(*) AS n FROM employers GROUP BY 1, 2, 3, 4 ORDER BY 1, 2, 3, 4
+['origin', 'enabled', 'status', 'poll_interval_s', 'n']
+["directory", 1, "active", 86400, 5852]
+["user", 1, "active", null, 2]
+["user", 1, "active", 86400, 2]
+
+── The built-in-list switch (no row = on)
+   $ sql SELECT key, value FROM settings WHERE key = 'directory_watch'
+['key', 'value']
+["directory_watch", "1"]
+
+── Shipped list (directory.json) and the last startup syncs (agent log)
+   $ bash -c '/c/Users/kevin/Desktop/claude-projects/job-search-app/agent/.venv/Scripts/python.exe' -c 'import sys; sys.path.insert(0, sys.argv[1]); from jobforge_agent.discovery import directory as d; doc = d.load(); print("version", doc["version"], "crawls", doc["crawls"], "entries", len(doc["entries"]), "failed index queries", doc["index_queries_failed"])' '/c/Users/kevin/Desktop/claude-projects/job-search-app/agent/src'; grep -h 'directory_sync' 'C:\Users\kevin\AppData\Local/jobforge-evidence-p1_10/logs/agent.jsonl' 2>/dev/null | tail -3
+version 2026-10-23 crawls ['CC-MAIN-2026-43', 'CC-MAIN-2026-39'] entries 5855 failed index queries ['CC-MAIN-2026-39 job-boards.greenhouse.io page 1', 'CC-MAIN-2026-39 job-boards.greenhouse.io page 2', 'CC-MAIN-2026-39 job-boards.greenhouse.io page 3', 'CC-MAIN-2026-39 job-boards.greenhouse.io page 4']
+{"added": 5855, "listed": 5855, "watching": true, "version": "2026-10-23", "event": "directory_synced", "level": "info", "timestamp": "2026-10-23T09:38:52.090737Z"}
+{"added": 0, "listed": 5855, "watching": true, "version": "2026-10-23", "event": "directory_synced", "level": "info", "timestamp": "2026-10-23T09:40:04.103840Z"}
+
+── Requests per board host in the last hour vs its budget (the list shares it with your companies)
+   $ sql SELECT s.kind, s.max_requests_per_hour, count(f.id) AS fetches_last_hour FROM sources s LEFT JOIN employers e ON e.source_id = s.id LEFT JOIN source_fetches f ON f.employer_id = e.id AND f.started_at_ms > (strftime('%s','now') - 3600) * 1000 GROUP BY s.id
+['kind', 'max_requests_per_hour', 'fetches_last_hour']
+["greenhouse", 300, 77]
+["lever", 120, 5]
+["ashby", 120, 58]
+
+(End of evidence. No verdict is printed on purpose. Read it.)
+06:11:02 Agent stopped after the 30-minute measurement so the evidence folder does not grow to the projected ~6.5 GB. Folder left in place (deleting it needs Kevin's approval).

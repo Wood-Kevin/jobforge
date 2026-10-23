@@ -17,11 +17,13 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const h = health.data;
   const d = disc.data;
   const enabled = (d?.employers ?? []).filter((e) => e.enabled);
+  const b = d?.built_in;
+  const watched = enabled.length + (b?.enabled ?? 0);
   const counts: Record<string, number> = {};
   for (const j of recs.data?.jobs ?? []) counts[j.recommendation!.recommendation] = (counts[j.recommendation!.recommendation] ?? 0) + 1;
   const gate = Object.values(evaluation.data?.inference ?? {})[0] ?? Object.values(analysis.data?.inference ?? {})[0];
   const waitingAi = (analysis.data?.counts.pending ?? 0) + (evaluation.data?.counts.pending ?? 0);
-  const lastCheck = Math.min(...enabled.map((e) => e.last_success_age_s ?? Infinity));
+  const lastCheck = Math.min(...enabled.map((e) => e.last_success_age_s ?? Infinity), b?.last_success_age_s ?? Infinity);
 
   const problems: string[] = [];
   if (sup && sup.state !== "running") problems.push("JobForge's background service is not running.");
@@ -36,6 +38,7 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   }
   for (const s of d?.sources ?? []) if (s.enabled && s.backoff_until_ms) problems.push(`${s.kind} asked JobForge to slow down; checks resume shortly.`);
   if (h?.last_maintenance_error) problems.push(`Daily backup failed: ${h.last_maintenance_error}`);
+  if (h?.directory_error) problems.push(`The built-in company list could not be loaded (${h.directory_error}). Companies you added still work.`);
 
   return (
     <div className="page">
@@ -44,8 +47,8 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
           {h.discovery_paused ? "Resume checking for jobs" : "Pause checking for jobs"}
         </button>)}>
         <p className="lead">
-          {enabled.length === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>
-            : <>Watching <strong>{enabled.length}</strong> companies{isFinite(lastCheck) ? <>, last check {age(lastCheck)} ago</> : ""}.
+          {watched === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>
+            : <>Watching <strong>{watched}</strong> companies{isFinite(lastCheck) ? <>, last check {age(lastCheck)} ago</> : ""}.
               {" "}{waitingAi > 0 ? <>{waitingAi} postings are waiting to be read by the AI model.</> : "Every posting found so far has been read."}</>}
         </p>
         <div className="stats">
@@ -78,6 +81,10 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
         <h3>AI model queue</h3>
         <p className="muted">Postings: {fmt(analysis.data?.counts)} · Matches against your profile: {fmt(evaluation.data?.counts)}</p>
         <h3>Companies</h3>
+        {b && b.total > 0 && (
+          <p className="muted">Built-in list: {b.watching ? `${b.enabled} watched, checked about once a day; ${b.checked_once} checked at least once.` : `turned off (${b.total} companies).`}
+            {b.dead + b.blocked + b.failing > 0 && ` ${b.dead} boards no longer exist, ${b.blocked} refused access, ${b.failing} failed their last 3 checks (normal for a long list; nothing to do).`}</p>)}
+        <p className="muted">Companies you added:</p>
         <table>
           <thead><tr><th>Company</th><th>Board</th><th>Last check</th><th>Next check</th><th /></tr></thead>
           <tbody>{enabled.map((e) => (

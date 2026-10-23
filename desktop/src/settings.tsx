@@ -1,7 +1,7 @@
 // The pieces of setup that Setup (first run) and Preferences (later) share: what you are looking
 // for, which companies to watch, and the AI model check. Plain fields only; no JSON, no patterns.
 import { useEffect, useState, type ChangeEvent } from "react";
-import { api, type SearchForm as Form } from "./api";
+import { api, type EmployerAdd, type SearchForm as Form } from "./api";
 import { Card, ConfirmButton, ErrorBox, age, useAction, useLive } from "./ui";
 
 const lines = (v: string[] | undefined) => (v ?? []).join("\n");
@@ -93,23 +93,40 @@ export function CompaniesCard({ compact = false }: { compact?: boolean }) {
   const [text, setText] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const report = (r: { added: number; existing: number; skipped_unsupported: string[]; not_understood?: string[] }) => {
+  const report = (r: EmployerAdd) => {
     const parts = [`${r.added} added`];
     if (r.existing) parts.push(`${r.existing} already watched`);
+    if (r.watched_again) parts.push(`${r.watched_again} watched again`);
+    if (r.not_found?.length) parts.push(`not found on Greenhouse, Lever or Ashby: ${r.not_found.join(", ")} (paste their careers link if they use one of those)`);
+    if (r.check_failed?.length) parts.push(`couldn't check right now, try again: ${r.check_failed.join("; ")}`);
+    if (r.not_checked?.length) parts.push(`not checked (10 names at a time): ${r.not_checked.join(", ")}`);
     if (r.skipped_unsupported.length) parts.push(`${r.skipped_unsupported.length} on job boards JobForge can't read yet (${r.skipped_unsupported.slice(0, 3).join(", ")}${r.skipped_unsupported.length > 3 ? "..." : ""})`);
     if (r.not_understood?.length) parts.push(`not recognized: ${r.not_understood.join(", ")}`);
     setMsg(parts.join("; ") + ".");
     status.reload();
   };
   const emps = status.data?.employers ?? [];
+  const b = status.data?.built_in;
   const shown = showAll ? emps : emps.slice(0, compact ? 0 : 12);
+  const watched = emps.filter((e) => e.enabled).length + (b?.enabled ?? 0);
   return (
-    <Card title={`Companies to watch (${emps.filter((e) => e.enabled).length})`}>
-      <p className="muted">Paste careers-page links, one per line. JobForge reads boards on Greenhouse
-        (boards.greenhouse.io/...), Lever (jobs.lever.co/...) and Ashby (jobs.ashbyhq.com/...).</p>
-      <textarea rows={compact ? 4 : 3} value={text} placeholder={"https://boards.greenhouse.io/cloudflare\nhttps://jobs.lever.co/plaid"} onChange={(e) => setText(e.target.value)} />
+    <Card title={`Companies to watch (${watched})`}>
+      {b && b.total > 0 && (
+        <div className="row">
+          <p className="muted">{b.watching
+            ? <>JobForge already watches <strong>{b.enabled}</strong> companies from its built-in list, each checked about once a
+              day{b.checked_once < b.enabled ? ` (${b.checked_once} checked so far; the rest during the first day)` : ""}.</>
+            : <>The built-in list of {b.total} companies is turned off. Only the companies you add are watched.</>}</p>
+          <span className="spacer" />
+          {b.watching
+            ? <ConfirmButton label="Turn off the built-in list" disabled={act.busy} onConfirm={() => act.run(async () => { await api.setBuiltInWatch(false); status.reload(); })} />
+            : <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.setBuiltInWatch(true); status.reload(); })}>Turn the built-in list back on</button>}
+        </div>)}
+      <p className="muted">To add others, type company names or paste careers-page links, one per line. JobForge reads
+        Greenhouse, Lever and Ashby job boards and finds each company's board itself.</p>
+      <textarea rows={3} value={text} placeholder={"Stripe\nDatadog\nhttps://jobs.lever.co/plaid"} onChange={(e) => setText(e.target.value)} />
       <div className="row">
-        <button className="primary" disabled={act.busy || !text.trim()} onClick={() => act.run(async () => { report(await api.addEmployers(text)); setText(""); })}>Add companies</button>
+        <button className="primary" disabled={act.busy || !text.trim()} onClick={() => act.run(async () => { setMsg("Looking them up..."); report(await api.addEmployers(text)); setText(""); })}>Add companies</button>
         <span className="spacer" />
         <label className="file-button">Use my job-scanner watchlist
           <input type="file" accept=".yaml,.yml" onChange={(e) => act.run(async () => { const t = await readFile(e); if (t !== null) report(await api.importWatchlist(t)); })} /></label>

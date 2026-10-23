@@ -63,7 +63,7 @@ class MigrateResult:
 # that downgrades JobForge replaces files but does not remove newer ones, and a leftover newer
 # migration file once made an older agent treat a newer database as current instead of exiting 4
 # (P1.9 release drill). Files above this number are ignored; a test ties it to the migration files.
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 
 
 def bundled_migrations() -> list[Migration]:

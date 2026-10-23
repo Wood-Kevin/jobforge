@@ -154,7 +154,7 @@ def test_backup_and_restore_refused_while_agent_runs_then_work(agent_paths):
 @pytest.mark.skipif(not winutil.is_elevated(), reason="needs an elevated test shell to observe the refusal")
 def test_elevated_run_is_refused_without_creating_files(tmp_path):
     root = tmp_path / "jf"
-    env = {**os.environ, "JOBFORGE_DATA_DIR": str(root)}
+    env = {**os.environ, "JOBFORGE_DATA_DIR": str(root), "JOBFORGE_BUILT_IN_LIST": "0"}
     for args in ([], ["--restore", "x.db"], ["--backup"]):
         r = subprocess.run([sys.executable, "-m", "jobforge_agent", *args], env=env, capture_output=True, text=True,
                            creationflags=winutil.CREATE_NO_WINDOW, timeout=60)

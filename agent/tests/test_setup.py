@@ -92,8 +92,8 @@ def test_setup_routes_and_status(paths):
         r = await client.post("/v1/search-profile/form", headers=AUTH, json=FORM)
         assert r.status_code == 200 and r.json()["version"] == 1
         assert (await client.post("/v1/search-profile/form", headers=AUTH, json={**FORM, "titles": []})).status_code == 422
-        added = (await client.post("/v1/employers/add", headers=AUTH, json={"text": "https://jobs.lever.co/acme\nnot a link"})).json()
-        assert added["added"] == 1 and added["not_understood"] == ["not a link"]
+        added = (await client.post("/v1/employers/add", headers=AUTH, json={"text": "https://jobs.lever.co/acme\nhttps://acme.wd1.myworkdayjobs.com/careers"})).json()
+        assert added["added"] == 1 and added["not_understood"] == ["https://acme.wd1.myworkdayjobs.com/careers"]
         wl = (await client.post("/v1/employers/import-watchlist", headers=AUTH,
                                 json={"text": "employers:\n  - {name: Beta, ats: ashby, slug: beta}\n"})).json()
         assert wl["added"] == 1

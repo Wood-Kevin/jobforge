@@ -264,3 +264,43 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** measuring recall needs a labeled item list per resume; a reviewed `profile_draft.json` (46
   items) could serve for several resumes but is one person's data.
 - **Trigger:** a user reports missing items, or the golden-set work in P1.9 adds profile labels.
+
+## Built-in list goes stale between releases (P1.10)
+- **What:** `discovery/directory.json` is a snapshot (version 2026-10-23: 5,855 boards from Common Crawl
+  CC-MAIN-2026-43 and -39). Boards that close turn `dead` and stop being polled; companies that move to a board
+  after the build are missing until someone names them.
+- **Why deferred:** rebuilding took 1 h 53 min with cached index pages (one spaced request per candidate; Common Crawl 502/504s add more on a cold run) and belongs
+  in the release routine, not in the agent; the agent never fetches a list from the network.
+- **Trigger:** each release (run `scripts/build_directory.py --crawls 2` from `agent/`), or Status showing more
+  than 10% of the built-in list dead.
+
+## Built-in list: Common Crawl gaps (P1.10)
+- **What:** (1) 4 of 5 index pages for `job-boards.greenhouse.io` in CC-MAIN-2026-39 failed after six tries (502/504)
+  and are listed in the file's `index_queries_failed`; the same host's pages from CC-MAIN-2026-43 were read.
+  (2) Lever is thin: 280 candidates, 210 kept (Common Crawl gets few Lever pages). (3) Lever and Ashby expose no
+  company name, so names are the title-cased id ("Openai"), and one name can match two different companies on
+  different boards ("Ramp": Ashby `ramp`, 171 jobs, and Greenhouse `ramp`, "RAMP", 1 job); naming it watches both.
+- **Why deferred:** adding a name source or a disambiguation step is new scope; add-by-name already finds
+  companies missing from the list through the board APIs (live: "Mistral" found on Lever).
+- **Trigger:** a rebuild (retry the failed pages first), a user report of a wrong or missing company, or a
+  second list source.
+
+## Ashby budget headroom with the built-in list (P1.10)
+- **What:** 2,460 Ashby boards at 24 h is about 103 requests/h against the 120/h budget (Greenhouse: 3,185 boards,
+  about 133/h of 300; Lever: 210, about 9/h of 120). That leaves room for about 4 of the person's own Ashby
+  companies at 15 min; beyond that the budget gate defers polls and every Ashby interval stretches evenly
+  (`budget_deferred`), nothing fails.
+- **Why deferred:** raising the 120/h budget is a terms-of-use judgment (ARCHITECTURE Appendix A), Kevin's call.
+- **Trigger:** `budget_deferred` lines for ashby in the agent log, or Kevin deciding a higher budget.
+
+## Storage at built-in-list scale (P1.10) -- decide before installing a P1.10 build
+- **What:** measured on the evidence data root (30 min, 136 boards, 5,029 postings): 30.0 KB of database per
+  posting, 1.1 MB per board (`payload` 10.5 KB, `description_raw` 8.0 KB, `description_text` 5.4 KB per posting,
+  plus indexes). The list's 5,855 boards held 217,026 open jobs at build time, so the first full day of polling
+  projects to about 6.5 GB, growing with every material edit (a new `raw_postings` row) and never shrinking,
+  since postings are kept. `payload` is written and never read. Earlier P1.9 measurement: zlib ratio 3.3.
+- **Why deferred:** each fix changes retention or the data model, which SPEC fixes ("all postings retained"):
+  (a) stop storing `payload` (about -35%); (b) compress the three text columns (about -70%); (c) keep full text
+  only for postings that pass the search profile, title and metadata for the rest; (d) a smaller list (for
+  example only boards with a posting matching the person's titles). These are the user's calls.
+- **Trigger:** before any P1.10 installer goes on Kevin's machine, or a database over 1 GB.

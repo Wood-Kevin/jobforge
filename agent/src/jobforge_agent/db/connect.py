@@ -55,7 +55,8 @@ GRANTS: dict[str, dict[str, Grant]] = {
     # Polling, change detection, filtering, queueing analyses. Never touches personal profile data.
     "discovery": {
         "sources": upd("backoff_until_ms", "backoff_reason"),
-        "employers": upd("status"),
+        # Insert: the built-in company list is added at startup (P1.10); never updates enabled/origin.
+        "employers": _merge(ins(), upd("status")),
         "employer_poll_state": full(),
         "robots_cache": full(),
         "source_fetches": full(),

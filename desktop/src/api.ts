@@ -6,7 +6,7 @@ import { agentCall, agentUpload } from "./agent";
 
 export type Health = {
   version: string; protocol_version: number; pid: number; run_id: number; schema: number; elevated: boolean;
-  discovery_paused: boolean; uptime_s: number; last_maintenance_error: string | null; data_dir: string;
+  discovery_paused: boolean; uptime_s: number; last_maintenance_error: string | null; directory_error: string | null; data_dir: string;
 };
 export type Gate = Record<string, { up: boolean | null; reason: string | null; next_check_ms: number }>;
 export type QueueStatus = { counts: Record<string, number>; pending_waiting_for_disabled_config: number; configs_with_work: number[]; inference: Gate };
@@ -17,6 +17,9 @@ export type DiscoveryStatus = {
   employers: { id: number; source: string; slug: string; name: string; enabled: boolean; status: string; interval_s: number;
     next_poll_in_s: number | null; last_success_age_s: number | null; last_attempt_age_s: number | null;
     consecutive_failures: number | null; last_outcome: string | null; last_error: string | null }[];
+  // The built-in company list, as counts (its rows are not listed; P1.10).
+  built_in: { watching: boolean; total: number; enabled: number; dead: number; blocked: number; failing: number;
+    checked_once: number; last_success_age_s: number | null };
 };
 export type FilterSummary = { profile_version: number | null; ruleset?: string; verdicts?: Record<string, number>;
   rejected_by_primary_category?: Record<string, number>; analyses_pending?: number };
@@ -76,7 +79,8 @@ export type SetupStatus = {
 export type SearchForm = { titles: string[]; skip_seniority: string[]; skip_fields: string[]; home_state: string; home_towns: string[];
   salary_floor: number | null; pay_target: number | null; work_modes: Record<string, string>; favorite_titles: string[];
   favorite_levels: string[]; max_age_days: number | null; has_profile?: boolean; kept_patterns?: Record<string, string[]> };
-export type EmployerAdd = { added: number; existing: number; skipped_unsupported: string[]; not_understood?: string[] };
+export type EmployerAdd = { added: number; existing: number; watched_again: number; skipped_unsupported: string[]; not_understood?: string[];
+  not_found?: string[]; check_failed?: string[]; not_checked?: string[] };
 
 const q = (v: string) => encodeURIComponent(v);
 
@@ -129,6 +133,7 @@ export const api = {
   importWatchlist: (text: string) => agentCall<EmployerAdd>("POST", "/v1/employers/import-watchlist", { text }),
   enableEmployer: (id: number) => agentCall<{ enabled: boolean }>("POST", `/v1/employers/${id}/enable`),
   disableEmployer: (id: number) => agentCall<{ enabled: boolean }>("POST", `/v1/employers/${id}/disable`),
+  setBuiltInWatch: (watch: boolean) => agentCall<{ watching: boolean; changed: number }>("POST", "/v1/employers/built-in", { watch }),
   modelConfigs: () => agentCall<ModelConfig[]>("GET", "/v1/model-configs"),
   testModelConfig: (id: number) => agentCall<{ ok: boolean; error?: string; seconds?: number }>("POST", `/v1/model-configs/${id}/test`),
   enableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/enable`),
