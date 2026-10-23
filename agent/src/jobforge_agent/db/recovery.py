@@ -20,6 +20,7 @@ class RecoveryReport:
     superseded_analyses: int
     failed_analyses: int
     reset_evaluations: int
+    superseded_evaluations: int
     failed_evaluations: int
     crashed_runs: list[int]
 
@@ -50,6 +51,12 @@ def recover(conn: sqlite3.Connection, now_ms: int) -> RecoveryReport:
             "UPDATE posting_analyses SET status = 'pending', attempts = attempts + 1, lease_until_ms = NULL, "
             "last_error = 'interrupted' WHERE status = 'running'").rowcount
 
+        # Same rule for evaluations (one pending per job, migration 0004).
+        superseded_e = conn.execute(
+            "UPDATE evaluations SET status = 'superseded', lease_until_ms = NULL, last_error = 'interrupted; newer evaluation pending' "
+            "WHERE status = 'running' AND EXISTS (SELECT 1 FROM evaluations e2 WHERE e2.job_id = evaluations.job_id "
+            "AND (e2.status = 'pending' OR (e2.status = 'running' AND e2.id > evaluations.id)))"
+        ).rowcount
         failed_e = conn.execute(
             "UPDATE evaluations SET status = 'failed', attempts = attempts + 1, lease_until_ms = NULL, "
             "last_error = 'interrupted ' || (attempts + 1) || ' times' WHERE status = 'running' AND attempts + 1 >= ?",
@@ -65,4 +72,4 @@ def recover(conn: sqlite3.Connection, now_ms: int) -> RecoveryReport:
     except Exception:
         conn.execute("ROLLBACK")
         raise
-    return RecoveryReport(fetches, leases, reset_a, superseded, failed_a, reset_e, failed_e, runs)
+    return RecoveryReport(fetches, leases, reset_a, superseded, failed_a, reset_e, superseded_e, failed_e, runs)

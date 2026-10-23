@@ -81,6 +81,7 @@ def compile_profile(rules: dict) -> CompiledProfile:
     for p in loc.get("residency_markers") or []:
         if "(?P<place>" not in p:
             raise ProfileError(f"location.residency_markers pattern needs a (?P<place>...) group: {p!r}")
+    validate_opportunity(rules.get("opportunity"))
     floor = (rules.get("salary") or {}).get("floor_annual", 0)
     try:
         floor = float(floor or 0)
@@ -104,6 +105,38 @@ def compile_profile(rules: dict) -> CompiledProfile:
         floor_annual=floor,
         max_age_days=(rules.get("freshness") or {}).get("max_age_days"),
     )
+
+
+OPPORTUNITY_VALUES = ("favorable", "neutral", "unfavorable")
+
+
+def validate_opportunity(o) -> None:
+    """Optional `opportunity` section read by opportunity value (ARCHITECTURE 6.2, 6.5; Q8). The
+    filter ignores it. Missing parts make that factor `unknown`, never a guess:
+      pay_target_annual: number
+      work_modes: {remote|hybrid|onsite: favorable|neutral|unfavorable}
+      seniority, role_families: {favorable: [title patterns], unfavorable: [title patterns]}"""
+    if o is None:
+        return
+    if not isinstance(o, dict):
+        raise ProfileError("opportunity must be an object")
+    unknown = set(o) - {"pay_target_annual", "work_modes", "seniority", "role_families"}
+    if unknown:
+        raise ProfileError(f"opportunity does not take {', '.join(sorted(unknown))}")
+    t = o.get("pay_target_annual")
+    if t is not None and (isinstance(t, bool) or not isinstance(t, (int, float)) or t <= 0):
+        raise ProfileError("opportunity.pay_target_annual must be a positive number")
+    modes = o.get("work_modes") or {}
+    if not isinstance(modes, dict) or set(modes) - {"remote", "hybrid", "onsite"} or any(v not in OPPORTUNITY_VALUES for v in modes.values()):
+        raise ProfileError("opportunity.work_modes maps remote/hybrid/onsite to favorable/neutral/unfavorable")
+    for key in ("seniority", "role_families"):
+        spec = o.get(key) or {}
+        if not isinstance(spec, dict) or set(spec) - {"favorable", "unfavorable"}:
+            raise ProfileError(f"opportunity.{key} takes favorable and unfavorable pattern lists")
+        for side, patterns in spec.items():
+            if not isinstance(patterns, list):
+                raise ProfileError(f"opportunity.{key}.{side} must be a list")
+            compile_terms(patterns, f"opportunity.{key}.{side}")
 
 
 def from_scanner_config(raw: dict) -> dict:

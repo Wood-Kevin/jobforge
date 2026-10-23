@@ -176,9 +176,25 @@ def test_sign_out_stops_the_agent_gracefully(agent_paths):
     start_agent(p.root)
     health = _wait(lambda: _running_health(p), 30, "agent did not start")
     user32 = ctypes.WinDLL("user32", use_last_error=True)
-    user32.FindWindowW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR]
-    user32.FindWindowW.restype = wintypes.HWND
-    hwnd = _wait(lambda: user32.FindWindowW(CLASS_NAME, None), 10, "session window not found")
+    user32.FindWindowExW.argtypes = [wintypes.HWND, wintypes.HWND, wintypes.LPCWSTR, wintypes.LPCWSTR]
+    user32.FindWindowExW.restype = wintypes.HWND
+    user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+
+    def own_window():
+        # Only the window of THIS test's agent. FindWindowW(CLASS_NAME) returned the first agent
+        # window on the machine: in P1.7 this test signed out a separate drill agent (and would do
+        # the same to the installed agent if it were running).
+        hwnd = None
+        while True:
+            hwnd = user32.FindWindowExW(None, hwnd, CLASS_NAME, None)
+            if not hwnd:
+                return None
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if pid.value == health["pid"]:
+                return hwnd
+
+    hwnd = _wait(own_window, 10, "session window of this agent not found")
     user32.SendMessageTimeoutW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM,
                                            wintypes.UINT, wintypes.UINT, ctypes.POINTER(ctypes.c_size_t)]
     result = ctypes.c_size_t()

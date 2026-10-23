@@ -103,6 +103,9 @@ class AnalysisWorker:
         self._waiting_logged: int | None = None
         self.before_call = before_call  # test hook: runs just before each model call
         self.calls = 0
+        # Steps tried before posting analysis on every loop iteration (P1.7: the evaluation step,
+        # so a job half way through the pipeline finishes first). Same loop, so one model call at a time.
+        self.steps_before: list[Callable[[], Awaitable[str | None]]] = []
 
     def wake(self) -> None:
         self._wake.set()
@@ -115,7 +118,13 @@ class AnalysisWorker:
     async def run(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
             try:
-                outcome = await self.run_once()
+                outcome = None
+                for step in self.steps_before:
+                    outcome = await step()
+                    if outcome is not None:
+                        break
+                if outcome is None:
+                    outcome = await self.run_once()
             except asyncio.CancelledError:
                 raise
             except Exception as exc:  # keep the loop alive; the failure is in the error log

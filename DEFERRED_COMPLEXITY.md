@@ -176,3 +176,30 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **What:** The recall scan (D15) stores an `unextracted_eligibility` row for each eligibility-cue sentence the model did not cover, including good news ("We do sponsor visas!", Anthropic) and negations ("No clearance required"). Each row carries the code's reading (`cue_polarity`, class), but E2 does not decide which ones should make eligibility UNKNOWN.
 - **Why deferred:** That is an assessment decision (P1.7, 6.5): e.g. a sponsorship sentence matters only if the profile says sponsorship is needed. Dropping rows in E2 would hide model misses, the failure D15 exists for.
 - **Trigger:** P1.7 eligibility rules; the golden-set REVIEW share (Q16) shows how many REVIEWs come from recall rows.
+- **Resolved in P1.7:** E5 decides (ARCHITECTURE 6.5, "Points the rules above leave open"): negated rows are ignored, rows met by a verified fact pass, everything else is UNKNOWN, never a block. The rows stay in E2 unchanged.
+
+## A type-only interpretation conflict makes a job REVIEW whatever the profile says (P1.7)
+- **What:** 6.5 says any conflicting hard requirement makes eligibility UNKNOWN. In the P1.7 live run, every Vultr posting's state-list residency rule is a `conflict` only because Gemma typed it `work_authorization` (code: `residency`); the verified residency fact meets it, yet the job is REVIEW with a question no profile answer can resolve. `scripts/verify_evaluation.py` prints how many REVIEWs have no other cause.
+- **Why deferred:** It is Kevin's rule (D7, 6.5) and the safe direction (never a wrong ELIGIBLE). A candidate change: for a conflict whose only disagreement is the eligibility type, check the requirement under both types and treat it as answered only if verified facts meet both; it would still never block. That is a new verdict rule version, decided by Kevin.
+- **Trigger:** Kevin's decision, or the golden-set REVIEW share (Q16) showing these as "obvious" REVIEWs.
+- **Built, not active (P1.7, Kevin asked for it to be built and measured):** `verdict_rules/v2.yaml` (`eligibility.type_only_conflict: check_both`), layer-B cases and a DB test; `VERDICT_RULE_VERSION` stays `v1`. `scripts/compare_verdict_rules.py DATA_DIR v1 v2` recomputes both in a temporary copy (zero model calls) and lists every job whose result changes. Switching is a one-line version change plus a recompute.
+
+## A verify or any small profile edit re-runs E3 for every open job (P1.7)
+- **What:** Snapshots are content-addressed over every item including its status, so verifying one item, or several edits in a row, makes a new snapshot and queues a new evaluation (one model call, ~15-25 s with Gemma) for every open job. Pending ones are superseded, so only the evaluation already running is wasted, but a burst of edits still costs a full re-run.
+- **Why deferred:** It is D10 as agreed (E3-E4 per snapshot) and correct; it is only slow. Cheaper options each add a rule: recompute E4 from the previous matches when only `status` changed (basis is code-computed), or wait for the profile to be idle for N seconds before snapshotting.
+- **Trigger:** Re-evaluation after profile edits gets in Kevin's way (UI shows evaluations pending for long after an edit), or open jobs exceed ~200.
+
+## Soft-skill requirements are almost always "unknown" (P1.7)
+- **What:** "Strong written and verbal communication skills", "Proficiency with the English language" and similar lines are negotiable requirements no profile item states, so E3 returns `unknown` and they count toward the 30% uncertainty that makes fit INSUFFICIENT.
+- **Why deferred:** Dropping them needs a lexicon or a class E2 does not have; marking them covered would be an inferred claim, which D2 forbids. Measured effect first.
+- **Trigger:** Golden-set REVIEWs (Q16) where fit is INSUFFICIENT mostly because of such lines.
+
+## Verdict thresholds are package data, not user settings (P1.7)
+- **What:** `verdict_rules/v1.yaml` ships with the agent (`--collect-data`, checked by `scripts/build.ps1`). Tuning means a new file and `VERDICT_RULE_VERSION`, then a recompute (zero model calls).
+- **Why deferred:** 6.5 calls for versioned rules measured against labels; a settings screen would let thresholds drift without a version.
+- **Trigger:** The golden-set report (P1.9) shows a threshold worth tuning.
+
+## REVIEW share is 91% on the drill profile (P1.7)
+- **What:** On the 44 real postings, rules v1 give REVIEW 40, STRETCH 3, SKIP 1, APPLY 0 (`docs/evidence/p1_7_evaluation_live.txt`). Fit is INSUFFICIENT on 35, mostly because 184 of 442 negotiable requirements are unknown: the drill profile has no skill items, and uncited model gaps count as unknown (D7). Eligibility UNKNOWN on 19 (type-only conflicts, self-reported drill facts).
+- **Why deferred:** The profile was a drill stand-in; the numbers say little about a real profile. 6.5 and Q16 tune thresholds against the golden-set labels, not intuition, and the REVIEW view is meant to resolve these by asking for the missing items and facts.
+- **Trigger:** a real profile entered (P1.8 UI): rerun with `scripts/compare_verdict_rules.py` and the replay approach (stored model answers, zero model calls); golden-set report (P1.9).

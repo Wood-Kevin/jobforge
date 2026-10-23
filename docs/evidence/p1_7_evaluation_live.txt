@@ -1,0 +1,244 @@
+P1.7 evaluation E3-E6 - live evidence (2026-10-22/23, UTC)
+==========================================================
+Setup
+- Copy of the P1.6 evidence database (42 done analyses of real postings), migrated v3 -> v4 by the agent.
+- Drill profile built from career facts in real resumes (4 roles, 10 certs, 2 degrees, no skill items) plus
+  four eligibility facts; residency (FL) is from the resumes, work authorization / sponsorship / clearance level are
+  ASSUMED for the drill. "verified" on 5 items was set by the drill script in the copy, not by Kevin.
+  Search profile v3 = Kevin's v2 rules + an `opportunity` section (drill values). Cert list marked complete.
+- Model: gemma-4-12b-qat in LM Studio, 16k context, reasoning off. Agent started unelevated, discovery running.
+- No profile content below: posting quotes, ids, counts and labels only (scripts/verify_evaluation.py).
+
+Acceptance: LM Studio stopped for 1 h, discovery unaffected, evaluations pending; started -> drain, no restart
+- Run 6 (22:18:25): LM Studio stopped before start. Cut at 22:58:37 (40 min) by a test-isolation bug: the
+  integration sign-out test found the first JobForge session window on the machine (FindWindowW by class) and
+  "signed out" this drill agent. Fixed in tests/integration/test_agent_process.py (window must belong to the
+  test's own agent pid); verified by running that test while the drill agent ran: the drill agent kept running.
+- Run 7 (23:13:56, current code at that time): LM Studio stopped until 00:14:46, i.e. 60 min 50 s of outage.
+  End-of-window snapshot (captured 00:14:35, LM Studio still stopped):
+    captured 2026-10-23T00:14:35Z (end of outage window, LM Studio still stopped)
+    {"version":"0.1.0","protocol_version":1,"pid":26032,"run_id":7,"schema":4,"db":"ok","elevated":false,"discovery_paused":false,"uptime_s":3639,"last_maintenance_error":null,"data_dir":"C:\\Users\\kevin\\AppData\\Local\\jobforge-evidence-p1_7"}
+    {"counts":{"pending":42},"pending_waiting_for_disabled_config":0,"configs_with_work":[1],"inference":{"1":{"up":false,"reason":"ConnectError","next_check_ms":1792715353575}}}
+    {"counts":{"done":42,"pending":1},"pending_waiting_for_disabled_config":0,"configs_with_work":[1],"inference":{"1":{"up":false,"reason":"ConnectError","next_check_ms":1792715353575}}}
+    fetches since run 7 start: (367, 84, 22, 343, 0)
+    max gap between one employer's successive fetch starts (min): (17.3,)
+    enabled employers by age of last success (min): max (16.0,)
+    evaluations: [('pending', 0, 42)]
+- LM Studio started 00:14:46 (`lms server start`, Gemma still loaded). The agent's backoff probe at 00:29:13 found it
+  (gate at its 15 min ceiling); first evaluation_done 00:29:37; all 42 + 2 later (one posting discovered during
+  the outage, one "evaluate anyway") done by 00:47:28. No agent_start between (log below).
+- User action during an in-flight model call (00:46:52, analysis `running`): POST /v1/discovery/pause and /resume
+  each HTTP 200 in 0.0023 s / 0.0026 s; change_events discovery_paused, discovery_resumed committed.
+- Search profile change -> recompute with zero model calls: POST /v1/search-profile (v4, pay target added) at
+  00:50:07 -> recommendations_recomputed 6 + 27 + 11 = 44 under profile 4 as the re-filter (13,493 postings,
+  13.7 s) landed; analysis_done + evaluation_done lines 46 before and 46 after; no evaluation queued.
+- --shutdown at 00:50:53: exit 0, stop_reason requested.
+
+== scripts/verify_evaluation.py on the drill database (code before the two reviews' fixes)
+== Evaluations by status and version
+  done        m1-v1: 44
+  jobs with > 1 pending: 0
+  failures by kind: {}
+  profile snapshots: 1
+  model calls per done evaluation: {1: 44}; seconds median 22.97 max 41.3; prompt tokens median 1009 max 1305
+
+== Recommendation distribution (latest evaluation per open job, active profile)
+  by recommendation: {'SKIP': 9, 'REVIEW': 30, 'STRETCH': 5}
+  by eligibility: {'UNKNOWN': 19, 'ELIGIBLE': 25}
+  by fit: {'WEAK': 9, 'COMPETITIVE': 3, 'STRONG': 2, 'INSUFFICIENT': 25, 'STRETCH': 5}
+  by opportunity: {'MEDIUM': 29, 'HIGH': 14, 'LOW': 1}
+  decisive rule: {'weak_fit': 9, 'review': 30, 'stretch': 5}
+  recommendations by rule version: {'v1': 88}
+  recommendations by search profile: {3: 44, 4: 44}
+
+== Agent log: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_7\logs\agent.jsonl
+  2026-10-22T22:18:25 agent_start {"run_id": 6, "version": "0.1.0", "schema": 4, "elevated": false, "recovered_runs": [], "interrupted_fetches": 0, "reset_analyses": 0, "reset_evaluations": 0}
+  2026-10-22T22:18:27 evaluations_queued {"count": 42, "superseded": 0, "snapshot_id": 1}
+  2026-10-22T22:18:29 inference_unavailable {"model_config_id": 1, "reason": "ConnectError", "retry_in_s": 60.0}
+  2026-10-22T22:58:37 agent_stop {"run_id": 6, "reason": "session_end_logoff"}
+  2026-10-22T23:13:56 agent_start {"run_id": 7, "version": "0.1.0", "schema": 4, "elevated": false, "recovered_runs": [], "interrupted_fetches": 0, "reset_analyses": 0, "reset_evaluations": 0}
+  2026-10-22T23:13:59 inference_unavailable {"model_config_id": 1, "reason": "ConnectError", "retry_in_s": 60.0}
+  2026-10-23T00:29:13 inference_available {"model_config_id": 1, "models_listed": 7}
+  2026-10-23T00:45:57 evaluations_queued {"count": 1, "superseded": 0, "snapshot_id": 1}
+  2026-10-23T00:47:13 evaluations_queued {"count": 1, "superseded": 0, "snapshot_id": 1}
+  2026-10-23T00:50:08 recommendations_recomputed {"count": 6, "rule_version": "v1"}
+  2026-10-23T00:50:18 recommendations_recomputed {"count": 27, "rule_version": "v1"}
+  2026-10-23T00:50:20 recommendations_recomputed {"count": 11, "rule_version": "v1"}
+  2026-10-23T00:50:53 agent_stop {"run_id": 7, "reason": "requested"}
+  evaluation_done: 44 lines, first 2026-10-23T00:29:37, last 2026-10-23T00:47:28
+  inference down 2026-10-22T22:18:29 -> agent stop 2026-10-22T22:58:37: window ends without inference returning (not counted as an outage window)
+  inference down 2026-10-22T23:13:59 -> 2026-10-23T00:29:13 (75 min): 433 fetches, 84 employers; largest gap between one employer's fetches: 17.3 min
+
+== Replay: the 44 stored Gemma E3 answers through the CURRENT code (E4-E6 incl. both reviews' fixes)
+In a further copy, matches/recommendations were cleared and each evaluation re-run with a fake transport that
+returns that evaluation's stored model output (raising on anything else): outcomes {'done': 44}, 44 answers
+replayed, 0 model calls. This is the evidence for the code being committed.
+== Evaluations by status and version
+  done        m1-v1: 44
+  jobs with > 1 pending: 0
+  failures by kind: {}
+  profile snapshots: 1
+  model calls per done evaluation: {1: 44}; seconds median 0 max 0; prompt tokens median 1009 max 1305
+
+== Recommendation distribution (latest evaluation per open job, active profile)
+  by recommendation: {'REVIEW': 40, 'STRETCH': 3, 'SKIP': 1}
+  by eligibility: {'UNKNOWN': 19, 'ELIGIBLE': 25}
+  by fit: {'INSUFFICIENT': 35, 'COMPETITIVE': 3, 'STRONG': 2, 'STRETCH': 3, 'WEAK': 1}
+  by opportunity: {'MEDIUM': 29, 'HIGH': 14, 'LOW': 1}
+  decisive rule: {'review': 40, 'stretch': 3, 'weak_fit': 1}
+  recommendations by rule version: {'v1': 44}
+  recommendations by search profile: {4: 44}
+
+== Per job: recommendation and its three assessments
+   job company        title                                    rec      elig     fit          opp     rule
+   414 Lyft           Business Systems Engineer                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
+   570 Vultr          Technical Support Engineer               REVIEW   UNKNOWN  COMPETITIVE  HIGH    no material gaps
+   573 Vultr          Technical Support Specialist             REVIEW   UNKNOWN  STRONG       MEDIUM  no material gaps, every covered requirement direct
+   576 Vultr          Linux Systems Administrator              REVIEW   UNKNOWN  INSUFFICIENT HIGH    1 material gap(s) and 3 unknown (> 2)
+   577 Vultr          RMA Systems Engineer                     REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
+   601 Vultr          Network DevOps Engineer, RDMA Fabric Aut REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+   603 Vultr          Infrastructure Production Engineer       REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
+   617 Vultr          Server Onboarding Specialist             REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
+   735 OpenAI         Hardware Operations Engineer             REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 40% of requirements (> 30%)
+  2164 Lambda         Technical Success Engineer               STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
+  2396 Tailscale      Customer Reliability Engineer            REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 38% of requirements (> 30%)
+  2407 Tailscale      Infrastructure Engineer                  STRETCH  ELIGIBLE STRETCH      HIGH    2 material gap(s), the rest covered
+  2416 Tailscale      Security Infrastructure Engineer         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 material gap(s) and 3 unknown (> 2)
+  2444 Tailscale      Windows Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 43% of requirements (> 30%)
+  2845 Anthropic      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 55% of requirements (> 30%)
+  2846 Anthropic      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 56% of requirements (> 30%)
+  2847 Anthropic      IT Systems Engineer, M&A                 REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 36% of requirements (> 30%)
+  2848 Anthropic      IT Systems Engineer, Mobile Client Platf REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 81% of requirements (> 30%)
+  3343 Huntress Labs  Security Operations Analyst - West Coast REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
+  7711 Chainguard     Security Analyst (Governance and Trust)  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 50% of requirements (> 30%)
+  7771 Snyk           Professional Services Engineer           REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 44% of requirements (> 30%)
+  9573 Censys         Systems Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 73% of requirements (> 30%)
+  9694 Render         Customer Engineer                        REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9705 Supabase       Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9709 Supabase       Support Engineer (AMER - Weekends)       REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9715 Supabase       Database Support Engineer (AMER)         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 60% of requirements (> 30%)
+  9725 Supabase       Site Reliability Engineer                REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
+  9733 Supabase       Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 50% of requirements (> 30%)
+  10390 Plaid          Technical Support Engineer               REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
+  10518 Keeper Securit Google Cloud & Gemini Enterprise Adminis SKIP     ELIGIBLE WEAK         MEDIUM  5 material gaps (> 2)
+  10533 Keeper Securit IT Support Specialist, Tier 2            REVIEW   UNKNOWN  INSUFFICIENT HIGH    no material gaps but 4 unknown (> 2)
+  10581 Keeper Securit Systems Support Engineer (Night Shift)   REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 40% of requirements (> 30%)
+  11285 Bitwarden      Implementation Engineer, Customer Suppor REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 55% of requirements (> 30%)
+  11286 Bitwarden      IT Security Administrator                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  5 interpretation conflicts (> 3)
+  11766 Vercel         Security Software Engineer, IAM          REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 judgeable negotiable requirements (< 3)
+  11903 GitLab         Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 57% of requirements (> 30%)
+  11941 GitLab         Intermediate Security Analyst, Vulnerabi REVIEW   ELIGIBLE INSUFFICIENT HIGH    no material gaps but 3 unknown (> 2)
+  12107 GitLab         Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  12108 GitLab         Support Engineer, U.S. Government Suppor REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 60% of requirements (> 30%)
+  12111 GitLab         Tech Operations Specialist               REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 33% of requirements (> 30%)
+  12263 Axonius        Technical Support Engineer (SkillBridge: REVIEW   UNKNOWN  STRONG       HIGH    no material gaps, every covered requirement direct
+  12729 PostHog        Site Reliability Engineer (US - Pacific  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
+  13404 Abnormal       L1 Technical Support Engineer (Spanish-S STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
+     1 Chime Financia AEO Content Strategist                   REVIEW   ELIGIBLE INSUFFICIENT LOW     unknown + unverifiable = 44% of requirements (> 30%)
+
+== SKIP only from positive evidence: SKIPs whose decisive rule is not 1, 2 or 5
+  rows: 0
+  [Keeper Securit] 5 material gaps: 5+ years of experience administering enterprise cloud, SaaS, identity or IT syst; Strong hands-on experience administering Google Clo
+
+== Invented quotes and conflicts excluded: blocks from a non-confirmed or recall requirement
+  rows: 0
+  eligibility reasons by effect and why: {('unknown', 'model and code read this requirement differently'): 10, ('unknown', 'the profile cannot answer this'): 2, ('unknown', 'eligibility sentence the model did not extract'): 16, ('unknown', 'met only on a self-reported fact'): 3}
+
+== Missed blockers surface: unextracted_eligibility rows and the recommendation they produced
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Render] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | at render's discretion, the business may sponsor existing visa transfers.
+  [Keeper Secur] REVIEW  residency          effect=unknown  outcome=fails      basis=verified      | must reside within reasonable commuting distance of keeper's el dorado hills, ca office an
+  [Axonius] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | please note: this program is reserved for active-duty military service members approved to
+  [Axonius] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | axonius is partnering with the dod skillbridge program to offer transitioning military ser
+
+== REVIEW causes
+  [Lyft] Business Systems Engineer            fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] Technical Support Engineer           fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] Technical Support Specialist         fit=STRONG       eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] Linux Systems Administrator          fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] RMA Systems Engineer                 fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] Network DevOps Engineer, RDMA Fabric fit=INSUFFICIENT eligibility unknown from: -
+  [Vultr] Infrastructure Production Engineer   fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Vultr] Server Onboarding Specialist         fit=INSUFFICIENT eligibility unknown from: -
+  [OpenAI] Hardware Operations Engineer         fit=INSUFFICIENT eligibility unknown from: travel/the profile cannot answer this
+  [Tailscale] Customer Reliability Engineer        fit=INSUFFICIENT eligibility unknown from: -
+  [Tailscale] Security Infrastructure Engineer     fit=INSUFFICIENT eligibility unknown from: -
+  [Tailscale] Windows Engineer                     fit=INSUFFICIENT eligibility unknown from: -
+  [Anthropic] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Anthropic] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Anthropic] IT Systems Engineer, M&A             fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Anthropic] IT Systems Engineer, Mobile Client P fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Huntress Lab] Security Operations Analyst - West C fit=INSUFFICIENT eligibility unknown from: -
+  [Chainguard] Security Analyst (Governance and Tru fit=INSUFFICIENT eligibility unknown from: -
+  [Snyk] Professional Services Engineer       fit=INSUFFICIENT eligibility unknown from: -
+  [Censys] Systems Engineer                     fit=INSUFFICIENT eligibility unknown from: -
+  [Render] Customer Engineer                    fit=INSUFFICIENT eligibility unknown from: sponsorship/model and code read this requirement differently; sponsorship/eligibility sentence the model did not extract
+  [Supabase] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
+  [Supabase] Support Engineer (AMER - Weekends)   fit=INSUFFICIENT eligibility unknown from: -
+  [Supabase] Database Support Engineer (AMER)     fit=INSUFFICIENT eligibility unknown from: -
+  [Supabase] Site Reliability Engineer            fit=INSUFFICIENT eligibility unknown from: -
+  [Supabase] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
+  [Plaid] Technical Support Engineer           fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Keeper Secur] IT Support Specialist, Tier 2        fit=INSUFFICIENT eligibility unknown from: physical/the profile cannot answer this; residency/eligibility sentence the model did not extract
+  [Keeper Secur] Systems Support Engineer (Night Shif fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Bitwarden] Implementation Engineer, Customer Su fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
+  [Bitwarden] IT Security Administrator            fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
+  [Vercel] Security Software Engineer, IAM      fit=INSUFFICIENT eligibility unknown from: -
+  [GitLab] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
+  [GitLab] Intermediate Security Analyst, Vulne fit=INSUFFICIENT eligibility unknown from: -
+  [GitLab] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
+  [GitLab] Support Engineer, U.S. Government Su fit=INSUFFICIENT eligibility unknown from: work_authorization/met only on a self-reported fact
+  [GitLab] Tech Operations Specialist           fit=INSUFFICIENT eligibility unknown from: -
+  [Axonius] Technical Support Engineer (SkillBri fit=STRONG       eligibility unknown from: program_status/model and code read this requirement differently; program_status/eligibility sentence the model did not extract; program_status/eligibility sentence the model did not extract
+  [PostHog] Site Reliability Engineer (US - Paci fit=INSUFFICIENT eligibility unknown from: -
+  [Chime Financ] AEO Content Strategist               fit=INSUFFICIENT eligibility unknown from: -
+  REVIEWs caused only by type-only conflicts the code's type meets with a verified fact (fit judgeable): 4
+
+== Evidence table: matches by requirement class
+  hard       n=31   type={'direct': 23, 'unknown': 5, 'gap': 3} basis={'verified': 9, 'none': 5, 'self_reported': 17} matched_by={'eligibility_fact': 31}
+  negotiable n=442  type={'gap': 89, 'transferable': 110, 'direct': 96, 'unknown': 147} basis={'verified': 184, 'none': 184, 'self_reported': 74} matched_by={'model': 442}
+  preferred  n=140  type={'unknown': 70, 'direct': 25, 'transferable': 21, 'gap': 24} basis={'none': 89, 'self_reported': 28, 'verified': 23} matched_by={'model': 140}
+  gap materiality: {'material': 85, 'minor': 31}
+  validation flags: {'eligibility_check': 31, 'years_met_model_gap': 6, 'years_not_checkable': 3, 'years_short_override': 2, 'downgraded': 2}
+  citations: 637 | citations outside their evaluation's snapshot: 0
+  inferred claims by state: {'open': 59}
+  matches citing an inferred claim's id that is not a snapshot item: 0
+
+== Last 5 recommendations: versions and provenance
+  rec 44: REVIEW ELIGIBLE/INSUFFICIENT/LOW rules=v1 profile=4 match=m1-v1 e1=e1-v1 model=google/gemma-4-12b-qat snapshot=1 | fit insufficient (unknown + unverifiable = 44% of requirements (> 30%))
+  rec 43: STRETCH ELIGIBLE/STRETCH/MEDIUM rules=v1 profile=4 match=m1-v1 e1=e1-v1 model=google/gemma-4-12b-qat snapshot=1 | 1 material gap(s), the rest covered
+  rec 42: REVIEW ELIGIBLE/INSUFFICIENT/MEDIUM rules=v1 profile=4 match=m1-v1 e1=e1-v1 model=google/gemma-4-12b-qat snapshot=1 | fit insufficient (unknown + unverifiable = 70% of requirements (> 30%))
+  rec 41: REVIEW UNKNOWN/STRONG/HIGH rules=v1 profile=4 match=m1-v1 e1=e1-v1 model=google/gemma-4-12b-qat snapshot=1 | eligibility unknown
+  rec 40: REVIEW ELIGIBLE/INSUFFICIENT/MEDIUM rules=v1 profile=4 match=m1-v1 e1=e1-v1 model=google/gemma-4-12b-qat snapshot=1 | fit insufficient (unknown + unverifiable = 33% of requirements (> 30%))
+
+
+== Rules v1 vs v2 (built, not active) on the replayed data
+database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_7replay\data\jobforge.db (compared in a temporary copy; newly computed: {'v1': 0, 'v2': 44})
+  v1: recommendation {'REVIEW': 40, 'STRETCH': 3, 'SKIP': 1}; eligibility {'UNKNOWN': 19, 'ELIGIBLE': 25}
+  v2: recommendation {'REVIEW': 39, 'APPLY': 1, 'STRETCH': 3, 'SKIP': 1}; eligibility {'UNKNOWN': 18, 'ELIGIBLE': 26}
+
+  jobs whose result changed: 1 of 44
+    570 Vultr          Technical Support Engineer               v1: REVIEW/UNKNOWN/COMPETITIVE  ->  v2: APPLY/ELIGIBLE/COMPETITIVE
+
+== Reading of the numbers (not a verdict)
+- REVIEW 40 of 44. Fit INSUFFICIENT on 35: 184 of 442 negotiable requirements unknown (147 the model's own
+  "unknown", 37 uncited model gaps counted as unknown per D7). The drill profile has no skill items, so
+  "Experience with Active Directory / Kubernetes / SIEM" cannot be cited; 22 of the 35 stay over the 30% limit
+  even if uncited gaps counted. Each REVIEW lists the requirements to add to the profile (questions).
+- Eligibility UNKNOWN 19: type-only interpretation conflicts (10; 4 of them the only REVIEW cause while fit is
+  judgeable), recall rows met only by self-reported drill facts, unanswered facts. Rules v2 changes 1 job with
+  these facts; more with verified work-authorization facts.
+- Pre-review code on the same answers: SKIP 9 / REVIEW 30 / STRETCH 5. The Codex finding (uncited gaps) moved
+  8 SKIP and 2 STRETCH to REVIEW.
+- Thresholds are not tuned here: 6.5 / Q16 tune them against the golden-set labels (P1.9), with his real profile.

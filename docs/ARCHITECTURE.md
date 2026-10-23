@@ -387,7 +387,7 @@ One process, one asyncio event loop, these tasks:
 | pollers (per-host semaphores) | HTTP fetch, change detection, filter, enqueue | call inference |
 | inference health probe | `GET /v1/models` every 30 s (60 s -> 15 min backoff while down) | — |
 | analysis/evaluation worker | claim one item, call the model, persist results | run while health says down; hold a DB transaction during a model call |
-| recompute | rule/profile version changes -> new recommendations, no model calls | call inference |
+| recompute | rule/profile version changes -> new recommendations, no model calls (P1.7: the worker loop's `sync` step, run every iteration whether or not inference is up, and `POST /v1/recompute`) | call inference |
 | IPC server | serve the UI | write outside the user-action connection's allow-list |
 | event broadcaster | after each commit, read new `change_events` rows and push them to subscribers | send uncommitted data |
 | backup | daily online backup + pre-migration backup | — |
@@ -458,6 +458,10 @@ test); `sources` `CHECK (enabled = 0 OR terms_reviewed_on IS NOT NULL)` (8); `ag
 `created_at_ms` on `posting_analyses`, `filter_results`, `evaluations`, `inferred_claims`.
 Migration 0003 (P1.4) seeds the default model config (Gemma 4 12B on LM Studio, reasoning
 off, `enabled = 0` until its load test runs) and `settings.default_model_config_id`.
+Migration 0004 (P1.7) rebuilds `evaluations` with `job_id` and a `superseded` status plus a
+partial unique index (one pending evaluation per job, like analyses; startup recovery
+supersedes a running one that has a newer pending sibling), and adds `years`, `start_date`,
+`end_date` to `profile_snapshot_items` (insert-only triggers unaffected, checked after migrating).
 `filter_results.reasons` shape: `{primary, failed: [{rule, category, detail}], work_mode,
 remote_eligibility, salary: {min, max, period, annual_max, text} | null, clearance_mention}`;
 categories `title_family`, `seniority`, `location`, `compensation`, `other`.
@@ -567,7 +571,7 @@ a named replacement and a test, or it silently disappears.
 | **Atomic queue claims** | `FOR UPDATE SKIP LOCKED` | `BEGIN IMMEDIATE` + `UPDATE ... WHERE id IN (SELECT ... LIMIT n) RETURNING id`. SQLite allows one writer at a time, so a claim cannot interleave with another claim. Leases (`lease_until_ms`) remain for in-process timeouts. | Two writer connections claiming from separate threads 1,000 times: claimed id sets are disjoint and complete. |
 | **One worker per queue / no overlapping polls** | Multiple workers coordinated by row locks | **One agent per user**: exclusive OS lock on `run\agent.lock` (`LockFileEx`, released by Windows when the process dies, so a crash never leaves a stale lock). Plus the lease and the partial unique index on in-flight `source_fetches`. | Start a second agent -> exits 3, log `already_running`; `kill -9` the first -> a new agent acquires the lock within 1 s; forced second in-flight fetch row -> constraint error. |
 | **Crash recovery** | Lease expiry + reclaim | Startup recovery: since the lock proves no other agent exists, every `running` analysis/evaluation and every unfinished fetch is an orphan. Reset to `pending` with `attempts += 1` (`failed` after 3 attempts, error kept) and close fetches as `INTERRUPTED`. SQLite rolls back any uncommitted transaction from the WAL automatically. | Lifecycle test: kill the agent mid-poll and mid-evaluation (subprocess, `TerminateProcess`), restart: orphans recovered, no duplicate rows, `PRAGMA integrity_check` = ok, work completes. |
-| **Concurrent UI and agent access** | Multi-client server | **Only the agent opens the DB.** The UI goes through IPC. Inside the agent: WAL + one serialized writer + read-only readers + the no-transaction-across-await rule (3.4). | Fake model call held open 30 s; a `verify` user action commits in < 1 s during it. Readers see committed data while a write transaction is open. |
+| **Concurrent UI and agent access** | Multi-client server | **Only the agent opens the DB.** The UI goes through IPC. Inside the agent: WAL + one serialized writer + read-only readers + the no-transaction-across-await rule (3.4). | Fake model call held open; a `verify` user action commits in < 1 s during it (`tests/test_evaluation.py::test_long_model_call_does_not_block_a_user_action`, P1.7: the call is held > 1.2 s, then released; 30 s added nothing the assertion needs). Readers see committed data while a write transaction is open. |
 | **Transactional event delivery** | `change_events` row in the same transaction + SSE polling the table | Same table, same transaction. The broadcaster is woken by the agent's own commit (in-process signal), then reads rows with `id > last_sent`, so it can never send an event whose data was rolled back. Delivery to the UI is over the IPC event stream; the host and UI resume from `Last-Event-ID` after reconnect or a host restart. | Rolled-back transaction -> no event delivered. Committed change -> event received by a test subscriber within 1 s. Disconnect, make 3 changes, reconnect with cursor -> exactly those 3 replayed in order. |
 | **Foreign keys** | Always on | `PRAGMA foreign_keys=ON` per connection (off by default) | Startup assertion; insert an orphan FK row -> error. |
 | **Types and enums** | Column types | `STRICT` tables + CHECK constraints | Insert a string into an INTEGER column -> error; invalid enum -> error. |
@@ -624,6 +628,13 @@ only by the Rust host.**
   status, pending work waiting on a disabled config, gate state per config),
   `GET /v1/analyses/{id}` and `GET /v1/jobs/{id}/analysis` (sections plus every requirement
   with both readings and flags). Profile routes: 4.2; filter routes: 3.3.
+- **Evaluation (P1.7):** `GET /v1/evaluation/status`, `GET /v1/jobs/{id}/recommendation` (the
+  three assessments, decisive reasons, and the evidence table: every requirement with its match,
+  citations, basis, bridge, gap and flags; `newer_evaluation_pending` while a re-evaluation
+  waits), `GET /v1/recommendations?category=APPLY|STRETCH|REVIEW|SKIP` (ordered by category,
+  then opportunity `rank_key`), `GET /v1/review-questions` (REVIEW questions grouped across jobs:
+  one eligibility type, one group), `POST /v1/recompute` (snapshot, queue and recompute now; code
+  only).
 - **Implemented so far (P1.1-P1.2):** `GET /v1/health`, `POST /v1/shutdown`,
   `POST /v1/discovery/pause|resume`, `GET /v1/events` (SSE; resumes after `Last-Event-ID`;
   new subscribers get only future events; woken by the committing code, 2 s fallback poll,
@@ -735,7 +746,7 @@ cannot reference it and it can never cover a requirement.
 | **E0 Segment** | Code | Raw description -> sections with labels (requirements / preferred / responsibilities / benefits / about / eeo / privacy / unknown) from headings via a lexicon, and sentences | Postings without headings get one `unknown` section; that lowers confidence, it does not fail |
 | **E1 Extract** | LLM (full original text) | Requirements: `{text, jd_quote, importance (hard/required/preferred), polarity (affirmative/negated), subject (candidate/company/team/benefit), eligibility_type (incl. program_status, or none), min_years?}` | Schema-validated; one retry, then `failed` with raw response kept |
 | **E2 Interpret** | Code | Each requirement -> quote location, section, sentence, cue reading, `final_class`, `interpretation_status` | See "interpretation checks" below |
-| **E3 Match** | LLM | Requirements with class != context/negated, profile snapshot items with ids and status -> per requirement `{match_type, cited_item_ids, bridge?, transfer_limits?, gap_detail?}`; optional inferred claims | Hard requirements with an eligibility type that maps to a declared fact are matched by code, not the model |
+| **E3 Match** | LLM | Requirements with class != context/negated, profile snapshot items with ids and status -> per requirement `{match_type, cited_item_ids, bridge?, transfer_limits?, gap_detail?}`; optional inferred claims | Every requirement with a code-assigned eligibility type (hard or not, fact declared or not) is matched by code against the typed facts, never by the model (corrected in P1.7; the text said only those "that map to a declared fact", which would have sent an unanswered citizenship requirement to the model to "cover" from a résumé line) |
 | **E4 Validate** | Code | Model matches -> validated matches | Citations inserted through `match_citations` (FK to the snapshot); `basis` from item status; transferable needs >= 1 citation and a non-empty bridge, else downgraded to unknown; a "direct" citing only items unrelated by kind is flagged; gap size and materiality computed |
 | **E5 Assess** | Code | Requirements + matches + search profile -> eligibility, fit, opportunity value | Rules 6.5 |
 | **E6 Recommend** | Code | Three assessments -> APPLY / STRETCH / REVIEW / SKIP + decisive reasons | Rules 6.5 |
@@ -859,6 +870,83 @@ compares it to the model's:
   docstring; `analysis_done` / `analysis_failed` change events carry ids and counts.
   `inference_available` / `inference_unavailable` are logged on gate transitions.
 
+**Evaluation E3-E6 (implemented in P1.7,** `agent/src/jobforge_agent/evaluation/`**).**
+- **Snapshots** (`snapshot.py`): content-addressed (sha256 of every item's id, kind, statement,
+  status, attributes, years and dates, plus the completeness flags). An unchanged profile maps to
+  the same snapshot and queues nothing; any change, including a verify, is a new snapshot and new
+  evaluations for every open job (D10). Migration 0004 adds `years`, `start_date`, `end_date` to
+  `profile_snapshot_items` because E4 computes years from the snapshot.
+- **Queue** (`store.sync`, code only, runs while inference is down): an evaluation is queued for
+  each open job whose current posting has a done analysis and that passes the active search
+  profile or has an override, once per (analysis, snapshot, model config, `m1-v1`). An older
+  pending evaluation of the same job is superseded (migration 0004: `evaluations.job_id`,
+  status `superseded`, one pending per job). The same pass recomputes missing recommendations.
+- **Split:** requirements with an eligibility type go to `facts.py` (code); negotiable and
+  preferred requirements without one, confirmed or conflict, go to the model; unverifiable,
+  context and negated rows are not matched. With no non-eligibility profile items, or nothing to
+  match, no model call is made (rows recorded `unknown`, flag `no_profile_items_model_not_called`).
+- **Eligibility facts by code** (`facts.py`): outcome met / fails / unanswered per type. Residency
+  reads US states (names, and "City, ST" in the original-case quote; lower-case two-letter codes
+  that are English words such as "in" or "or" are not states), US time zones (a state only partly
+  in the zone is unanswered), country phrases (the pronoun "us" does not count). Clearance: held =
+  status active/current and level >= required, polygraph checked when named; "ability to obtain"
+  is met by having held that level; an inactive clearance with an "ability to obtain" sibling in
+  the same posting is unanswered, not fails (6.5). Sponsorship: not needed -> met; needed ->
+  fails on "no/not/unable", unanswered on hedges ("may", "existing transfers", "generally").
+  Travel: a percentage is compared; "occasional" is met at >= 10% and fails at 0%. Program status
+  (SkillBridge -> active_duty). With `eligibility_facts_complete`, a missing clearance, license or
+  program fact fails with basis `none`, which never blocks. Fixtures: `tests/fixtures/verdict/facts.yaml`
+  (17 of them are the real P1.6 hard and recall rows).
+- **Independent review (P1.7, before commit)** found nine defects, each now a fixture or test.
+  Fact matching: a country written "United States of America" or "U.S" read as non-US (a false
+  block); exclusion wording ("US, excluding Alaska and Hawaii", "not open to residents of ...")
+  read as an allowed list (now unanswered: asked, not parsed); a time zone counted as a place even
+  in "work Eastern Time hours" (now only "located/live/based in the ... time zone"); a bare "TS"
+  read as any clearance; the first "N%" in the sentence read as travel ("100% remote") and a range
+  read at one end (now compared at both, unanswered in between); any "not" read as refusing
+  sponsorship ("candidates who are not US citizens"); a missing clearance fact with completeness
+  on failed "ability to obtain" (a material gap, a route to SKIP through fit; now unanswered).
+  Store: after a reverted profile edit the newest evaluation, not the one for the current
+  snapshot, was shown, and a pending evaluation for the abandoned snapshot still ran (the
+  recommendation now comes from the current snapshot's evaluation when one is done; pending work
+  for another snapshot or model config is superseded); jobs the active search profile rejects
+  kept a recommendation and were listed (now the same pass-or-override rule as queueing).
+  Validation: an eligibility fact cited for a skill counted as a citation, and an id too large for
+  SQLite failed the whole evaluation (both are now dropped with a flag).
+- **Adversarial review by a second model (Codex, P1.7)** found five more, each now a fixture or
+  test: uncited model gaps could make a rule-2 SKIP (6.5, "A gap must be evidenced"); "Must
+  reside outside California" read as met for a California resident (bare "outside" and "not
+  located in" are exclusion wording); sponsorship wording that is neither an offer nor a
+  refusal ("applicants who need sponsorship are ineligible", "please indicate whether you will
+  require sponsorship") defaulted to met (now: "ineligible" / "must not need" fail, an offer needs
+  the employer as subject, anything else is unanswered); one shared word ("public") matched an
+  unrelated license (now one name must contain all the other's distinctive words); listings
+  showed an older snapshot's recommendation with no label (rows now carry `current` and
+  `newer_evaluation_pending`; the last result stays visible while a re-evaluation runs).
+- **E3 prompt `m1-v1`** (`match.py`): ids are prefixed (R1.., P<item id>) so the model cannot cite a
+  requirement as an item; the posting's located quote is sent, not the E1 paraphrase; the
+  profile list excludes eligibility facts. Inferred claims (at most 5, deduplicated by statement)
+  go to the inbox with the requirement ids they were proposed for. Pinned by a prompt hash test;
+  schema lint covers this schema too.
+- **E4** (`validate.py`): citations are inserted through `match_citations` inside a savepoint; an
+  id outside the evaluated snapshot fails the FK, the match is validated again without it (flag
+  `citation_rejected`), so an inferred claim or an invented id can never cover a requirement.
+  direct needs a citation; transferable a citation and a bridge; a gap needs a reason, and a
+  certification gap without a citation needs `cert_list_complete`. Years: dated items are merged
+  as month intervals (start and end month both count; overlapping roles are not double-counted),
+  undated items count their `years`; fewer than the minimum turns a model "direct" into a gap
+  (`years_short_override`). basis: verified if any cited item is verified.
+- **E5/E6** (`assess.py`, thresholds `verdict_rules/v1.yaml`, recorded as `verdict_rule_version`):
+  see 6.5, including the points 6.5 left open (listed there). Recommendation rows store every
+  reason; `rank_key` is opportunity value only (ordinal x 10 + favorable - unfavorable), never a
+  blend of the three assessments.
+- **Worker** (`worker.py`): a step in the analysis worker's loop, sharing its health gate, so one
+  model call runs at a time; evaluations are tried before analyses (a job half way through the
+  pipeline finishes first). Outcomes and attempt accounting as for analysis; `evaluation_done`,
+  `evaluation_failed`, `evaluations_queued`, `recommendation_computed` change events carry ids
+  and counts. A `sync` failure is an error log (`evaluation_sync_failed`) and does not stop
+  posting analysis.
+
 Reconciliation: where model and cues agree, `confirmed`. Where they disagree,
 the more permissive reading is used for fit (a possible preferred is not
 treated as required) and the requirement is `conflict`. **A conflicting hard
@@ -913,6 +1001,52 @@ opportunity value; REVIEW appears as grouped questions, not as a job list.
 The golden-set report (6.7) tracks REVIEW share; if it exceeds the target
 (Q16), thresholds get tuned in a new rule version, measured against labels,
 not intuition.
+
+**Points the rules above leave open, decided in P1.7** (each pinned by a layer-B case in
+`tests/fixtures/verdict/layer_b.yaml`):
+- *Recall rows* (D15, deferred from P1.6): a row whose sentence the code reads as negated ("No
+  clearance required") is ignored; one met by a verified fact ("We do sponsor visas!" with
+  sponsorship not needed) is fine; any other outcome makes eligibility UNKNOWN. A recall row never
+  blocks, even when a verified fact fails it.
+- *Hard requirement failed only by a self-reported fact*: UNKNOWN (the text names only "met by a
+  self-reported fact"; a block needs a verified fact, so a self-reported fail cannot be stronger).
+- *Fit, "unknown" and "extracted"*: unknown counts negotiable requirements only;
+  `uncertain_share = (unknown + unverifiable) / (negotiable + unverifiable)`; preferred rows count
+  neither way (they "only upgrade or break ties"). Conflicts count over negotiable and preferred
+  rows (hard conflicts already make eligibility UNKNOWN).
+- *Fit ladder order*: the three INSUFFICIENT checks first, then WEAK (> `max_stretch_gaps`
+  material gaps), then STRETCH (1-2 material gaps and unknown <= `stretch_max_unknown` = 2, "the rest
+  covered"), then STRONG, then COMPETITIVE. Not in the list: no material gaps but more unknowns
+  than COMPETITIVE allows, or a stretch with more than 2 unknowns -> INSUFFICIENT (not enough to
+  call), never a guess.
+- *A gap must be evidenced to count* (D7, found by the Codex adversarial review): a model gap
+  counts toward STRETCH/WEAK only if it cites profile items (the shortfall or the adjacent
+  experience; years shortfalls always do), comes from a failed fact check, or is a certification
+  absent from a cert list Kevin marked complete (`absence_confirmed`). A model that says
+  "candidate lacks it" and cites nothing is missing evidence: counted as unknown for fit, listed
+  as `gap_unevidenced` in `fit_counts`. Before this, three such lines made a rule-2 SKIP.
+- *Preferred upgrade*: no upgrade rule is defined, so v1 applies none; preferred counts are
+  stored in `fit_counts` and shown.
+- *Opportunity factors* read the job through the filter's own code under the active profile
+  (`rules.evaluate`), so they never wait for a re-filter: pay (no salary -> unknown; top under
+  the floor -> unfavorable; from at or above `opportunity.pay_target_annual` -> favorable; else
+  neutral), work mode (`opportunity.work_modes` map), location (a failed location rule ->
+  unfavorable; HOME_OK or US_WIDE -> favorable; else unknown), seniority and role family
+  (`opportunity.seniority` / `role_families` favorable and unfavorable title patterns; none
+  configured -> unknown), age (<= 7 days favorable, > 30 unfavorable, no date unknown). The
+  `opportunity` section of the search profile is optional and validated at save (Q8 data).
+
+**Measured in the P1.7 live run** (`docs/evidence/p1_7_evaluation_live.txt`): see the evidence
+file for the distribution. Every Vultr posting's state-list residency rule is an E2 `conflict`
+only because Gemma typed it `work_authorization`; under the rule "any conflicting hard
+requirement -> UNKNOWN" such a job is REVIEW whatever the profile says, a question no profile
+answer resolves. Left as written (it is Kevin's rule); the evidence file counts how many
+REVIEWs come only from such type-only conflicts (DEFERRED_COMPLEXITY.md).
+Rules **v2** (`verdict_rules/v2.yaml`, built for measurement, not active) checks a type-only
+conflict under both readings, the code's type and the model's, through the evaluated snapshot's facts
+(`store.write_recommendation` passes `alt_check`); it is answered only when verified facts meet both (a
+model type of `none` adds no condition), and still never blocks. Compare with
+`scripts/compare_verdict_rules.py`.
 
 ### 6.6 Tests for interpretation and verdicts
 
@@ -1128,8 +1262,11 @@ section 2. Spike P1.0d proves it before the decision is final (9).
 - **Personal data out of logs.** Ids, counts, hashes, durations, status codes
   only. Never resume text, experience statements, eligibility facts, prompts,
   model responses or the IPC token. Redaction covered by a test.
-- **Eligibility facts** (citizenship, clearance) live only in
-  `experience_items`, never in posting analyses or logs.
+- **Eligibility facts** (citizenship, clearance) live in `experience_items`, their
+  `profile_snapshot_items` copies and the evaluation rows that check them
+  (`requirement_matches.validation_flags` records the values compared; corrected in P1.7, the
+  text said `experience_items` only). Never in posting analyses, change events or logs, and
+  `scripts/verify_evaluation.py` prints outcomes, never the values.
 - **Data at rest.** The database is a plain file in the user profile,
   protected by Windows account permissions, not encrypted. BitLocker or
   equivalent is Kevin's disk-level control; app-level encryption (SQLCipher)

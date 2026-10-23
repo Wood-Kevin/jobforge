@@ -23,7 +23,8 @@ try {
 
 # 2. Layout check (spike P1.0d defect 2: a resource glob flattened _internal and the agent could not start).
 $agentDir = "$root\agent\dist\jobforge-agent"
-$required = @("jobforge-agent.exe", "_internal\jobforge_agent\db\migrations\0001_init.sql")
+$required = @("jobforge-agent.exe", "_internal\jobforge_agent\db\migrations\0001_init.sql",
+              "_internal\jobforge_agent\evaluation\verdict_rules\v1.yaml")  # P1.7: E5/E6 thresholds are package data
 foreach ($r in $required) { if (-not (Test-Path (Join-Path $agentDir $r))) { throw "agent layout check failed: missing $r" } }
 if (-not (Get-ChildItem "$agentDir\_internal" -Filter 'python3*.dll')) { throw "agent layout check failed: no python3*.dll in _internal" }
 $v = & "$agentDir\jobforge-agent.exe" --version

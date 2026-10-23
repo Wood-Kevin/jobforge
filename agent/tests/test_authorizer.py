@@ -49,6 +49,15 @@ FORBIDDEN = [
     ("user", "UPDATE requirements SET interpretation_status = 'confirmed'"),
     ("discovery", "UPDATE model_configs SET tested_at_ms = 1"),
     ("evaluation", "UPDATE model_configs SET tested_at_ms = 1"),
+    # Evaluation (P1.7): matches, citations and recommendations are written once; nobody re-grades them.
+    ("evaluation", "UPDATE requirement_matches SET match_type = 'direct'"),
+    ("evaluation", "DELETE FROM match_citations"),
+    ("evaluation", "UPDATE recommendations SET recommendation = 'APPLY'"),
+    ("user", "INSERT INTO requirement_matches (evaluation_id, requirement_id, matched_by, match_type, basis) VALUES (1, 1, 'model', 'direct', 'verified')"),
+    ("user", "INSERT INTO match_citations (requirement_match_id, snapshot_id, item_id) VALUES (1, 1, 1)"),
+    ("user", f"INSERT INTO recommendations (evaluation_id, search_profile_id, verdict_rule_version, eligibility, fit, opportunity, recommendation, computed_at_ms) VALUES (1, 1, 'v1', 'ELIGIBLE', 'STRONG', 'HIGH', 'APPLY', {NOW})"),
+    ("discovery", "UPDATE evaluations SET status = 'done'"),
+    ("evaluation", "UPDATE settings SET value = '1'"),
     # Deletes are rare and explicit.
     ("user", "DELETE FROM jobs"),
     ("discovery", "DELETE FROM raw_postings"),

@@ -1,0 +1,205 @@
+# Layer B verdict cases (ARCHITECTURE 6.6 B). Synthetic requirement + match sets, no model, no DB.
+#
+# negotiable / preferred: counts of requirements by outcome
+#   direct, direct_self (direct on self-reported items), transferable, gap_material, gap_minor,
+#   unknown, unverifiable (quote not found), conflict (status conflict, matched direct)
+# hard: eligibility rows {type, status, outcome (met/fails/unanswered), basis, origin, cue_polarity, quote}
+# job: overrides of the default job (remote, US-wide, posted 3 days ago, title "NOC Engineer", no salary)
+# expect: any of eligibility, fit, opportunity, recommendation, rule (decisive rule number)
+
+- name: confirmed hard blocker failed by a verified fact -> SKIP
+  negotiable: {direct: 4}
+  hard: [{type: work_authorization, status: confirmed, outcome: fails, basis: verified, quote: "Must be a US citizen"}]
+  expect: {eligibility: BLOCKED, recommendation: SKIP, rule: 1}
+
+- name: same blocker, quote not found -> excluded, not SKIP
+  negotiable: {direct: 4}
+  hard: [{type: work_authorization, status: unverifiable, class: negotiable, outcome: fails, basis: verified}]
+  expect: {eligibility: ELIGIBLE, recommendation: APPLY}
+
+- name: same blocker, interpretation conflict -> REVIEW
+  negotiable: {direct: 4}
+  hard: [{type: work_authorization, status: conflict, outcome: fails, basis: verified}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW, rule: 3}
+
+- name: hard requirement, profile silent -> REVIEW with a question
+  negotiable: {direct: 4}
+  hard: [{type: clearance, status: confirmed, outcome: unanswered, basis: none, question: "Do you hold an active secret clearance?"}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW, rule: 3, question: "Do you hold an active secret clearance?"}
+
+- name: hard requirement met only by a self-reported fact -> REVIEW
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: confirmed, outcome: met, basis: self_reported}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: hard requirement failed only by a self-reported fact -> REVIEW, not SKIP
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: confirmed, outcome: fails, basis: self_reported}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: hard requirement met by a verified fact -> ELIGIBLE
+  negotiable: {direct: 4}
+  hard: [{type: sponsorship, status: confirmed, outcome: met, basis: verified}]
+  expect: {eligibility: ELIGIBLE, fit: STRONG, recommendation: APPLY, rule: 4}
+
+- name: all required covered by transferable -> APPLY (COMPETITIVE)
+  negotiable: {transferable: 4}
+  expect: {fit: COMPETITIVE, recommendation: APPLY}
+
+- name: one material gap + MEDIUM opportunity -> STRETCH
+  negotiable: {direct: 3, gap_material: 1}
+  job: {work_mode: hybrid, posted_days_ago: 20}
+  expect: {fit: STRETCH, opportunity: MEDIUM, recommendation: STRETCH, rule: 6}
+
+- name: one material gap + LOW opportunity -> SKIP
+  negotiable: {direct: 3, gap_material: 1}
+  job: {work_mode: onsite, posted_days_ago: 60}
+  expect: {fit: STRETCH, opportunity: LOW, recommendation: SKIP, rule: 5}
+
+- name: three material gaps on sufficient evidence -> SKIP
+  negotiable: {direct: 5, gap_material: 3}
+  expect: {fit: WEAK, recommendation: SKIP, rule: 2}
+
+- name: three material gaps with 40% unknown -> REVIEW
+  negotiable: {direct: 3, gap_material: 3, unknown: 4}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW, rule: 3}
+
+- name: minor gaps do not count toward STRETCH
+  negotiable: {direct: 3, gap_minor: 2}
+  expect: {fit: STRONG, recommendation: APPLY}
+
+- name: fewer than three judgeable requirements -> INSUFFICIENT
+  negotiable: {direct: 2}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: unverifiable quotes count toward uncertainty
+  negotiable: {direct: 4, unverifiable: 2}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: more than three conflicts -> INSUFFICIENT
+  negotiable: {direct: 4, conflict: 4}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: two unknowns allow COMPETITIVE, not STRONG
+  negotiable: {direct: 5, unknown: 2}
+  expect: {fit: COMPETITIVE, recommendation: APPLY}
+
+- name: three unknowns and no gaps cannot be called
+  negotiable: {direct: 7, unknown: 3}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: preferred gaps never move fit
+  negotiable: {direct: 4}
+  preferred: {gap_material: 5, unknown: 5}
+  expect: {fit: STRONG, recommendation: APPLY}
+
+- name: APPLY on self-reported items says so
+  negotiable: {direct_self: 4}
+  expect: {recommendation: APPLY, detail_contains: "self-reported"}
+
+- name: recall row the model missed -> UNKNOWN, never BLOCKED
+  negotiable: {direct: 4}
+  hard: [{type: program_status, status: unverifiable, origin: unextracted_eligibility, outcome: fails, basis: verified}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: recall row met by a verified fact -> ELIGIBLE
+  negotiable: {direct: 4}
+  hard: [{type: sponsorship, status: unverifiable, origin: unextracted_eligibility, outcome: met, basis: verified,
+          quote: "we do sponsor visas!"}]
+  expect: {eligibility: ELIGIBLE, recommendation: APPLY}
+
+- name: recall row the posting itself negates is ignored
+  negotiable: {direct: 4}
+  hard: [{type: clearance, status: unverifiable, origin: unextracted_eligibility, outcome: unanswered, basis: none,
+          cue_polarity: negated, quote: "no clearance required"}]
+  expect: {eligibility: ELIGIBLE, recommendation: APPLY}
+
+- name: blocker wins over weak fit (rule order)
+  negotiable: {direct: 5, gap_material: 3}
+  hard: [{type: residency, status: confirmed, outcome: fails, basis: verified}]
+  expect: {recommendation: SKIP, rule: 1}
+
+- name: weak fit wins over unknown eligibility (rule order)
+  negotiable: {direct: 5, gap_material: 3}
+  hard: [{type: residency, status: conflict, outcome: met, basis: verified}]
+  expect: {recommendation: SKIP, rule: 2}
+
+- name: opportunity HIGH with three favorable and none unfavorable
+  negotiable: {direct: 4}
+  expect: {opportunity: HIGH}
+
+- name: opportunity UNKNOWN when four factors are unknown
+  negotiable: {direct: 4}
+  job: {work_mode: unknown, remote_eligibility: UNKNOWN, posted_days_ago: null, title: "Systems Administrator"}
+  profile: {opportunity: null}
+  expect: {opportunity: UNKNOWN}
+
+- name: pay under the floor is unfavorable, at the target favorable
+  negotiable: {direct: 3, gap_material: 1}
+  job: {salary: {min: 30000, max: 40000, period: YEAR}, work_mode: onsite}
+  expect: {opportunity: LOW, recommendation: SKIP, rule: 5}
+
+# ----- rules v2: a type-only conflict is checked under both readings (P1.7, built for measurement) -----
+
+- name: v1 type-only conflict met under both readings stays REVIEW
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: work_authorization, outcome: met, basis: verified,
+          alt: {outcome: met, basis: verified}}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: v2 type-only conflict met by verified facts under both readings -> ELIGIBLE
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: work_authorization, outcome: met, basis: verified,
+          alt: {outcome: met, basis: verified}}]
+  expect: {eligibility: ELIGIBLE, recommendation: APPLY}
+
+- name: v2 model gave no type, code type met by a verified fact -> ELIGIBLE
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: none, outcome: met, basis: verified}]
+  expect: {eligibility: ELIGIBLE}
+
+- name: v2 model reading only self-reported -> UNKNOWN
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: work_authorization, outcome: met, basis: verified,
+          alt: {outcome: met, basis: self_reported}}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: v2 model reading unanswered -> UNKNOWN
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: work_authorization, outcome: met, basis: verified}]
+  expect: {eligibility: UNKNOWN}
+
+- name: v2 code reading fails on a verified fact -> UNKNOWN, never BLOCKED
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, model_type: work_authorization, outcome: fails, basis: verified,
+          alt: {outcome: met, basis: verified}}]
+  expect: {eligibility: UNKNOWN, recommendation: REVIEW}
+
+- name: v2 conflict on another field is not helped
+  rules: v2
+  negotiable: {direct: 4}
+  hard: [{type: residency, status: conflict, outcome: met, basis: verified, alt: {outcome: met, basis: verified}}]
+  expect: {eligibility: UNKNOWN}
+
+# ----- Codex adversarial review: a gap the model asserts without evidence is not evidence (D7) -----
+
+- name: three uncited model gaps do not make a WEAK fit
+  negotiable: {gap_uncited: 3}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: uncited model gaps count as unknown beside covered requirements
+  negotiable: {direct: 7, gap_uncited: 3}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: cited material gaps still make a WEAK fit
+  negotiable: {direct: 5, gap_material: 3}
+  expect: {fit: WEAK, recommendation: SKIP, rule: 2}
+
+- name: a certification gap confirmed by a complete cert list counts
+  negotiable: {direct: 5, gap_cert_list: 3}
+  expect: {fit: WEAK, recommendation: SKIP, rule: 2}

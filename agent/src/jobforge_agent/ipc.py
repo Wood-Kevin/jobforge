@@ -316,6 +316,29 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         a = runtime.job_analysis(job_id)
         return a if a is not None else JSONResponse({"error": "no finished analysis for this job"}, status_code=404)
 
+    @app.get("/v1/evaluation/status")
+    async def evaluation_status():
+        return runtime.evaluation_status()
+
+    @app.get("/v1/jobs/{job_id}/recommendation")
+    async def get_job_recommendation(job_id: int):
+        r = runtime.job_recommendation(job_id)
+        return r if r is not None else JSONResponse({"error": "no finished evaluation for this job"}, status_code=404)
+
+    @app.get("/v1/recommendations")
+    async def list_recommendations(category: str | None = None):
+        if category is not None and category not in ("APPLY", "STRETCH", "REVIEW", "SKIP"):
+            return JSONResponse({"error": "category must be APPLY, STRETCH, REVIEW or SKIP"}, status_code=422)
+        return runtime.recommendations(category)
+
+    @app.get("/v1/review-questions")
+    async def review_questions():
+        return runtime.review_questions()
+
+    @app.post("/v1/recompute")
+    async def recompute():
+        return runtime.recompute()
+
     @app.get("/v1/events")
     async def events(request: Request):
         """Server-Sent Events over change_events (ARCHITECTURE 3.3, 5).

@@ -1,0 +1,350 @@
+# Eligibility requirements matched against declared facts by code (evaluation/facts.py).
+# facts: shorthand per type -> attributes (item verified unless `item_status` is given).
+# Quotes marked "P1.6 live" are real requirement rows from the 42-posting run.
+
+- name: Vultr state list includes Florida (P1.6 live)
+  type: residency
+  quote: "We are currently accepting applications from candidates residing in the following states: Alabama, Arizona, Colorado, Connecticut, Florida, Georgia, Idaho, Illinois, Indiana, Iowa, Kentucky, Louisiana, Maryland, Massachu"
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: met, basis: verified}
+
+- name: state list without the home state fails
+  type: residency
+  quote: "Candidates must reside in one of: Texas, Ohio, Virginia."
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: fails}
+
+- name: West Virginia is not Virginia
+  type: residency
+  quote: "Must reside in West Virginia."
+  facts: {residency: {country: US, state: VA}}
+  expect: {outcome: fails}
+
+- name: Plaid Pacific time zone, Florida resident (P1.6 live)
+  type: residency
+  quote: "This position requires employees to be primarily located within the Pacific Time Zone and to work Pacific Time business hours."
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: fails}
+
+- name: Eastern time zone, Florida is only partly Eastern
+  type: residency
+  quote: "Must be located in the Eastern Time Zone."
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: unanswered}
+
+- name: Eastern time zone, Georgia
+  type: residency
+  quote: "Must be located in the Eastern Time Zone."
+  facts: {residency: {country: US, state: GA}}
+  expect: {outcome: met}
+
+- name: Keeper commute to El Dorado Hills, CA (P1.6 live)
+  type: residency
+  quote: "Must reside within reasonable commuting distance of Keeper's El Dorado Hills, CA office"
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: fails}
+
+- name: willing to relocate turns a fail into a question
+  type: residency
+  quote: "Must reside within reasonable commuting distance of Keeper's El Dorado Hills, CA office"
+  facts: {residency: {country: US, state: FL, willing_to_relocate: true}}
+  expect: {outcome: unanswered, reason: fails_but_willing_to_relocate}
+
+- name: Lyft must be based in the US (P1.6 live)
+  type: residency
+  quote: "candidates for this role must be based in the US."
+  facts: {residency: {country: United States, state: Florida}}
+  expect: {outcome: met}
+
+- name: the pronoun us is not the United States
+  type: residency
+  quote: "Must live within commuting distance of our office; come join us."
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: unanswered, reason: place_not_readable}
+
+- name: skills-comma-in is not Indiana
+  type: residency
+  quote: "must be located near the office to use those skills, in person"
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: unanswered}
+
+- name: New Mexico is a state, not another country
+  type: residency
+  quote: "Must reside in New Mexico."
+  facts: {residency: {country: US, state: NM}}
+  expect: {outcome: met}
+
+- name: only a non-US country named, US resident
+  type: residency
+  quote: "Must be based in Canada."
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: fails}
+
+- name: no residency fact -> unanswered with a question
+  type: residency
+  quote: "Must reside in Florida."
+  facts: {}
+  expect: {outcome: unanswered, basis: none, has_question: true}
+
+- name: US citizen required, citizen (P1.6 live)
+  type: work_authorization
+  quote: "you must be a United States Citizen (defined as any individual who is a citizen of the United States by law, birth, or naturalization)"
+  facts: {work_authorization: {us_citizen: true, authorized_to_work_us: true}}
+  expect: {outcome: met}
+
+- name: US citizen required, authorized but not a citizen
+  type: work_authorization
+  quote: "Must be a US citizen."
+  facts: {work_authorization: {us_citizen: false, authorized_to_work_us: true}}
+  expect: {outcome: fails}
+
+- name: citizen or permanent resident accepts authorization
+  type: work_authorization
+  quote: "Must be a US citizen or permanent resident."
+  facts: {work_authorization: {us_citizen: false, authorized_to_work_us: true}}
+  expect: {outcome: met}
+
+- name: self-reported fact keeps its basis
+  type: work_authorization
+  quote: "Must be authorized to work in the United States."
+  facts: {work_authorization: {us_citizen: true, authorized_to_work_us: true, item_status: self_reported}}
+  expect: {outcome: met, basis: self_reported}
+
+- name: no sponsorship needed meets a no-sponsorship rule (P1.6 live)
+  type: sponsorship
+  quote: "We do not offer visa sponsorship at this time."
+  facts: {sponsorship: {needs_sponsorship: false}}
+  expect: {outcome: met}
+
+- name: needs sponsorship, posting offers none
+  type: sponsorship
+  quote: "We do not offer visa sponsorship at this time."
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: fails}
+
+- name: needs sponsorship, hedged wording (P1.6 live, Render)
+  type: sponsorship
+  quote: "at render's discretion, the business may sponsor existing visa transfers."
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: unanswered, reason: hedged_wording}
+
+- name: needs sponsorship, posting sponsors (P1.6 live, Anthropic)
+  type: sponsorship
+  quote: "visa sponsorship: we do sponsor visas!"
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: met}
+
+- name: active TS/SCI required, inactive clearance
+  type: clearance
+  quote: "Active TS/SCI clearance required."
+  flags: [clearance_held]
+  facts: {clearance: {level: top_secret, status: inactive}}
+  expect: {outcome: fails}
+
+- name: active clearance required, but the posting also accepts ability to obtain
+  type: clearance
+  quote: "Active Secret clearance required."
+  facts: {clearance: {level: secret, status: inactive}}
+  siblings: [{type: clearance, flags: [ability_to_obtain], quote: "or the ability to obtain one"}]
+  expect: {outcome: unanswered, reason: posting_also_accepts_ability_to_obtain}
+
+- name: active secret, active top secret holder
+  type: clearance
+  quote: "Must hold an active Secret clearance."
+  facts: {clearance: {level: top_secret, status: active}}
+  expect: {outcome: met}
+
+- name: ability to obtain secret, previously held top secret
+  type: clearance
+  quote: "Must be able to obtain a Secret clearance."
+  flags: [ability_to_obtain]
+  facts: {clearance: {level: top_secret, status: inactive}}
+  expect: {outcome: met}
+
+- name: ability to obtain, never held one
+  type: clearance
+  quote: "Must be able to obtain a Secret clearance."
+  flags: [ability_to_obtain]
+  facts: {clearance: {level: none, status: none}}
+  expect: {outcome: unanswered}
+
+- name: full-scope polygraph, CI polygraph held
+  type: clearance
+  quote: "Active TS/SCI with full scope polygraph required."
+  facts: {clearance: {level: ts_sci, status: active, polygraph: ci}}
+  expect: {outcome: fails}
+
+- name: polygraph required, polygraph not declared
+  type: clearance
+  quote: "Active TS/SCI with polygraph required."
+  facts: {clearance: {level: ts_sci, status: active}}
+  expect: {outcome: unanswered, reason: polygraph_not_declared}
+
+- name: no clearance fact, profile marked complete -> fails on basis none
+  type: clearance
+  quote: "Active Secret clearance required."
+  facts: {}
+  completeness: {eligibility_facts_complete: true}
+  expect: {outcome: fails, basis: none}
+
+- name: lift 50 pounds (P1.6 live, Keeper)
+  type: physical
+  quote: "Ability to lift up to 50 pounds and safely move, install or replace IT hardware"
+  facts: {physical: {max_lift_lbs: 40}}
+  expect: {outcome: fails}
+
+- name: lift 50 pounds, lift not declared
+  type: physical
+  quote: "Ability to lift up to 50 pounds"
+  facts: {physical: {can_stand_hours: 8}}
+  expect: {outcome: unanswered}
+
+- name: travel 25 percent
+  type: travel
+  quote: "Travel up to 25% required."
+  facts: {travel: {max_travel_percent: 30}}
+  expect: {outcome: met}
+
+- name: occasional travel (P1.6 live, OpenAI)
+  type: travel
+  quote: "Ability to travel occasionally to support new campus deployments"
+  facts: {travel: {max_travel_percent: 10}}
+  expect: {outcome: met}
+
+- name: occasional travel, cannot travel
+  type: travel
+  quote: "Ability to travel occasionally to support new campus deployments"
+  facts: {travel: {max_travel_percent: 0}}
+  expect: {outcome: fails}
+
+- name: driver's license held
+  type: license
+  quote: "Valid driver's license required."
+  facts: {license: {name: "Driver's license", active: true}}
+  expect: {outcome: met}
+
+- name: SkillBridge, not active duty (P1.6 live, Axonius)
+  type: program_status
+  quote: "Active-duty military service member approved to participate in the DoD SkillBridge program"
+  facts: {program_status: {active_duty: false, veteran: true}}
+  expect: {outcome: fails}
+
+- name: SkillBridge, no program fact
+  type: program_status
+  quote: "Active-duty military service member approved to participate in the DoD SkillBridge program"
+  facts: {}
+  expect: {outcome: unanswered, basis: none}
+
+# ----- found by the independent P1.7 review; each was a wrong fails (false SKIP) or wrong met -----
+
+- name: country spelled out in full
+  type: residency
+  quote: "Must reside in the United States"
+  facts: {residency: {country: United States of America, state: CA}}
+  expect: {outcome: met}
+
+- name: country written U.S without the last dot
+  type: residency
+  quote: "Must reside in the United States"
+  facts: {residency: {country: U.S, state: CA}}
+  expect: {outcome: met}
+
+- name: excluded states are not an allowed list
+  type: residency
+  quote: "Must reside in the US, excluding Alaska and Hawaii"
+  facts: {residency: {country: US, state: CA}}
+  expect: {outcome: unanswered, reason: exclusion_wording}
+
+- name: not open to residents of named states
+  type: residency
+  quote: "This role is not open to residents of Colorado or New York"
+  facts: {residency: {country: US, state: NY}}
+  expect: {outcome: unanswered, reason: exclusion_wording}
+
+- name: working a time zone's hours is not living in it
+  type: residency
+  quote: "Must be located in the US and able to work Eastern Time hours"
+  facts: {residency: {country: US, state: CA}}
+  expect: {outcome: met}
+
+- name: bare TS means top secret
+  type: clearance
+  quote: "Active TS clearance required"
+  facts: {clearance: {level: secret, status: active}}
+  expect: {outcome: fails}
+
+- name: a percentage that is not about travel is ignored
+  type: travel
+  quote: "This is a 100% remote role; willingness to travel occasionally"
+  facts: {travel: {max_travel_percent: 20}}
+  expect: {outcome: met}
+
+- name: a travel range spanning the fact is unanswered
+  type: travel
+  quote: "Travel 25-50%"
+  facts: {travel: {max_travel_percent: 30}}
+  expect: {outcome: unanswered}
+
+- name: a travel range under the fact is met
+  type: travel
+  quote: "Travel 25-50%"
+  facts: {travel: {max_travel_percent: 60}}
+  expect: {outcome: met}
+
+- name: not about citizens is not a sponsorship refusal
+  type: sponsorship
+  quote: "We sponsor visas for candidates who are not US citizens"
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: met}
+
+- name: sponsorship not available
+  type: sponsorship
+  quote: "Visa sponsorship is not available for this position."
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: fails}
+
+- name: ability to obtain, no clearance fact, profile complete
+  type: clearance
+  quote: "Must be able to obtain a Secret clearance"
+  flags: [ability_to_obtain]
+  facts: {}
+  completeness: {eligibility_facts_complete: true}
+  expect: {outcome: unanswered}
+
+# ----- found by the Codex adversarial review (P1.7) -----
+
+- name: outside a state is an exclusion
+  type: residency
+  quote: "Must reside outside California"
+  facts: {residency: {country: US, state: CA, willing_to_relocate: false}}
+  expect: {outcome: unanswered, reason: exclusion_wording}
+
+- name: sponsorship needers declared ineligible
+  type: sponsorship
+  quote: "Applicants who need visa sponsorship are ineligible; this condition is mandatory"
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: fails}
+
+- name: must work without sponsorship
+  type: sponsorship
+  quote: "Must be authorized to work in the US without visa sponsorship."
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: fails}
+
+- name: sponsorship wording that is neither yes nor no is a question
+  type: sponsorship
+  quote: "Please indicate whether you will require visa sponsorship."
+  facts: {sponsorship: {needs_sponsorship: true}}
+  expect: {outcome: unanswered}
+
+- name: one shared word does not match an unrelated license
+  type: license
+  quote: "Valid public adjuster license required"
+  facts: {license: {name: "Certified Public Accountant license", active: true}}
+  expect: {outcome: unanswered}
+
+- name: a more specific license name still matches
+  type: license
+  quote: "Must have a valid driver's license and reliable transportation."
+  facts: {license: {name: "Florida driver's license", active: true}}
+  expect: {outcome: met}

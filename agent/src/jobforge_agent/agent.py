@@ -20,6 +20,8 @@ from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
 from jobforge_agent.discovery import admin as discovery_admin
+from jobforge_agent.evaluation import store as evaluation_store
+from jobforge_agent.evaluation.worker import EvaluationWorker
 from jobforge_agent.discovery.http import HttpClient
 from jobforge_agent.discovery.service import DiscoveryService
 from jobforge_agent.filtering import pipeline as filter_pipeline
@@ -66,6 +68,7 @@ class AgentRuntime:
         self.inference: InferenceClient | None = None
         self.inference_transport = None  # tests inject a fake inference server here
         self.analysis: AnalysisWorker | None = None
+        self.evaluation: EvaluationWorker | None = None
         self.elevated = winutil.is_elevated()
         self.last_maintenance_error: str | None = None
         # Woken after each commit that adds change_events, so the event stream pushes at once
@@ -399,6 +402,40 @@ class AgentRuntime:
         aid = analysis_store.latest_for_job(self.reader, job_id)
         return None if aid is None else analysis_store.analysis_view(self.reader, aid)
 
+    # ----- evaluation and recommendations (E3-E6) -----
+
+    def evaluation_status(self) -> dict:
+        if self.evaluation is not None:
+            return self.evaluation.status()
+        assert self.reader is not None
+        ready, waiting = evaluation_store.pending_config_ids(self.reader)
+        return {"counts": evaluation_store.counts(self.reader), "pending_waiting_for_disabled_config": waiting,
+                "configs_with_work": ready, "inference": {}}
+
+    def job_recommendation(self, job_id: int) -> dict | None:
+        assert self.reader is not None
+        return evaluation_store.job_recommendation(self.reader, job_id)
+
+    def recommendations(self, category: str | None) -> list[dict]:
+        assert self.reader is not None
+        return evaluation_store.recommendation_list(self.reader, category)
+
+    def review_questions(self) -> list[dict]:
+        assert self.reader is not None
+        return evaluation_store.review_questions(self.reader)
+
+    def recompute(self) -> dict:
+        """Snapshot, queue and recompute now (code only, no model call; the worker would do the
+        same on its next iteration)."""
+        assert self.evaluation_conn is not None
+        if self.evaluation is not None:
+            r = self.evaluation.sync()
+        else:
+            r = evaluation_store.sync(self.evaluation_conn, now_ms())
+            self.notify_events()
+        return {"snapshot_id": r.snapshot_id, "snapshot_created": r.snapshot_created, "queued": r.queued,
+                "superseded": r.superseded, "recomputed": r.recomputed}
+
     def notify_events(self) -> None:
         """Call after a commit that added change_events rows; never before (no uncommitted events)."""
         if self._events_signal is not None:
@@ -492,6 +529,9 @@ class AgentRuntime:
         http = HttpClient()
         self.discovery = DiscoveryService(self.discovery_conn, http, on_events=self.notify_events)
         self.analysis = AnalysisWorker(self.evaluation_conn, self.inference_client(), on_events=self.notify_events)
+        self.evaluation = EvaluationWorker(self.evaluation_conn, self.inference_client(), self.analysis.gate,
+                                           on_events=self.notify_events)
+        self.analysis.steps_before.append(self.evaluation.run_once)
         # Publish the endpoint only once uvicorn is accepting connections.
         while not server.started and not server_task.done():
             await asyncio.sleep(0.01)
