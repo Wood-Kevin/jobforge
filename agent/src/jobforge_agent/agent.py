@@ -6,6 +6,7 @@ lock -> logging -> migrate (backup first, refuse newer) -> recovery -> run row -
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import os
 import random
@@ -32,6 +33,7 @@ from jobforge_agent.inference import configs as model_configs
 from jobforge_agent.inference.client import InferenceClient, load_config
 from jobforge_agent.paths import Paths
 from jobforge_agent.profile import resumes as profile_resumes
+from jobforge_agent.profile import suggest as profile_suggest
 
 HEARTBEAT_S = 10
 REFILTER_CHUNK = 300
@@ -335,6 +337,40 @@ class AgentRuntime:
             self.log.warning("resume_text_extraction_failed", resume_id=result["id"], mime=result["mime"],
                              error=result["extraction_error"])
         return result
+
+    async def suggest_from_resume(self, resume_id: int) -> dict | None:
+        """User action: the default model reads one resume and proposes profile items into the
+        inbox (profile/suggest.py). Reads, then the model call with no transaction open, then one
+        short write. Raises SuggestError (no usable text, no model turned on, unusable answer) or
+        InferenceError (model unreachable, timeout). Logs carry ids and counts, never resume text."""
+        assert self.user is not None
+        r = profile_resumes.get(self.user, resume_id)
+        if r is None:
+            return None
+        text = (r["extracted_text"] or "").strip()
+        if not text:
+            raise profile_suggest.SuggestError("No text could be read from this resume. Upload it as PDF, Word (.docx) or text.")
+        if len(text) > profile_suggest.MAX_TEXT_CHARS:
+            raise profile_suggest.SuggestError(f"This resume is too long to read in one go ({len(text):,} characters; "
+                                               f"the limit is {profile_suggest.MAX_TEXT_CHARS:,}).")
+        default = self.user.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
+        cfg = load_config(self.user, int(default[0])) if default else None
+        if cfg is None or not cfg.enabled:
+            raise profile_suggest.SuggestError("Turn on the AI model first (Setup, step 3).")
+        # One resume yields far more output than one posting: longer limits for this call only.
+        cfg = dataclasses.replace(cfg, params={**cfg.params, "timeout_s": max(cfg.timeout_s, profile_suggest.TIMEOUT_S),
+                                               "max_tokens": max(cfg.max_tokens, profile_suggest.MAX_TOKENS)})
+        mode = cfg.structured_output_mode
+        result = await self.inference_client().chat(cfg, profile_suggest.messages(text, mode), profile_suggest.response_format(mode))
+        if result.finish_reason == "length":
+            raise profile_suggest.SuggestError("The model's answer was cut off (the resume is long for this model). "
+                                               "Try a shorter resume, or raise max_tokens for the model.")
+        suggestions, counts = profile_suggest.parse(result.content, text)
+        stored = self.profile_action("resume_suggestions", profile_suggest.store, resume_id, r["sha256"], suggestions, now_ms(),
+                                     ref={"resume_id": resume_id})
+        report = {**counts, **stored, "seconds": round(result.seconds, 1), "prompt_version": profile_suggest.RESUME_PROMPT_VERSION}
+        self.log.info("resume_suggestions", resume_id=resume_id, model_config_id=cfg.id, **report)
+        return report
 
     # ----- model configs and posting analysis -----
 

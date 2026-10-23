@@ -465,6 +465,9 @@ supersedes a running one that has a newer pending sibling), and adds `years`, `s
 Migration 0005 (P1.7 follow-up) adds `evaluations.request_sha256` and a partial index on done rows (reuse, 6.4).
 Migration 0006 (P1.8) makes `applications.job_id` unique (one application per job); every status change appends an
 `application_events` row (append-only) in the same user-action transaction.
+Migration 0007 (P1.8c) adds `inferred_claims.proposed_by_resume_id` (no foreign key: deleting a resume must neither fail
+nor take accepted suggestions with it) and `inferred_claims.proposed_fields` (JSON: dates or `dates_as_written`, applied on
+accept).
 `filter_results.reasons` shape: `{primary, failed: [{rule, category, detail}], work_mode,
 remote_eligibility, salary: {min, max, period, annual_max, text} | null, clearance_mention}`;
 categories `title_family`, `seniority`, `location`, `compensation`, `other`.
@@ -503,7 +506,7 @@ split below is kept as documentation for any future server port (A13).
 | `resumes` | id, label, original_filename, original_bytes BLOB, mime, extracted_text, sha256, uploaded_at_ms | |
 | `experience_items` | id, kind, statement, attributes (JSON), start_date, end_date, years, status (verified/self_reported), source, verified_at_ms | `CHECK (status <> 'verified' OR verified_at_ms IS NOT NULL)`; writable only by the user-action connection (4.3). |
 | `profile_completeness` | id = 1, cert_list_complete, eligibility_facts_complete, updated_at_ms | Same write rule. |
-| `inferred_claims` | id, statement, kind, rationale, evidence (JSON), proposed_by_evaluation_id, state, accepted_as_item_id | Evaluation may insert; only user actions change `state`. |
+| `inferred_claims` | id, statement, kind, rationale, evidence (JSON), proposed_by_evaluation_id, proposed_by_resume_id, proposed_fields (JSON), state, accepted_as_item_id | Evaluation inserts E3 guesses; the user connection inserts resume suggestions (a user command, P1.8c); only user actions change `state`. |
 | `profile_snapshots` | id, sha256, created_at_ms | **Insert-only by trigger.** |
 | `profile_snapshot_items` | snapshot_id FK, item_id, kind, statement, status, attributes (JSON) | PK (snapshot_id, item_id). **Insert-only.** New in rev 4: lets the DB check citations (below). |
 | `model_configs` | id, name, provider_label, base_url, model_id, params (JSON), structured_output_mode, enabled | |
@@ -556,7 +559,18 @@ split below is kept as documentation for any future server port (A13).
 - **Inferred-claims inbox:** `GET /v1/inferred-claims?state=open|accepted|rejected`,
   `POST .../{id}/accept` (optional rewording; becomes a self-reported item with
   `source = inferred_claim:<id>`, never verified, never an eligibility fact) and `.../reject`.
-  Only evaluation inserts claims (P1.7).
+  Evaluation inserts claims (P1.7, E3 guesses).
+- **Suggestions from a resume (P1.8c):** `POST /v1/resumes/{id}/suggest-items` (`profile/suggest.py`, prompt
+  `RESUME_PROMPT_VERSION`, pinned by a hash). The default model, if turned on, reads the resume's extracted text (limit
+  30,000 characters; 300 s and 8,000 output tokens for this call; the host allows the path 330 s). Code keeps a suggestion
+  only if its quote is found in the resume text word for word (case, punctuation and line breaks ignored), takes dates
+  only as YYYY-MM (a year-only date is kept as written in `attributes.dates_as_written`, never padded to a month, because
+  an empty end date means "present"), and skips statements already in the profile or already suggested (open, accepted
+  or rejected). What stands goes to the inbox with `evidence = {resume_id, resume_sha256, quote, prompt_version}`;
+  accepting applies `proposed_fields` and sets `source = resume:<resume id>:claim:<claim id>`. No eligibility facts are
+  suggested (they are typed facts with their own form). The model call runs with no transaction open; the inbox write
+  is one user-action transaction (`profile_changed`, ids only). Rejected alternative: writing suggestions straight into
+  `experience_items`, which would put unread model output into the profile E3 matches against.
 - Every change is one user-action transaction with a `profile_changed` event whose ref holds
   the action name and ids only; the same goes for the log line. Profile snapshots are created
   by evaluation in P1.7.
@@ -1350,6 +1364,7 @@ reload, with the inference server optional.
 | **P1.7 Evaluation + recommendation (E3-E6)** | Match, validate, assess, recommend, recompute, resume-on-return | Layer B suite passes incl. SKIP property test and FK-rejected inferred citation. LM Studio stopped for 1 h: discovery freshness unchanged, evaluations pending; LM Studio started: queue drains with no restart (log `inference_available` then `evaluation_done`). Rule change -> recompute with zero inference calls. Long fake model call does not block a user action (> 1 s). |
 | **P1.8 UI** | Discovery dashboard, live refresh, job list/detail, rejected view, REVIEW questions, profile, preferences, applications | Screenshots of dashboard and a real job detail. New posting appears in the open window without reload; host restart replays missed events from cursor. `<script>`/`onerror` posting renders inert. Application status change -> `application_events` row. No code path submits to an employer (grep: outbound HTTP only in `discovery/` and `inference/`). |
 | **P1.8b Usability pass** (added 2026-10-23, Kevin) | Installed current build, first-run Setup, plain search-profile form, plain wording, less on screen | Fresh data dir: Setup opens by itself and shows no regex or JSON (screenshot). Form round trip keeps imported regex patterns exactly (`test_setup.py`). Installer layout check requires `v2.yaml` and `defaults.yaml`. |
+| **P1.8c Profile from a resume** (added 2026-10-23, Kevin) | "Suggest items" on an uploaded resume; suggestions in the inbox; Setup step 4 uses it | Quotes not in the resume are dropped; year-only dates are not padded; accepting gives self-reported items with the resume's dates (`test_suggest.py`). Live on two real resumes with the default model: counts, timing, window run (`docs/evidence/p1_8c_resume_suggestions_live.txt`). |
 | **P1.9 Release drill + evidence** | Installer upgrade with migration, rollback, verify.sh, golden + interpretation reports | Install v0.1, use it, install v0.2 (with a migration) while the agent runs -> hook stops agent, pre-migration backup created, v0.2 agent runs. Reinstall v0.1 -> agent refuses (exit 4, tray message); restore backup -> v0.1 runs with pre-upgrade data. verify.sh prints every SPEC section 6 row. Golden report prints false SKIP, false APPLY, REVIEW share, confusion table. |
 
 Out of Phase 1: auto-updater, code signing, Windows Service mode, named-pipe

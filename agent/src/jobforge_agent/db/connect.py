@@ -88,7 +88,8 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "resumes": full(delete=True),
         "experience_items": full(delete=True),
         "profile_completeness": full(),
-        "inferred_claims": upd("state", "accepted_as_item_id"),
+        # Insert: "suggest items from this resume" (P1.8c) is a user command; accept/reject update.
+        "inferred_claims": _merge(ins(), upd("state", "accepted_as_item_id")),
         "profile_snapshots": ins(),
         "profile_snapshot_items": ins(),
         "model_configs": full(),

@@ -52,7 +52,10 @@ export type Item = { id: number; kind: string; statement: string; attributes: Re
   end_date: string | null; years: number | null; status: "verified" | "self_reported"; source: string; verified_at_ms: number | null };
 export type Completeness = { cert_list_complete: boolean; eligibility_facts_complete: boolean; updated_at_ms: number | null };
 export type Schema = { kinds: string[]; eligibility: Record<string, Record<string, { type: string; required: boolean }>>; multiple_allowed: string[]; application_statuses: string[] };
-export type Claim = { id: number; statement: string; kind: string; rationale: string | null; state: string; proposed_by_evaluation_id: number | null; created_at_ms: number };
+export type Claim = { id: number; statement: string; kind: string; rationale: string | null; state: string; proposed_by_evaluation_id: number | null; created_at_ms: number;
+  proposed_by_resume_id: number | null; proposed_fields: { start_date?: string; end_date?: string | null; attributes?: Record<string, string> };
+  evidence: { quote?: string; [k: string]: unknown } };
+export type SuggestReport = { proposed: number; added: number; already_known: number; quote_not_found: number; bad_kind: number; repeated: number; seconds: number };
 export type Resume = { id: number; label: string | null; original_filename: string; mime: string; sha256: string; bytes: number; text_chars: number; uploaded_at_ms: number };
 export type ReviewGroup = { kind: string; type: string | null; example: string; jobs: { job_id: number; title: string; company: string; question: string; current: boolean }[] };
 export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; enabled: boolean; tested_at_ms: number | null; default: boolean };
@@ -104,6 +107,7 @@ export const api = {
   resumes: () => agentCall<Resume[]>("GET", "/v1/resumes"),
   uploadResume: (filename: string, bytes: Uint8Array) => agentUpload<Resume>(`/v1/resumes?filename=${q(filename)}`, bytes),
   deleteResume: (id: number) => agentCall<{ deleted: number }>("DELETE", `/v1/resumes/${id}`),
+  suggestItems: (id: number) => agentCall<SuggestReport>("POST", `/v1/resumes/${id}/suggest-items`),
 
   setupStatus: () => agentCall<SetupStatus>("GET", "/v1/setup/status"),
   searchForm: () => agentCall<SearchForm>("GET", "/v1/search-profile/form"),

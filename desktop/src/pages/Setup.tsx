@@ -3,7 +3,7 @@
 import { api } from "../api";
 import { CompaniesCard, ModelCard, SearchFormCard } from "../settings";
 import { useLive } from "../ui";
-import { Import } from "./Profile";
+import { Claims, Import, Resumes } from "./Profile";
 
 export default function Setup({ onDone }: { onDone: () => void }) {
   const s = useLive(api.setupStatus, [], ["search_profile_saved", "employer_enabled", "employer_disabled", "model_config_enabled",
@@ -29,8 +29,11 @@ export default function Setup({ onDone }: { onDone: () => void }) {
       <ModelCard onReady={s.reload} />
       {step(4, "Your experience", st?.profile.done, st?.profile.done
         ? `${st.profile.items} items, ${st.profile.facts} eligibility facts (${st.profile.facts_verified} confirmed). Confirm them in Profile.`
-        : "Load your profile file, then confirm each fact in Profile.")}
-      <Import existing={items.data ?? []} onDone={() => { items.reload(); s.reload(); }} />
+        : "Upload your resume and press Suggest items, then check what the AI found.")}
+      <Resumes />
+      <Claims fromResumeOnly />
+      <details className="muted"><summary>Already have a prepared profile file?</summary>
+        <Import existing={items.data ?? []} onDone={() => { items.reload(); s.reload(); }} /></details>
       {st?.complete && <p><button className="primary" onClick={onDone}>Done: see your jobs</button></p>}
     </div>
   );

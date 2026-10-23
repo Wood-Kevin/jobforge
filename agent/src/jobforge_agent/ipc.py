@@ -24,7 +24,8 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from jobforge_agent import PROTOCOL_VERSION, applications as applications_mod, views
 from jobforge_agent.filtering.profile import ProfileError
 from jobforge_agent.inference import configs as model_configs
-from jobforge_agent.profile import items, resumes
+from jobforge_agent.inference.client import InferenceError
+from jobforge_agent.profile import items, resumes, suggest
 
 if TYPE_CHECKING:
     from jobforge_agent.agent import AgentRuntime
@@ -192,6 +193,17 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         if not r:
             return JSONResponse({"error": "unknown resume"}, status_code=404)
         return Response(r["original_bytes"], media_type=r["mime"], headers={"X-Sha256": r["sha256"]})
+
+    @app.post("/v1/resumes/{resume_id}/suggest-items")
+    async def suggest_items(resume_id: int):
+        # Slow by nature (a model reads the whole resume): the host allows this path a longer timeout.
+        try:
+            r = await runtime.suggest_from_resume(resume_id)
+        except suggest.SuggestError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        except InferenceError as exc:
+            return JSONResponse({"error": f"the AI model did not answer ({exc.kind}: {exc.detail})"}, status_code=503)
+        return r if r is not None else JSONResponse({"error": "unknown resume"}, status_code=404)
 
     @app.delete("/v1/resumes/{resume_id}")
     async def delete_resume(resume_id: int):

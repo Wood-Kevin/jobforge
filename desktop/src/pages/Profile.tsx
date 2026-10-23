@@ -2,7 +2,7 @@
 // inferred-claims inbox, and import of a reviewed profile file. Everything created here is
 // self-reported; "verified" only ever comes from the Confirm button (verify route; SPEC D2, Q6).
 import { useState, type ChangeEvent } from "react";
-import { api, type Item, type Schema } from "../api";
+import { api, type Claim, type Item, type Schema } from "../api";
 import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
 
 const KIND_ORDER = ["role", "achievement", "skill", "cert", "education"];
@@ -240,43 +240,85 @@ export function Import({ existing, onDone }: { existing: Item[]; onDone: () => v
 
 // ----- inferred claims inbox -----
 
-function Claims() {
+export function Claims({ fromResumeOnly = false }: { fromResumeOnly?: boolean }) {
   const claims = useLive(() => api.claims("open"), [], ["evaluation_done", "profile_changed"]);
   const act = useAction();
-  const rows = claims.data ?? [];
+  const all = claims.data ?? [];
+  const fromResume = all.filter((c) => c.proposed_by_resume_id !== null);
+  const guesses = fromResumeOnly ? [] : all.filter((c) => c.proposed_by_resume_id === null);
+  const row = (c: Claim) => {
+    const f = c.proposed_fields;
+    // Same reading as an item row: no start shows "?", no end date means present.
+    const when = f.start_date || f.end_date ? `${f.start_date ?? "?"} to ${f.end_date ?? "present"}` : f.attributes?.dates_as_written;
+    return (
+      <li key={c.id}><div className="item-line"><Badge value={c.kind} /><span className="statement">{c.statement}</span>
+        {when && <span className="muted">{when}</span>}
+        <span className="actions">
+          <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.acceptClaim(c.id, {}); claims.reload(); })}>Add</button>
+          <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.rejectClaim(c.id); claims.reload(); })}>Not right</button>
+        </span></div>
+        {c.evidence.quote ? <div className="muted">Your resume: "{c.evidence.quote}"</div> : c.rationale && <div className="muted">{c.rationale}</div>}</li>);
+  };
+  const addAll = () => act.run(async () => {
+    for (const c of fromResume) await api.acceptClaim(c.id, {});
+    claims.reload();
+  });
+  if (fromResumeOnly && fromResume.length === 0) return null;
   return (
-    <Card title={`Experience the AI thinks you may have (${rows.length})`}>
-      <p className="muted">The model's guesses about experience you probably have but did not state. They never count until you
-        accept one, and an accepted one still needs your confirmation.</p>
-      {rows.length === 0 ? <p className="muted">Nothing suggested.</p> : (
-        <ul className="items">{rows.map((c) => (
-          <li key={c.id}><div className="item-line"><Badge value={c.kind} /><span className="statement">{c.statement}</span>
-            <span className="actions">
-              <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.acceptClaim(c.id, {}); claims.reload(); })}>Accept</button>
-              <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.rejectClaim(c.id); claims.reload(); })}>Reject</button>
-            </span></div>{c.rationale && <div className="muted">{c.rationale}</div>}</li>))}</ul>)}
-      <ErrorBox error={act.error ?? claims.error} />
-    </Card>
+    <>
+      {fromResume.length > 0 && (
+        <Card title={`Check these items from your resume (${fromResume.length})`}
+          actions={<button className="primary" disabled={act.busy} onClick={addAll}>Add all {fromResume.length}</button>}>
+          <p className="muted">The AI listed these from your resume; each one's wording was checked against the resume. Remove any
+            that are wrong, then add the rest. Added items still show as not confirmed until you confirm them.</p>
+          <ul className="items">{fromResume.map(row)}</ul>
+          <ErrorBox error={act.error ?? claims.error} />
+        </Card>)}
+      {!fromResumeOnly && (
+        <Card title={`Experience the AI thinks you may have (${guesses.length})`}>
+          <p className="muted">The model's guesses about experience you probably have but did not state. They never count until you
+            add one, and an added one still needs your confirmation.</p>
+          {guesses.length === 0 ? <p className="muted">Nothing suggested.</p> : <ul className="items">{guesses.map(row)}</ul>}
+          {fromResume.length === 0 && <ErrorBox error={act.error ?? claims.error} />}
+        </Card>)}
+    </>
   );
 }
 
 // ----- resumes -----
 
-function Resumes() {
+export function Resumes() {
   const list = useLive(api.resumes, [], ["profile_changed"]);
   const act = useAction();
+  const [note, setNote] = useState<{ id: number; text: string } | null>(null);
+  const suggestFrom = (id: number) => act.run(async () => {
+    setNote({ id, text: "Reading your resume... this can take a few minutes." });
+    try {
+      const r = await api.suggestItems(id);
+      const parts = [`Found ${r.proposed} items; ${r.added} new ones are listed above for you to check`];
+      if (r.already_known) parts.push(`${r.already_known} you already have or turned down`);
+      if (r.quote_not_found) parts.push(`${r.quote_not_found} left out because their wording is not in the resume`);
+      setNote({ id, text: parts.join("; ") + "." });
+    } catch (e) {
+      setNote(null);
+      throw e;
+    }
+  });
   const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) act.run(async () => { await api.uploadResume(f.name, new Uint8Array(await f.arrayBuffer())); list.reload(); });
   };
   return (
     <Card title="Resumes" actions={<input type="file" accept=".pdf,.docx,.md,.txt" onChange={onFile} disabled={act.busy} />}>
-      <p className="muted">Stored byte for byte, for your reference. They do not create profile items on their own.</p>
+      <p className="muted">Stored exactly as uploaded. "Suggest items" has the AI list the roles, skills, certifications and
+        education in a resume for you to check; nothing is added until you add it.</p>
       {(list.data ?? []).length === 0 ? <p className="muted">No resumes uploaded.</p> : (
         <table><tbody>{list.data!.map((r) => (
           <tr key={r.id}><td>{r.original_filename}</td><td className="muted">{Math.round(r.bytes / 1024)} KB · {r.text_chars ? `${r.text_chars} chars of text` : "no text extracted"}</td>
             <td className="muted">{ago(r.uploaded_at_ms)} ago</td>
-            <td><ConfirmButton label="Delete" disabled={act.busy} onConfirm={() => act.run(async () => { await api.deleteResume(r.id); list.reload(); })} /></td></tr>))}</tbody></table>)}
+            <td><button className="small primary" disabled={act.busy || !r.text_chars} onClick={() => suggestFrom(r.id)}>Suggest items</button>{" "}
+              <ConfirmButton label="Delete" disabled={act.busy} onConfirm={() => act.run(async () => { await api.deleteResume(r.id); list.reload(); })} /></td></tr>))}</tbody></table>)}
+      {note && <p className="ok-text">{note.text}</p>}
       <ErrorBox error={act.error ?? list.error} />
     </Card>
   );

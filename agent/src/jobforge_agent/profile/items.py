@@ -235,13 +235,16 @@ def list_claims(conn: sqlite3.Connection, state: str | None) -> list[dict]:
     if state is not None and state not in ("open", "accepted", "rejected"):
         raise ProfileInputError("state must be open, accepted or rejected")
     rows = conn.execute("SELECT id, statement, kind, rationale, evidence, proposed_by_evaluation_id, state, accepted_as_item_id, "
-                        "created_at_ms FROM inferred_claims WHERE ? IS NULL OR state = ? ORDER BY id", (state, state))
+                        "created_at_ms, proposed_by_resume_id, proposed_fields FROM inferred_claims "
+                        "WHERE ? IS NULL OR state = ? ORDER BY id", (state, state))
     return [{"id": r[0], "statement": r[1], "kind": r[2], "rationale": r[3], "evidence": json.loads(r[4]),
-             "proposed_by_evaluation_id": r[5], "state": r[6], "accepted_as_item_id": r[7], "created_at_ms": r[8]} for r in rows]
+             "proposed_by_evaluation_id": r[5], "state": r[6], "accepted_as_item_id": r[7], "created_at_ms": r[8],
+             "proposed_by_resume_id": r[9], "proposed_fields": json.loads(r[10])} for r in rows]
 
 
 def _open_claim(conn, claim_id: int):
-    r = conn.execute("SELECT statement, kind, state FROM inferred_claims WHERE id = ?", (claim_id,)).fetchone()
+    r = conn.execute("SELECT statement, kind, state, proposed_by_resume_id, proposed_fields FROM inferred_claims WHERE id = ?",
+                     (claim_id,)).fetchone()
     if r is None:
         raise NotFound(f"inferred claim {claim_id}")
     if r[2] != "open":
@@ -250,10 +253,12 @@ def _open_claim(conn, claim_id: int):
 
 
 def accept_claim(conn: sqlite3.Connection, claim_id: int, edits: dict) -> int:
-    """Accept, optionally reworded: becomes a self-reported item (never verified by accepting)."""
-    statement, kind, _ = _open_claim(conn, claim_id)
+    """Accept, optionally reworded: becomes a self-reported item (never verified by accepting).
+    A suggestion read from a resume brings its dates (proposed_fields) and is sourced to that resume."""
+    statement, kind, _, resume_id, proposed = _open_claim(conn, claim_id)
     fields = {"kind": kind if kind in KINDS and kind != "eligibility" else "skill", "statement": statement,
-              **edits, "source": f"inferred_claim:{claim_id}"}
+              **json.loads(proposed), **edits,
+              "source": f"resume:{resume_id}:claim:{claim_id}" if resume_id is not None else f"inferred_claim:{claim_id}"}
     if fields["kind"] == "eligibility":
         raise ProfileInputError("eligibility facts are entered directly, not accepted from inferences")
     item_id = create_item(conn, fields)

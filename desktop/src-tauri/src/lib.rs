@@ -64,8 +64,15 @@ fn quit(app: AppHandle, sup: Arc<Supervisor>) {
 #[tauri::command]
 async fn agent_call(method: String, path: String, body: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
     window_path_allowed(&path)?;
-    // A model-config test runs a real model call (up to the 120 s inference timeout).
-    let timeout = if path.ends_with("/test") { Duration::from_secs(180) } else { Duration::from_secs(15) };
+    // A model-config test runs a real model call (up to the 120 s inference timeout); reading a
+    // resume for suggestions allows the model 300 s (agent profile/suggest.py TIMEOUT_S).
+    let timeout = if path.ends_with("/test") {
+        Duration::from_secs(180)
+    } else if path.ends_with("/suggest-items") {
+        Duration::from_secs(330)
+    } else {
+        Duration::from_secs(15)
+    };
     let body = body.map(Body::Json).unwrap_or(Body::None);
     tauri::async_runtime::spawn_blocking(move || agent_send(&method, &path, body, timeout))
         .await

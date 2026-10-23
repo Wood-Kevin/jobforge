@@ -213,7 +213,8 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** P1.8 acceptance is functional; Kevin chose to commit it and do a focused usability pass before P1.9.
 - **Resolved in P1.8b** (SPEC change log), except the profile step below.
 
-## Building a profile inside the app (P1.8b)
+## ~~Building a profile inside the app~~ (P1.8b; resolved in P1.8c)
+- **Resolved in P1.8c:** "Suggest items" on an uploaded resume (SPEC change log, ARCHITECTURE 4.2 / profile routes). What remains is recorded below.
 - **What:** Setup step 4 loads a prepared profile file (one was drafted from resumes outside the app and reviewed
   by him). A new user has no such file; their only path is adding items one by one in Profile. Uploaded resumes are stored
   and their text extracted (P1.5), but nothing turns that text into proposed items.
@@ -227,3 +228,14 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** WebView2 automation (WebDriver for Tauri) is a setup of its own; P1.9's verify.sh and the release drill
   exercise the installed app.
 - **Trigger:** a UI regression that a screenshot pass missed, or the usability pass adding forms whose validation matters.
+
+## Resume suggestions: recall not measured (P1.8c)
+- **What:** Code guarantees the wording (every kept suggestion quotes the resume) but no test measures recall. Measured
+  once by hand: a prompt draft kept 10 of the 27 entries in one resume's skills section; the final r1-v1 line ("list
+  every entry of a skills section") brought both tested resumes to every entry (27/27, 25/25). Recall of skills that
+  appear only in experience bullets is not measured. Missing items cost a manual add; E3 then reads the profile as
+  thinner than it is (more REVIEW). Eligibility facts in a resume (clearance, citizenship)
+  are deliberately not suggested; the user enters them in the typed form.
+- **Why deferred:** measuring recall needs a labeled item list per resume; a reviewed `profile_draft.json` (46
+  items) could serve for several resumes but is one person's data.
+- **Trigger:** a user reports missing items, or the golden-set work in P1.9 adds profile labels.

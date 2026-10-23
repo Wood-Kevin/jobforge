@@ -1,0 +1,34 @@
+P1.8c resume suggestions - live evidence (2026-10-23 UTC)
+Model: google/gemma-4-12b-qat in LM Studio (default config, structured output json_schema). Prompt r1-v1.
+Data: throwaway data dirs under %LOCALAPPDATA% (jobforge-evidence-p1_8c_*), two of real resumes uploaded read-only.
+Counts only; no resume text in this file or in the agent log (log lines carry ids and counts).
+
+== API run, resume A (PDF, 3,791 chars of extracted text), r1-v1 draft without the skills-section line
+  proposed 29, quote_not_found 0, bad_kind 0, repeated 0, added 29, seconds 36.2
+  kinds: role 5, skill 10, cert 10, education 2, achievement 2
+  dates: 5 roles with YYYY-MM start/end (current role end = present -> null);
+         degree with month completion only -> end_date only ("? to 2026-02");
+         degree with year only -> no dates, attributes.dates_as_written "? to 2019" (not padded to a month)
+  first run (before the education-date prompt line): degree completion read as start_date -> kept as written, no dates;
+  fixed in r1-v1 before commit (prompt line + end-date-only rule), pin digest updated.
+
+== API run, resume B (PDF), same draft
+  proposed 43, quote_not_found 0, bad_kind 0, repeated 0, added 43, seconds 52.5
+  kinds: role 5, skill 22, cert 10, education 2, achievement 4
+
+== Final r1-v1 (adds: "List EVERY entry of a skills or technical-skills section as its own skill item")
+  The draft kept 10 of the 27 entries in resume A's skills section. Rerun on fresh data dirs:
+  resume A: proposed 46, quote_not_found 0, added 46, seconds 54.2; kinds role 5, skill 27, cert 10, education 2, achievement 2
+            skills section: 27 entries, 27 suggested
+  resume B: proposed 45, quote_not_found 0, added 45, seconds 53.6; kinds role 5, skill 25, cert 10, education 2, achievement 3
+            skills section: 25 entries (two wrap across lines), 25 suggested
+
+== Window run (release host, resume A data dir; draft prompt, same code path and route)
+  inbox card "Check these items from your resume (29)", each row with its resume quote and dates
+  "Not right" on one skill -> /v1/inferred-claims?state=rejected lists it
+  "Add all 28" -> /v1/experience: 28 items, statuses self_reported=28 (verified 0);
+                 sources resume:1:claim:<id>; role/education dates as proposed; setup status profile.done = true
+  "Suggest items" clicked again in the window (host path /suggest-items, 330 s timeout):
+  agent.jsonl: {"resume_id": 1, "model_config_id": 1, "proposed": 29, "quote_not_found": 0, "bad_kind": 0, "repeated": 0,
+                "added": 0, "already_known": 29, "seconds": 35.9, "prompt_version": "r1-v1", "event": "resume_suggestions"}
+  window: "Found 29 items; 0 new ones are listed above for you to check; 29 you already have or turned down."
