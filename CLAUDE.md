@@ -14,6 +14,7 @@ Desktop commands (from `desktop/`; cargo and Tauri via PowerShell): `npm run bui
 Agent commands (from `agent/`):
 - Tests: `uv run pytest -q`
 - Run: `uv run python -m jobforge_agent` (refuses to run elevated, exit 5)
+- Evidence: `bash verify.sh [sections]` from the repo root (Git Bash; raw output, no verdicts; `VERIFY_DATA_DIR` for another data root). Update the matching probe whenever a probed behavior changes.
 - Golden-set report: `uv run python -m jobforge_agent golden` (read only; `--suite interpretation` calls the default model)
 - Installers: `scripts\build.ps1` from a non-elevated PowerShell writes `dist-installers\JobForge_<version>_setup.exe`
 

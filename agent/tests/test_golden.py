@@ -129,3 +129,20 @@ def test_interpretation_report_reproduces_layer_a_when_the_model_answers_like_th
         assert a["raw_agreed"] + a["conflict_caught"] <= a["extracted"]
     assert sum(a["conflict_caught"] for a in per_area.values()) > 0  # the fixture includes real spike misreadings
     assert "E2 caught" in golden.format_interpretation(per_area, meta)
+
+
+def test_interpretation_report_stops_when_the_model_is_unreachable(db):
+    server = FakeServer()
+    server.down = True
+    cfg = load_config(db, db.execute("SELECT min(id) FROM model_configs").fetchone()[0])
+
+    async def go():
+        client = InferenceClient(httpx.MockTransport(server))
+        try:
+            return await golden.run_interpretation(client, cfg, golden.interpretation_cases())
+        finally:
+            await client.aclose()
+
+    per_area, meta = asyncio.run(go())
+    assert meta["failed"] == 1 and "not reachable" in meta["stopped"] and server.chat_calls == 1
+    assert golden.format_interpretation(per_area, meta).startswith("stopped: the model at")

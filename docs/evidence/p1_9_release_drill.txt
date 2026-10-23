@@ -1,0 +1,140 @@
+P1.9 release drill - live evidence (2026-10-23 UTC; local times below are 2026-10-22 EDT)
+Installers built by scripts/build.ps1: v0.1.0 = commit 9985cf1; v0.2.0 (run 1) = commit 0003d9d;
+v0.2.0 (run 2) = commit 224eed5 (drill fixes); final v0.2.0 = the P1.9 commit (pages hidden in the restore
+state, interpretation run stops on an unreachable model); v0.3.0 = drill-only build of 224eed5 plus a no-op
+migration 0009 (SCHEMA_VERSION 9), never committed.
+Every install and launch ran unelevated through explorer.exe, per-user NSIS (/S), with JOBFORGE_DATA_DIR set to a
+drill folder; the default data root (%LOCALAPPDATA%\dev.kevin.jobforge) was not used. Companies: three public
+Greenhouse boards. Counts columns are named on each line. No personal data.
+
+Acceptance (ARCHITECTURE 9, P1.9):
+  install v0.1, use it                       run 1: 3 employers, 980 jobs, 1 application
+  install v0.2 (with a migration) while the agent runs
+                                             run 1: hook stop_reason=update, 3 s; pre-migrate-v7 backup (integrity ok);
+                                                    migrated 7 -> 8; counts unchanged
+                                             run 2 (v0.2 -> v0.3): same, 8 -> 9, pre-migrate-v8, counts unchanged
+  reinstall the older version -> agent refuses (exit 4)
+                                             run 1 (v0.2 -> v0.1): FAILED - v0.1 ran on the schema-8 database
+                                                    (leftover 0008 file in the install dir). Fixed in 224eed5.
+                                             run 2 (v0.3 -> v0.2): install dir 0001-0008 only; host.log "agent exited
+                                                    with code Some(4)", status StoppedDbNewer; restore screen shown
+  restore backup -> older version runs with pre-upgrade data
+                                             run 2: restore screen "Go back to this backup" (pre-migrate-v8):
+                                                    host.log "restore ...: exit Some(0)", agent respawned, schema 8,
+                                                    applications 2 -> 1 (the post-upgrade one gone), drill_marker gone;
+                                                    before-restore-v9 kept (schema 9, integrity ok, 2 applications)
+                                             final build: repeated, same result; screenshot p1_9_restore_screen.png
+Also found and fixed: every backup left .tmp-wal/.tmp-shm files (run 1 listing); none in run 2.
+
+Interpretation report (jobforge-agent golden --suite interpretation, installed agent): NOT MEASURED. LM Studio was
+not running (curl 127.0.0.1:1234 -> could not connect); all 61 calls failed with ConnectError. The runner now stops
+at the first unreachable-model error. To gather: start LM Studio's server, then
+  bash verify.sh golden  with VERIFY_INTERPRETATION=1.
+
+Golden-set report: tooling live (installed agent read 1 drill label beside the running agent). Real numbers need
+Kevin's 20-30 labels ("Your call" on a job).
+
+== drill run 1 log (drill_log.txt, verbatim)
+23:44:05 == drill start; data root C:\Users\kevin\AppData\Local\jobforge-drill-p1_9; nothing installed before: 
+23:44:08 installed 0.1.0 in 2 s (0.1.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:44:10 v0.1.0 running: agent pid 36372 schema 7 elevated False data_dir C:\Users\kevin\AppData\Local\jobforge-drill-p1_9
+23:44:23 v0.1 use: employers added 3 existing 0
+23:44:23 v0.1 use: search profile version 1
+23:44:42 v0.1 use: polled 3/3 employers; jobs open 980
+23:44:42 v0.1 use: application on job 980 status saved
+23:44:42 v0.1 counts: [[980, 980, 1, 1, 1, 3]]
+23:44:52 before v0.2 install: JobForge=15048 jobforge-agent=36372
+23:44:55 installed 0.2.0 in 3 s (0.2.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:44:55 after install, processes: 
+23:44:55 agent_runs after install: [[1, "0.1.0", "update", 0]]
+23:44:55 backup: daily-20261022.db 258048 bytes
+23:44:55 backup: daily-20261022.db.tmp-shm 32768 bytes
+23:44:55 backup: daily-20261022.db.tmp-wal 0 bytes
+23:44:58 v0.2.0 running: agent pid 36024 schema 8 elevated False
+23:44:58 backup: daily-20261022.db 258048 bytes
+23:44:58 backup: daily-20261022.db.tmp-shm 32768 bytes
+23:44:58 backup: daily-20261022.db.tmp-wal 0 bytes
+23:44:58 backup: pre-migrate-v7-20261022-234456.db 32628736 bytes
+23:44:58 backup: pre-migrate-v7-20261022-234456.db.tmp-shm 32768 bytes
+23:44:58 backup: pre-migrate-v7-20261022-234456.db.tmp-wal 0 bytes
+23:44:58 v0.2 counts: [[980, 980, 1, 1, 1, 3, 0]]
+23:44:58 agent_runs: [[1, "0.1.0", "update", 0], [2, "0.2.0", null, 0]]
+23:44:58 log: {"path": "C:\\Users\\kevin\\AppData\\Local\\jobforge-drill-p1_9\\backups\\daily-20261022.db", "integrity": "ok", "event": "daily_backup", "level": "info", "timestamp": "2026-10-23T03:44:10.017999Z"}
+23:44:58 log: {"path": "C:\\Users\\kevin\\AppData\\Local\\jobforge-drill-p1_9\\backups\\pre-migrate-v7-20261022-234456.db", "integrity": "ok", "event": "pre_migrate_backup", "level": "info", "timestamp": "2026-10-23T03:44:56.801324Z"}
+23:44:58 log: {"from_version": 7, "to_version": 8, "event": "migrated", "level": "info", "timestamp": "2026-10-23T03:44:56.801531Z"}
+23:45:18 v0.2 post-upgrade data: golden label 1 on job 979 = SKIP; shown_recommendation_id 
+23:45:18 v0.2 counts after use: [[1, 2, 1]]
+23:45:18 installed agent 'golden' (read-only, beside the running agent):
+23:45:18   Golden set: 1 labels (target 20-30); provisional unreviewed (not counted): 0; requirements marked misread: 0
+23:45:18   Labeled jobs with no recommendation for the labeled posting version: 1 [979]
+23:45:29 installed 0.1.0 in 3 s (0.1.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:45:29 agent_runs after downgrade install: [[1, "0.1.0", "update"], [2, "0.2.0", "update"]]
+23:45:44 processes 15 s after starting v0.1 host: JobForge=4584 jobforge-agent=19828
+23:45:44 host.log: 1792727130423 pid=4584 host start background=false version=0.1.0
+23:45:44 host.log: 1792727130507 pid=4584 spawned agent pid=19828 data_root=C:\Users\kevin\AppData\Local\jobforge-drill-p1_9
+23:45:44 host.log: 1792727131414 pid=4584 status Running detail=None pid=Some(19828)
+23:45:44 host.log: 1792727132433 pid=4584 event_stream_connected after=991
+23:45:44 schema now: [[8]]
+23:46:24 FINDING: downgrade to v0.1 left v0.2's migrations\0008_golden_labels.sql in the install dir; v0.1 agent started with schema 8 (agent_start run 3) instead of exiting 4
+23:46:32 after --exit: processes: 
+23:46:32 agent_runs: [[1, "0.1.0", "update"], [2, "0.2.0", "update"], [3, "0.1.0", "user_exit"]]
+
+== drill run 2 + final build log (verbatim)
+23:50:15 == drill run 2 (fixed v0.2.0 commit 224eed5, drill-only v0.3.0 = + no-op migration 0009); data root C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b; installed before: 0.1.0|"C:\Users\kevin\AppData\Local\JobForge"
+23:50:18 installed 0.2.0 in 3 s (0.2.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:50:18 install dir migrations: 0001_init.sql 0002_discovery.sql 0003_filter_and_default_model.sql 0004_evaluation.sql 0005_evaluation_reuse.sql 0006_applications.sql 0007_resume_suggestions.sql 0008_golden_labels.sql
+23:50:21 v0.2.0 running: agent pid 45684 schema 8 elevated False
+23:50:40 v0.2 counts (before upgrade): [[980, 1, 1, 1, 3]]
+23:50:40 backup: daily-20261022.db
+23:50:47 before v0.3 install: JobForge=51436 jobforge-agent=45684
+23:50:51 installed 0.3.0 in 4 s (0.3.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:50:51 agent_runs: [[1, "0.2.0", "update"]]
+23:50:54 v0.3.0 running: agent pid 46348 schema 9
+23:50:54 v0.3 counts (after upgrade): [[980, 1, 1, 1, 3]]
+23:50:54 v0.3 post-upgrade data added; counts: [[2, 2]]
+23:50:54 backup: daily-20261022.db 266240 bytes
+23:50:54 backup: pre-migrate-v8-20261022-235053.db 32636928 bytes
+23:51:08 installed 0.2.0 in 3 s (0.2.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:51:08 install dir migrations after downgrade: 0001_init.sql 0002_discovery.sql 0003_filter_and_default_model.sql 0004_evaluation.sql 0005_evaluation_reuse.sql 0006_applications.sql 0007_resume_suggestions.sql 0008_golden_labels.sql
+23:51:17 shot: True 1180x900 -> C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b\shots\downgrade_restore_screen.png
+23:51:17 host.log: 1792727469093 pid=15520 host start background=false version=0.2.0
+23:51:17 host.log: 1792727469184 pid=15520 spawned agent pid=51952 data_root=C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b
+23:51:17 host.log: 1792727469785 pid=15520 agent exited with code Some(4)
+23:51:17 host.log: 1792727469785 pid=15520 status StoppedDbNewer detail=None pid=None
+23:51:17 processes: JobForge=15520
+23:52:47 shot: True 1180x900 -> C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b\shots\after_restore.png
+23:52:47 after restore: agent did not answer
+23:52:47 counts after restore: [[980, 2, 2, 1, 3]]
+23:52:47 drill_marker table present: [[1]]
+23:52:47 backup: daily-20261022.db 266240 bytes
+23:52:47 backup: pre-migrate-v8-20261022-235053.db 32636928 bytes
+23:52:47 before-restore copy: 
+23:52:47 agent_runs: [[1, "0.2.0", "update"], [2, "0.3.0", "update"]]
+23:53:06 (harness slip: first confirm click came after the button's reset; retried)
+23:53:13 shot: True 1180x900 -> C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b\shots\after_restore.png
+23:53:13 host.log: 1792727588577 pid=15520 restore pre-migrate-v8-20261022-235053.db: exit Some(0)
+23:53:13 host.log: 1792727588577 pid=15520 status Starting detail=None pid=None
+23:53:13 host.log: 1792727588579 pid=15520 spawned agent pid=46636 data_root=C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b
+23:53:13 host.log: 1792727589487 pid=15520 status Running detail=None pid=Some(46636)
+23:53:13 host.log: 1792727591128 pid=15520 event_stream_connected after=991
+23:53:13 after restore: v0.2.0 agent pid 46636 schema 8
+23:53:13 counts after restore: [[980, 1, 1, 1, 3]]
+23:53:13 drill_marker table present: [[0]]
+23:53:14 backup: before-restore-v9-20261022-235308.db 32641024 bytes
+23:53:14 backup: daily-20261022.db 266240 bytes
+23:53:14 backup: pre-migrate-v8-20261022-235053.db 32636928 bytes
+23:53:14 before-restore copy: schema 9 ok 2 applications
+23:53:14 agent_runs: [[1, "0.2.0", "update"], [2, "0.2.0", null]]
+23:53:41 drill run 2 end: processes ; agent_runs [[1, "0.2.0", "update"], [2, "0.2.0", "user_exit"]]; installed 0.2.0|"C:\Users\kevin\AppData\Local\JobForge"
+23:58:01 == final v0.2.0 build: repeat downgrade leg (v0.3.0 -> final v0.2.0)
+23:58:04 installed 0.3.0 in 3 s (0.3.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:58:07 v0.3.0 running schema 9
+23:58:10 installed 0.2.0 in 3 s (0.2.0|"C:\Users\kevin\AppData\Local\JobForge")
+23:58:19 shot: True 1180x900 -> C:\Users\kevin\AppData\Local\jobforge-drill-p1_9b\shots\final_restore_screen.png
+23:58:23 after restore: v0.2.0 schema 8
+23:58:23 backup: before-restore-v9-20261022-235308.db
+23:58:23 backup: before-restore-v9-20261022-235821.db
+23:58:23 backup: daily-20261022.db
+23:58:23 backup: pre-migrate-v8-20261022-235053.db
+23:58:23 backup: pre-migrate-v8-20261022-235805.db
+23:58:31 end: processes ; installed 0.2.0|"C:\Users\kevin\AppData\Local\JobForge"

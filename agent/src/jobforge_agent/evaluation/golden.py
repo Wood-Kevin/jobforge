@@ -217,7 +217,8 @@ def score_case(case: dict, rows) -> dict:
 
 
 def format_interpretation(per_area: dict, meta: dict) -> str:
-    out = [f"Interpretation report: model {meta['model']} | E1 {meta['extraction_prompt']} | E2 {meta['interpreter']} | "
+    out = [meta["stopped"]] if meta.get("stopped") else []
+    out += [f"Interpretation report: model {meta['model']} | E1 {meta['extraction_prompt']} | E2 {meta['interpreter']} | "
            f"{meta['cases']} cases, {meta['failed']} model calls failed {meta['failed_ids'] or ''}",
            f"{'area':<12}{'cases':>6}{'expected':>9}{'extracted':>10}{'as expected':>12}{'raw agreed':>11}{'E2 caught':>10}{'recall ok':>10}"]
     for area, a in sorted(per_area.items()):
@@ -239,6 +240,7 @@ async def run_interpretation(client, cfg, cases: list[dict]) -> tuple[dict, dict
 
     per_area: dict[str, dict] = {}
     failed = []
+    stopped = None
     scored = [c for c in cases if c.get("expect") or "recall" in c]
     for case in scored:
         a = per_area.setdefault(case["area"], {"cases": 0, "expected": 0, "extracted": 0, "as_expected": 0, "raw_agreed": 0,
@@ -248,8 +250,14 @@ async def run_interpretation(client, cfg, cases: list[dict]) -> tuple[dict, dict
             result = await client.chat(cfg, extract.messages("Interpretation suite", case["text"], cfg.structured_output_mode),
                                        extract.response_format(cfg.structured_output_mode))
             items = extract.parse(result.content)
-        except (InferenceError, extract.InvalidOutput) as exc:
-            failed.append(f"{case['id']} ({type(exc).__name__}: {str(exc)[:80]})")
+        except InferenceError as exc:
+            failed.append(f"{case['id']} ({exc.kind}: {exc.detail[:80]})")
+            if exc.kind == "unavailable":
+                stopped = f"stopped: the model at {cfg.base_url} is not reachable ({exc.detail}); start it and rerun"
+                break
+            continue
+        except extract.InvalidOutput as exc:
+            failed.append(f"{case['id']} (invalid output: {str(exc)[:80]})")
             continue
         s = score_case(case, interpret(segment(case["text"]), items))
         for k in ("expected", "extracted", "as_expected", "raw_agreed", "conflict_caught"):
@@ -258,5 +266,5 @@ async def run_interpretation(client, cfg, cases: list[dict]) -> tuple[dict, dict
             a["recall_cases"] += 1
             a["recall_ok"] += s["recall_ok"]
     meta = {"model": cfg.model_id, "extraction_prompt": EXTRACTION_PROMPT_VERSION, "interpreter": INTERPRETER_VERSION,
-            "cases": len(scored), "failed": len(failed), "failed_ids": failed}
+            "cases": len(scored), "failed": len(failed), "failed_ids": failed, "stopped": stopped}
     return per_area, meta

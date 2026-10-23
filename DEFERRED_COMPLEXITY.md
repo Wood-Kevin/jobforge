@@ -232,6 +232,28 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
   exercise the installed app.
 - **Trigger:** a UI regression that a screenshot pass missed, or the usability pass adding forms whose validation matters.
 
+## P1.9 measurements that need inputs (P1.9)
+- **What:** (1) Golden-set report numbers: the tooling is live ("Your call" on a job, `jobforge-agent golden`,
+  Status shows the count) but the report needs Kevin's 20-30 labels on real jobs. (2) Interpretation report
+  (`golden --suite interpretation`): the drill run reached no model (LM Studio was not running; 61 ConnectErrors),
+  so no agreement numbers exist yet.
+- **Why deferred:** both need something only Kevin can provide: the user's own calls, and LM Studio running.
+- **Trigger:** 20 labels in Status ("Your calls on jobs: 20 of ..."); LM Studio's server started. Then
+  `VERIFY_INTERPRETATION=1 bash verify.sh golden` and record the output in `docs/evidence/`.
+
+## verify.sh manual rows (P1.9)
+- **What:** Rows that need a person or a second account are printed as instructions, not gathered: window close
+  survival, elevated agent/host launches, different-user elevation, live refresh and inert-posting screenshots.
+- **Why deferred:** automating them needs WebView2 automation and a second Windows account (see "UI interaction
+  tests are manual").
+- **Trigger:** a regression in one of those behaviors, or WebView2 automation added.
+
+## Installer built from an elevated shell (P1.9)
+- **What:** PyInstaller warns "running as administrator ... PyInstaller 7.0 will block this" when `build.ps1` runs
+  elevated (this session's shell). The build is otherwise identical.
+- **Why deferred:** nothing breaks today; building unelevated is a habit, not code.
+- **Trigger:** upgrading PyInstaller to 7.x, or any build failure mentioning administrator.
+
 ## Resume suggestions: recall not measured (P1.8c)
 - **What:** Code guarantees the wording (every kept suggestion quotes the resume) but no test measures recall. Measured
   once by hand: a prompt draft kept 10 of the 27 entries in one resume's skills section; the final r1-v1 line ("list

@@ -47,8 +47,9 @@ export default function App() {
       </nav>
       <main>
         {down && <p className="banner">{supervisorText(sup!)}</p>}
-        {sup?.state === "stopped_db_newer" && <Restore />}
-        {job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
+        {/* Only the restore screen while stopped this way: every page would just show "not reachable" (P1.9 drill). */}
+        {sup?.state === "stopped_db_newer" ? <Restore />
+          : job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
           : page === "dashboard" ? <Dashboard sup={sup} onSetup={() => go("setup")} />
           : page === "jobs" ? <Jobs onOpen={open} />
           : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
