@@ -48,7 +48,7 @@ def default_model_config_id(conn: sqlite3.Connection) -> int | None:
 
 def job_view(conn: sqlite3.Connection, job_id: int) -> tuple[rules.JobView, int, bool] | None:
     row = conn.execute(
-        "SELECT j.title, j.location_text, rp.description_text, j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
+        "SELECT j.title, j.location_text, coalesce(rp.description_text, unpack_text(rp.description_text_z)), j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
         "j.posted_at, j.current_raw_posting_id, j.closed_at_ms IS NOT NULL FROM jobs j "
         "JOIN raw_postings rp ON rp.id = j.current_raw_posting_id WHERE j.id = ?", (job_id,)).fetchone()
     if row is None:

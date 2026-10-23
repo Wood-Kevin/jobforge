@@ -26,6 +26,7 @@ $agentDir = "$root\agent\dist\jobforge-agent"
 $required = @("jobforge-agent.exe", "_internal\jobforge_agent\db\migrations\0001_init.sql",
               "_internal\jobforge_agent\db\migrations\0008_golden_labels.sql",
               "_internal\jobforge_agent\db\migrations\0009_employer_origin.sql",
+              "_internal\jobforge_agent\db\migrations\0010_posting_text_compressed.sql",
               "_internal\jobforge_agent\discovery\directory.json",          # P1.10: built-in company list
               "_internal\jobforge_agent\analysis\fixtures\layer_a.yaml",       # P1.9: golden --suite interpretation
               "_internal\jobforge_agent\evaluation\verdict_rules\v1.yaml",   # P1.7: E5/E6 thresholds are package data

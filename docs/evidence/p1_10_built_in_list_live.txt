@@ -143,3 +143,23 @@ version 2026-10-23 crawls ['CC-MAIN-2026-43', 'CC-MAIN-2026-39'] entries 5855 fa
 
 (End of evidence. No verdict is printed on purpose. Read it.)
 06:11:02 Agent stopped after the 30-minute measurement so the evidence folder does not grow to the projected ~6.5 GB. Folder left in place (deleting it needs Kevin's approval).
+18:28:47 --- P1.10 storage change (migration 0010: compressed posting text, payload not stored). Second fresh data root: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_10b. Same list, same polling, 30 min.
+18:28:51 health: pid=38504 directory_error=
+18:28:51 log: {"from_version": 0, "to_version": 10, "event": "migrated", "level": "info", "timestamp": "2026-10-23T22:28:48.602265Z"}
+18:28:51 log: {"added": 5855, "listed": 5855, "watching": true, "version": "2026-10-23", "event": "directory_synced", "level": "info", "timestamp": "2026-10-23T22:28:48.665574Z"}
+label=after 30 min, compressed db_bytes=85295552
+fetches last hour per host vs budget:
+   ('greenhouse', 300, 68)
+   ('lever', 120, 7)
+   ('ashby', 120, 46)
+fetch outcomes (all time):
+   ('ashby', 'OK', 46)
+   ('greenhouse', 'OK', 68)
+   ('lever', 'OK', 7)
+boards_polled=121 jobs=7420 raw_postings=7420 payload_bytes=29680 description_raw_bytes=22428074 description_text_bytes=18700833
+db_bytes_per_board_polled=704921 raw_postings_per_board=61.3
+db_bytes_per_raw_posting=11495
+employers by origin/enabled/status: [('directory', 1, 'active', 5855)]
+filter_results: 0 posting_analyses: 0
+log warnings/errors/budget_deferred: {}
+18:59:12 Compressed run: 11,495 bytes per posting vs 30,005 before (-62%); description_raw 3.0 KB and description_text 2.5 KB per posting compressed (were 8.0 and 5.4); payload 4 bytes. Projection for the list's 217,026 open jobs: about 2.5 GB. Agent stopped; folder left in place.

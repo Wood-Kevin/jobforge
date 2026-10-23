@@ -15,6 +15,8 @@ import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from jobforge_agent.db import textpack
+
 ALL_COLUMNS = None  # marker for "any column" in an update grant
 
 
@@ -191,6 +193,7 @@ def open_connection(db_path: Path, component: str, *, readonly: bool = False) ->
         conn = sqlite3.connect(db_path, isolation_level=None, timeout=5, factory=AgentConnection)
     conn.component = component
     conn.row_factory = sqlite3.Row
+    textpack.register(conn)  # unpack_text() for compressed posting text (migration 0010)
     if not readonly:
         conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=FULL")

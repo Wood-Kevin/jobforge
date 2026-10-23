@@ -70,8 +70,9 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
 def job_detail(conn: sqlite3.Connection, job_id: int) -> dict | None:
     r = conn.execute(
         "SELECT j.id, j.title, j.company, j.location_text, j.work_mode, j.salary_min, j.salary_max, j.salary_period, j.posted_at, "
-        "j.first_seen_at_ms, j.last_seen_at_ms, j.closed_at_ms, rp.id, rp.listing_url, rp.apply_url, rp.description_raw, "
-        "rp.description_text, e.display_name, s.kind FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id "
+        "j.first_seen_at_ms, j.last_seen_at_ms, j.closed_at_ms, rp.id, rp.listing_url, rp.apply_url, "
+        "coalesce(rp.description_raw, unpack_text(rp.description_raw_z)), "
+        "coalesce(rp.description_text, unpack_text(rp.description_text_z)), e.display_name, s.kind FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id "
         "JOIN employers e ON e.id = j.employer_id JOIN sources s ON s.id = e.source_id WHERE j.id = ?", (job_id,)).fetchone()
     if r is None:
         return None

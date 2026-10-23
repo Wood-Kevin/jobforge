@@ -59,7 +59,7 @@ def claim(conn: sqlite3.Connection, model_config_id: int, now: int, lease_ms: in
         if row is None:
             return None
         posting = conn.execute(
-            "SELECT j.title, rp.description_text FROM raw_postings rp JOIN jobs j ON j.id = ? WHERE rp.id = ?",
+            "SELECT j.title, coalesce(rp.description_text, unpack_text(rp.description_text_z)) FROM raw_postings rp JOIN jobs j ON j.id = ? WHERE rp.id = ?",
             (row[2], row[1])).fetchone()
         return Claim(row[0], row[1], row[2], model_config_id, posting[0] or "", posting[1] or "")
     return _tx(conn, go)

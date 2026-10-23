@@ -14,6 +14,7 @@ import json
 import os
 import sqlite3
 import sys
+import zlib
 from collections import Counter
 from pathlib import Path
 
@@ -25,6 +26,8 @@ if "--scanner" in args:
     del args[i:i + 2]
 db = Path(args[0]) if args else Path(os.environ["LOCALAPPDATA"]) / "dev.kevin.jobforge" / "data" / "jobforge.db"
 conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+# Posting text written since migration 0010 is compressed (agent db/textpack.py).
+conn.create_function("unpack_text", 1, lambda b: None if b is None else zlib.decompress(b).decode("utf-8"), deterministic=True)
 
 
 def q(sql, *a):
@@ -110,7 +113,7 @@ from ats_scanner.models import RawJob, Salary  # noqa: E402
 
 cfg = load_config(scanner_dir / "config.yaml")
 full = {r[0]: r for r in q(
-    "SELECT j.id, j.title, j.location_text, rp.description_text, j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
+    "SELECT j.id, j.title, j.location_text, coalesce(rp.description_text, unpack_text(rp.description_text_z)), j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
     "j.posted_at FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id WHERE j.closed_at_ms IS NULL")}
 RENAME = {"REMOTE_EXCLUDES_FL": "REMOTE_EXCLUDES_HOME"}
 agree_verdict = agree_rule = 0

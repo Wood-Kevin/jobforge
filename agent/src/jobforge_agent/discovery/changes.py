@@ -17,6 +17,7 @@ import sqlite3
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from jobforge_agent.db import textpack
 from jobforge_agent.discovery.adapters import ADAPTER_VERSION
 from jobforge_agent.discovery.models import Employer, RawJob
 from jobforge_agent.discovery.text import collapse_ws
@@ -91,10 +92,12 @@ def _insert_raw(conn, employer: Employer, r: RawJob, fetch_id: int, now: int, ma
         return existing[0]  # content reverted to a version already on record (A -> B -> A)
     return conn.execute(
         "INSERT INTO raw_postings (employer_id, source_job_id, fetched_at_ms, first_fetch_id, listing_url, apply_url, "
-        "payload, description_raw, description_text, payload_sha256, material_sha256, adapter_version) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+        "payload, description_raw_z, description_text_z, payload_sha256, material_sha256, adapter_version) "
+        "VALUES (?, ?, ?, ?, ?, ?, 'null', ?, ?, ?, ?, ?) RETURNING id",
+        # Since 0010 the API object is not stored (never read; payload_sha256 records it) and the
+        # description is stored compressed (db/textpack.py); P1.10 measured 30 KB per posting before.
         (employer.id, r.source_job_id, now, fetch_id, r.listing_url, r.apply_url,
-         json.dumps(r.item, ensure_ascii=False), r.description_raw, r.description, payload, material,
+         textpack.pack(r.description_raw), textpack.pack(r.description), payload, material,
          ADAPTER_VERSION[employer.kind])).fetchone()[0]
 
 

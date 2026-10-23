@@ -293,14 +293,12 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** raising the 120/h budget is a terms-of-use judgment (ARCHITECTURE Appendix A), Kevin's call.
 - **Trigger:** `budget_deferred` lines for ashby in the agent log, or Kevin deciding a higher budget.
 
-## Storage at built-in-list scale (P1.10) -- decide before installing a P1.10 build
-- **What:** measured on the evidence data root (30 min, 136 boards, 5,029 postings): 30.0 KB of database per
-  posting, 1.1 MB per board (`payload` 10.5 KB, `description_raw` 8.0 KB, `description_text` 5.4 KB per posting,
-  plus indexes). The list's 5,855 boards held 217,026 open jobs at build time, so the first full day of polling
-  projects to about 6.5 GB, growing with every material edit (a new `raw_postings` row) and never shrinking,
-  since postings are kept. `payload` is written and never read. Earlier P1.9 measurement: zlib ratio 3.3.
-- **Why deferred:** each fix changes retention or the data model, which SPEC fixes ("all postings retained"):
-  (a) stop storing `payload` (about -35%); (b) compress the three text columns (about -70%); (c) keep full text
-  only for postings that pass the search profile, title and metadata for the rest; (d) a smaller list (for
-  example only boards with a posting matching the person's titles). These are the user's calls.
-- **Trigger:** before any P1.10 installer goes on Kevin's machine, or a database over 1 GB.
+## Storage at built-in-list scale (P1.10)
+- **What:** before migration 0010 the database grew 30.0 KB per posting (evidence root, 30 min, 5,029 postings).
+  Kevin chose (a)+(b) on 2026-10-23 ("lets do it"): 0010 stops storing the never-read API object and stores the
+  description zlib-compressed. Measured after (second fresh root, 30 min, 7,420 postings): 11.5 KB per posting
+  (-62%; compressed description_raw 3.0 KB, description_text 2.5 KB). The list's 217,026 open jobs still project
+  to about 2.5 GB after the first full day, growing with every material edit (postings are kept).
+- **Why deferred:** the next cuts change retention, which SPEC fixes ("all postings retained"): (c) keep the
+  description only for postings that pass the search profile; (d) a smaller list. Kevin's call.
+- **Trigger:** a database over 3 GB, or a disk-space complaint.
