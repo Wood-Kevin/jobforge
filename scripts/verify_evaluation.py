@@ -52,16 +52,19 @@ print("  jobs with > 1 pending:", q("SELECT count(*) FROM (SELECT job_id FROM ev
                                       "HAVING count(*) > 1)")[0][0])
 print("  failures by kind:", dict(Counter((r[0] or "").split(":")[0] for r in q("SELECT last_error FROM evaluations WHERE status = 'failed'"))))
 print("  profile snapshots:", q("SELECT count(*) FROM profile_snapshots")[0][0])
-calls, secs, ptok = [], [], []
+calls, secs, ptok, reused = [], [], [], 0
 for r in q("SELECT raw_response FROM evaluations WHERE status = 'done'"):
-    att = json.loads(r[0]).get("attempts") or []
+    raw = json.loads(r[0])
+    reused += "reused_from" in raw
+    att = raw.get("attempts") or []
     calls.append(len(att))
     if att:
         secs.append(att[-1].get("seconds") or 0)
         ptok.append((att[-1].get("usage") or {}).get("prompt_tokens") or 0)
 if secs:
     s, p = sorted(secs), sorted(ptok)
-    print(f"  model calls per done evaluation: {dict(Counter(calls))}; seconds median {s[len(s) // 2]} max {s[-1]}; "
+    print(f"  model calls per done evaluation: {dict(Counter(calls))} ({reused} reused a stored answer to the same request); "
+          f"seconds median {s[len(s) // 2]} max {s[-1]}; "
           f"prompt tokens median {p[len(p) // 2]} max {p[-1]}")
 
 section("Recommendation distribution (latest evaluation per open job, active profile)")

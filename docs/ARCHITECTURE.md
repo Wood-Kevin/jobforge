@@ -462,6 +462,7 @@ Migration 0004 (P1.7) rebuilds `evaluations` with `job_id` and a `superseded` st
 partial unique index (one pending evaluation per job, like analyses; startup recovery
 supersedes a running one that has a newer pending sibling), and adds `years`, `start_date`,
 `end_date` to `profile_snapshot_items` (insert-only triggers unaffected, checked after migrating).
+Migration 0005 (P1.7 follow-up) adds `evaluations.request_sha256` and a partial index on done rows (reuse, 6.4).
 `filter_results.reasons` shape: `{primary, failed: [{rule, category, detail}], work_mode,
 remote_eligibility, salary: {min, max, period, annual_max, text} | null, clearance_mention}`;
 categories `title_family`, `seniority`, `location`, `compensation`, `other`.
@@ -936,6 +937,14 @@ compares it to the model's:
   as month intervals (start and end month both count; overlapping roles are not double-counted),
   undated items count their `years`; fewer than the minimum turns a model "direct" into a gap
   (`years_short_override`). basis: verified if any cited item is verified.
+- **Reuse of a stored answer** (migration 0005, `store.prepare` / `stored_answer` / `claim_reusable`): each evaluation
+  records `request_sha256`, the sha256 of the full E3 request body (system prompt, schema, user message, model id,
+  parameters). A pending evaluation whose exact request was already answered by the same config is processed with
+  that answer and no model call (`raw_response.reused_from`), also while inference is down. The E3 prompt carries no
+  item status, eligibility fact or completeness flag, so a verify, a fact edit, a completeness change or an E4/E5
+  version bump costs no GPU; editing an item's text, kind, years or dates changes the request and calls the model.
+  Rejected: a manual replay command (must be remembered, does not help a verify). Measured on the 44 drill postings:
+  one verify re-evaluated all 44 in 0.2 s with 0 model calls (about 17 min of Gemma time before).
 - **E5/E6** (`assess.py`, thresholds `verdict_rules/v1.yaml`, recorded as `verdict_rule_version`):
   see 6.5, including the points 6.5 left open (listed there). Recommendation rows store every
   reason; `rank_key` is opportunity value only (ordinal x 10 + favorable - unfavorable), never a

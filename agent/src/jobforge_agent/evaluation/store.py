@@ -14,13 +14,16 @@ sync() is code only and runs whether or not inference is up:
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 
 from jobforge_agent.analysis.segment import norm
 from jobforge_agent.evaluation import assess, facts, snapshot, validate
+from jobforge_agent.evaluation import match
 from jobforge_agent.evaluation.match import MAX_INFERRED_CLAIMS
+from jobforge_agent.inference.client import ModelConfig, load_config, request_body
 from jobforge_agent.evaluation.versions import MATCH_PROMPT_VERSION, VERDICT_RULE_VERSION
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
@@ -148,6 +151,12 @@ def sync(conn: sqlite3.Connection, now: int) -> SyncResult:
                         "INSERT INTO evaluations (posting_analysis_id, job_id, profile_snapshot_id, model_config_id, match_prompt_version, "
                         "requested_by, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)",
                         (analysis_id, job_id, sid, config_id, MATCH_PROMPT_VERSION, "override" if override else "pipeline", now))
+                cfg = load_config(conn, config_id)
+                if cfg is not None:
+                    title = conn.execute("SELECT title FROM jobs WHERE id = ?", (job_id,)).fetchone()[0] or ""
+                    conn.execute("UPDATE evaluations SET request_sha256 = ? WHERE posting_analysis_id = ? AND profile_snapshot_id = ? "
+                                 "AND model_config_id = ? AND match_prompt_version = ? AND status = 'pending'",
+                                 (prepare(conn, analysis_id, sid, title, cfg).sha, analysis_id, sid, config_id, MATCH_PROMPT_VERSION))
                 out.queued += 1
             if out.queued:
                 _event(conn, "evaluations_queued", None, {"count": out.queued, "snapshot_id": sid,
@@ -238,6 +247,68 @@ def write_recommendation(conn: sqlite3.Connection, evaluation_id: int, job_id: i
     return a.recommendation
 
 
+# ----- the E3 request and reuse of a stored answer -----
+
+@dataclass
+class Prepared:
+    """Everything one evaluation needs before (and instead of) a model call."""
+    reqs: list[facts.Req]
+    by_code: list[facts.Req]
+    by_model: list[facts.Req]
+    snap: snapshot.Snapshot
+    msgs: list[dict] = field(default_factory=list)
+    fmt: dict | None = None
+    labels: dict[str, int] = field(default_factory=dict)
+    sha: str | None = None   # None: no model call is needed (nothing to match, or no profile items)
+
+
+def prepare(conn: sqlite3.Connection, analysis_id: int, snapshot_id: int, title: str, cfg: ModelConfig) -> Prepared:
+    reqs = load_reqs(conn, analysis_id)
+    by_code, by_model = split(reqs)
+    snap = snapshot.load(conn, snapshot_id)
+    p = Prepared(reqs, by_code, by_model, snap)
+    experience = snap.experience()
+    if by_model and experience:
+        p.msgs, p.labels = match.messages(title, by_model, experience, cfg.structured_output_mode)
+        p.fmt = match.response_format(cfg.structured_output_mode)
+        body = request_body(cfg, p.msgs, p.fmt)
+        p.sha = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return p
+
+
+def stored_answer(conn: sqlite3.Connection, sha: str, model_config_id: int) -> dict | None:
+    """The newest done evaluation that sent exactly this request to this config, and its answer.
+    Only answers that finished (`stop`) and parsed count: a done evaluation implies both."""
+    row = conn.execute("SELECT id, raw_response FROM evaluations WHERE request_sha256 = ? AND model_config_id = ? "
+                       "AND status = 'done' ORDER BY id DESC LIMIT 1", (sha, model_config_id)).fetchone()
+    if row is None or not row[1]:
+        return None
+    raw = json.loads(row[1])
+    ans = raw.get("reused") or next((a for a in reversed(raw.get("attempts") or [])
+                                     if a.get("finish_reason") == "stop" and "error" not in a), None)
+    if not ans:
+        return None
+    return {"from_evaluation_id": raw.get("reused_from", row[0]), "content": ans["content"], "model": ans.get("model"),
+            "usage": ans.get("usage")}
+
+
+def claim_reusable(conn: sqlite3.Connection, now: int, lease_ms: int) -> Claim | None:
+    """Claim the oldest pending evaluation whose exact request was already answered. No model call
+    follows, so this runs whether or not inference is up."""
+    def go():
+        row = conn.execute(
+            "UPDATE evaluations SET status = 'running', lease_until_ms = ? WHERE id = (SELECT e.id FROM evaluations e "
+            "JOIN model_configs mc ON mc.id = e.model_config_id WHERE e.status = 'pending' AND mc.enabled = 1 "
+            "AND e.request_sha256 IS NOT NULL AND EXISTS (SELECT 1 FROM evaluations d WHERE d.status = 'done' "
+            "AND d.request_sha256 = e.request_sha256 AND d.model_config_id = e.model_config_id) ORDER BY e.id LIMIT 1) "
+            "RETURNING id, posting_analysis_id, job_id, profile_snapshot_id, model_config_id", (now + lease_ms,)).fetchone()
+        if row is None:
+            return None
+        title = conn.execute("SELECT title FROM jobs WHERE id = ?", (row[2],)).fetchone()[0]
+        return Claim(row[0], row[1], row[2], row[3], row[4], title or "")
+    return _tx(conn, go)
+
+
 # ----- claim / persist / release -----
 
 @dataclass(frozen=True)
@@ -310,7 +381,7 @@ def store_model_match(conn, c: Claim, req: facts.Req, m, snap, completeness, rul
 
 def persist_done(conn: sqlite3.Connection, c: Claim, reqs: list[facts.Req], fact_matches: list[validate.Validated],
                  model_matches: dict[int, object], skipped: dict[int, str], claims: list, raw_response: dict,
-                 model_reported: str | None, now: int) -> dict:
+                 model_reported: str | None, now: int, request_sha: str | None = None) -> dict:
     """Matches, citations, inferred claims, status done, then the recommendation, in one transaction."""
     snap = snapshot.load(conn, c.snapshot_id)
     rules = assess.load_rules(VERDICT_RULE_VERSION)
@@ -319,8 +390,8 @@ def persist_done(conn: sqlite3.Connection, c: Claim, reqs: list[facts.Req], fact
     def go():
         updated = conn.execute(
             "UPDATE evaluations SET status = 'done', raw_response = ?, model_id_reported = ?, attempts = attempts + 1, "
-            "lease_until_ms = NULL, last_error = NULL WHERE id = ? AND status = 'running'",
-            (json.dumps(raw_response), model_reported, c.evaluation_id)).rowcount
+            "lease_until_ms = NULL, last_error = NULL, request_sha256 = ? WHERE id = ? AND status = 'running'",
+            (json.dumps(raw_response), model_reported, request_sha, c.evaluation_id)).rowcount
         if updated != 1:
             raise RuntimeError(f"evaluation {c.evaluation_id} is no longer running")
         out = []

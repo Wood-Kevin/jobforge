@@ -368,6 +368,72 @@ def test_pending_evaluation_of_a_replaced_posting_or_closed_job_is_superseded(en
     assert r.superseded == 1 and [x["status"] for x in evals(env.db)] == ["superseded"]
 
 
+# ----- reuse of a stored E3 answer for the exact same request -----
+
+def _done_once(env, answer=None):
+    role, skill, fact = profile_basic(env)
+    server = FakeServer(("ok", E1), ("ok", answer or e3(("R1", "direct", [f"P{role}"], None, None),
+                                                         ("R2", "direct", [f"P{skill}"], None, None))))
+    _, e = env.analyze(server)
+    assert asyncio.run(e.run_once()) == "done"
+    return server, e, role, skill
+
+
+def test_verify_reuses_the_stored_answer_and_updates_the_basis(env, caplog, capsys):
+    server, e, role, skill = _done_once(env)
+    calls = server.chat_calls
+    env.verify(skill)  # new snapshot; the E3 prompt does not include status, so the request is identical
+    assert asyncio.run(e.run_once()) == "done"
+    assert server.chat_calls == calls
+    first, second = evals(env.db)
+    assert (second["status"], second["request_sha256"]) == ("done", first["request_sha256"])
+    assert json.loads(second["raw_response"])["reused_from"] == first["id"]
+    mon = matches(env.db, second["id"])["Experience with network monitoring tools"]
+    assert (mon["match_type"], mon["basis"]) == ("direct", "verified")  # E4 recomputed the basis from the new snapshot
+    assert "reused_from" in logged(caplog, capsys)
+
+
+def test_match_version_bump_reruns_e4_e6_without_the_model(env, monkeypatch):
+    server, e, _, _ = _done_once(env)
+    calls = server.chat_calls
+    monkeypatch.setattr(store, "MATCH_PROMPT_VERSION", "m1-vtest")  # e.g. an E4 change; same prompt text
+    assert e.sync().queued == 1
+    assert asyncio.run(e.run_once()) == "done" and server.chat_calls == calls
+    assert [r["match_prompt_version"] for r in evals(env.db)] == ["m1-v1", "m1-vtest"]
+
+
+def test_changed_item_text_calls_the_model(env):
+    server, e, role, skill = _done_once(env)
+    server.answers.append(("ok", e3()))
+    calls = server.chat_calls
+    env.user_tx(profile_items.update_item, skill, {"statement": "Zabbix, SolarWinds and PRTG network monitoring"})
+    assert asyncio.run(e.run_once()) == "done" and server.chat_calls == calls + 1
+    first, second = evals(env.db)
+    assert second["request_sha256"] != first["request_sha256"] and "reused_from" not in json.loads(second["raw_response"])
+
+
+def test_reuse_runs_while_inference_is_down(env):
+    server, e, _, skill = _done_once(env)
+    server.down = True
+    env.clock.t += 31_000
+    env.verify(skill)
+    assert asyncio.run(e.run_once()) == "done"
+    assert [r["status"] for r in evals(env.db)] == ["done", "done"]
+
+
+def test_a_different_model_never_reuses(env):
+    from jobforge_agent.inference.client import load_config
+    profile_basic(env)
+    _, e = env.analyze(FakeServer(("ok", E1)))
+    e.sync()
+    (ev,) = evals(env.db)
+    cfg = load_config(env.ev, ev["model_config_id"])
+    a = store.prepare(env.ev, ev["posting_analysis_id"], ev["profile_snapshot_id"], "NOC Engineer", cfg)
+    other = type(cfg)(**{**cfg.__dict__, "model_id": "openai/gpt-oss-20b"})
+    b = store.prepare(env.ev, ev["posting_analysis_id"], ev["profile_snapshot_id"], "NOC Engineer", other)
+    assert a.sha == ev["request_sha256"] and a.sha != b.sha
+
+
 def test_rule_change_recomputes_with_zero_inference_calls(env, monkeypatch):
     profile_basic(env)
     server = FakeServer(("ok", E1), ("ok", e3(("R1", "unknown", [], None, None))))

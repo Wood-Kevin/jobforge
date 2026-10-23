@@ -23,7 +23,7 @@ from typing import Awaitable, Callable
 
 from jobforge_agent import logs
 from jobforge_agent.analysis.worker import HealthGate
-from jobforge_agent.evaluation import facts, match, snapshot, store, validate
+from jobforge_agent.evaluation import facts, match, store, validate
 from jobforge_agent.evaluation.assess import load_rules
 from jobforge_agent.evaluation.versions import VERDICT_RULE_VERSION
 from jobforge_agent.inference.client import InferenceClient, InferenceError, ModelConfig, load_config
@@ -74,6 +74,11 @@ class EvaluationWorker:
         if waiting != self._waiting_logged and waiting:
             self.log.warning("evaluation_waiting", pending=waiting, reason="model_config_not_enabled")
         self._waiting_logged = waiting
+        # A stored answer to the exact same request needs no model, so no health gate either.
+        c = store.claim_reusable(self.conn, self.now_ms(), lease_ms=300_000)
+        if c is not None:
+            cfg = load_config(self.conn, c.model_config_id)
+            return await self.process(c, cfg)
         for config_id in ready:
             cfg = load_config(self.conn, config_id)
             if cfg is None or not await self.gate.available(cfg):
@@ -88,10 +93,9 @@ class EvaluationWorker:
         t0 = time.perf_counter()
         attempts: list[dict] = []
         try:
-            reqs = store.load_reqs(self.conn, c.analysis_id)
-            snap = snapshot.load(self.conn, c.snapshot_id)
+            prep = store.prepare(self.conn, c.analysis_id, c.snapshot_id, c.title, cfg)
+            reqs, snap, by_code, by_model = prep.reqs, prep.snap, prep.by_code, prep.by_model
             rules = load_rules(VERDICT_RULE_VERSION)
-            by_code, by_model = store.split(reqs)
             facts_list = snap.facts()
             fact_matches = [validate.fact_match(r, facts.check(r, facts_list, snap.completeness, reqs), rules) for r in by_code]
             experience = snap.experience()
@@ -102,10 +106,17 @@ class EvaluationWorker:
             if by_model and not experience:
                 skipped = {r.id: "no_profile_items_model_not_called" for r in by_model}
             elif by_model:
-                msgs, labels = match.messages(c.title, by_model, experience, cfg.structured_output_mode)
-                fmt = match.response_format(cfg.structured_output_mode)
+                msgs, labels, fmt = prep.msgs, prep.labels, prep.fmt
                 out = None
-                for attempt in (1, 2):  # one retry on schema-invalid output
+                stored = store.stored_answer(self.conn, prep.sha, cfg.id) if prep.sha else None
+                if stored is not None:
+                    try:
+                        out = match.parse(stored["content"])
+                        raw.update(reused_from=stored["from_evaluation_id"],
+                                   reused={k: stored[k] for k in ("content", "model", "usage")})
+                    except match.InvalidOutput:
+                        out = None  # cannot happen for a done evaluation; then ask the model as usual
+                for attempt in (1, 2) if out is None else ():  # one retry on schema-invalid output
                     if self.before_call is not None:
                         await self.before_call()
                     self.calls += 1
@@ -134,8 +145,9 @@ class EvaluationWorker:
                     model_matches.setdefault(r.id, None)  # omitted by the model -> unknown (flag model_omitted)
                 claims = out.inferred_claims
                 raw.update(labels=labels, unknown_requirement_labels=unknown_labels, duplicate_matches=duplicates)
+            model_reported = attempts[-1]["model"] if attempts else (raw.get("reused") or {}).get("model")
             counts = store.persist_done(self.conn, c, reqs, fact_matches, model_matches, skipped, claims, raw,
-                                        attempts[-1]["model"] if attempts else None, self.now_ms())
+                                        model_reported, self.now_ms(), prep.sha)
         except asyncio.CancelledError:
             store.release(self.conn, c, spend_attempt=False, error="agent stopping", now=self.now_ms())
             raise
@@ -157,7 +169,8 @@ class EvaluationWorker:
             self.log.error("evaluation_internal_error", evaluation_id=c.evaluation_id, error=f"{type(exc).__name__}: {exc}")
             return self._fail(c, "internal_error", f"{type(exc).__name__}: {exc}", attempts or None)
         self.log.info("evaluation_done", evaluation_id=c.evaluation_id, job_id=c.job_id,
-                      seconds=round(time.perf_counter() - t0, 1), model_calls=len(attempts), **counts)
+                      seconds=round(time.perf_counter() - t0, 1), model_calls=len(attempts),
+                      reused_from=raw.get("reused_from"), **counts)
         self.on_events()
         return "done"
 
