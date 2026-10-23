@@ -11,6 +11,8 @@ Usage:
   jobforge-agent --restore FILE  replace the database with FILE (agent must not be running)
   jobforge-agent --import-watchlist FILE  add Greenhouse/Lever/Ashby employers from a watchlist YAML (agent running)
   jobforge-agent --import-search-profile FILE  save a new search profile version from YAML (scanner config.yaml accepted; agent running)
+  jobforge-agent golden [--json]  golden-set report: your labels against JobForge's answers (read only; agent may run)
+  jobforge-agent golden --suite interpretation [--config ID]  run E1 with a real model on the layer-A snippets
   jobforge-agent --version
 """
 from __future__ import annotations
@@ -197,11 +199,68 @@ def cmd_backup(paths: Paths) -> int:
 def cmd_restore(paths: Paths, source: str) -> int:
     from pathlib import Path
 
+    from jobforge_agent.db.migrate import target_version
+
     def go() -> int:
-        backup.restore(paths.db, Path(source))
+        try:
+            kept = backup.restore(paths.db, Path(source), paths.backups, target_version())
+        except backup.SourceNewer as exc:
+            print(str(exc), file=sys.stderr)
+            return EXIT_DB_NEWER
+        except backup.BackupError as exc:
+            print(str(exc), file=sys.stderr)
+            return EXIT_ERROR
+        if kept is not None:
+            print(f"kept the previous database as {kept}")
         print(f"restored {source}")
         return EXIT_OK
     return _with_agent_stopped(paths, go)
+
+
+def cmd_golden(paths: Paths, args: list[str]) -> int:
+    """Read-only reports (ARCHITECTURE 6.7, 6.6 C). Opens the database read-only, so it runs beside
+    the agent and never changes anything; the interpretation suite also calls the model."""
+    from jobforge_agent.db.connect import open_connection
+    from jobforge_agent.evaluation import golden
+    from jobforge_agent.inference.client import InferenceClient, load_config
+
+    if not paths.db.exists():
+        print(f"no database at {paths.db}", file=sys.stderr)
+        return EXIT_ERROR
+    conn = open_connection(paths.db, "readonly", readonly=True)
+    try:
+        if conn.execute("PRAGMA user_version").fetchone()[0] < 8:
+            print("the database predates golden labels (schema 8); start the agent once to migrate it", file=sys.stderr)
+            return EXIT_ERROR
+        if "--suite" not in args:
+            r = golden.report(conn)
+            print(json.dumps(r, indent=2) if "--json" in args else golden.format_report(r))
+            return EXIT_OK
+        if args[args.index("--suite") + 1:args.index("--suite") + 2] != ["interpretation"]:
+            print("unknown suite (only: interpretation)", file=sys.stderr)
+            return EXIT_ERROR
+        if "--config" in args:
+            config_id = int(args[args.index("--config") + 1])
+        else:
+            row = conn.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
+            config_id = int(row[0]) if row else 0
+        cfg = load_config(conn, config_id)
+    finally:
+        conn.close()
+    if cfg is None:
+        print(f"no model config {config_id}", file=sys.stderr)
+        return EXIT_ERROR
+
+    async def run():
+        client = InferenceClient()
+        try:
+            return await golden.run_interpretation(client, cfg, golden.interpretation_cases())
+        finally:
+            await client.aclose()
+
+    per_area, meta = asyncio.run(run())
+    print(golden.format_interpretation(per_area, meta))
+    return EXIT_OK
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -210,7 +269,7 @@ def main(argv: list[str] | None = None) -> int:
     if args:
         mode = {"--shutdown": "shutdown", "--status": "status", "--backup": "backup",
                 "--restore": "restore", "--version": "version", "--import-watchlist": "import",
-                "--import-search-profile": "import_profile"}.get(args[0], "unknown")
+                "--import-search-profile": "import_profile", "golden": "golden"}.get(args[0], "unknown")
     if mode == "unknown":
         print(__doc__, file=sys.stderr)
         return EXIT_ERROR
@@ -227,6 +286,8 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_shutdown(paths, args[1] if len(args) > 1 else "requested")
     if mode == "status":
         return cmd_status(paths)
+    if mode == "golden":
+        return cmd_golden(paths, args[1:])
     if mode == "backup":
         return cmd_backup(paths)
     if mode == "import":

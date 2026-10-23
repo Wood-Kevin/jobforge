@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from jobforge_agent.db import backup
@@ -29,3 +31,21 @@ def test_restore_refuses_a_corrupt_source(db, paths, tmp_path):
     with pytest.raises(Exception):
         backup.restore(paths.db, bad)
     assert db.execute("SELECT count(*) FROM settings").fetchone()[0] >= 1  # live DB untouched
+
+
+def test_restore_keeps_the_current_database_and_refuses_a_newer_source(db, paths):
+    db.execute("UPDATE settings SET value = '1' WHERE key = 'discovery_paused'")
+    saved = backup.backup_to(paths.db, paths.backups / "pre-migrate-v7-x.db")
+    db.execute("UPDATE settings SET value = '0' WHERE key = 'discovery_paused'")  # recorded "after the upgrade"
+    version = db.execute("PRAGMA user_version").fetchone()[0]
+    db.close()
+    with pytest.raises(backup.SourceNewer):
+        backup.restore(paths.db, saved, paths.backups, max_version=version - 1)
+    assert not list(paths.backups.glob("before-restore-*"))  # refused before anything changed
+    kept = backup.restore(paths.db, saved, paths.backups, max_version=version)
+    assert kept.name.startswith(f"before-restore-v{version}-") and backup.integrity(kept) == "ok"
+    old = sqlite3.connect(kept)
+    assert old.execute("SELECT value FROM settings WHERE key = 'discovery_paused'").fetchone()[0] == "0"  # newer data kept
+    old.close()
+    conn = open_connection(paths.db, "readonly", readonly=True)
+    assert conn.execute("SELECT value FROM settings WHERE key = 'discovery_paused'").fetchone()[0] == "1"

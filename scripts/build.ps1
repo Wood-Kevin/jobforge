@@ -24,7 +24,8 @@ try {
 # 2. Layout check (spike P1.0d defect 2: a resource glob flattened _internal and the agent could not start).
 $agentDir = "$root\agent\dist\jobforge-agent"
 $required = @("jobforge-agent.exe", "_internal\jobforge_agent\db\migrations\0001_init.sql",
-              "_internal\jobforge_agent\db\migrations\0007_resume_suggestions.sql",
+              "_internal\jobforge_agent\db\migrations\0008_golden_labels.sql",
+              "_internal\jobforge_agent\analysis\fixtures\layer_a.yaml",       # P1.9: golden --suite interpretation
               "_internal\jobforge_agent\evaluation\verdict_rules\v1.yaml",   # P1.7: E5/E6 thresholds are package data
               "_internal\jobforge_agent\evaluation\verdict_rules\v2.yaml",   # the active rule version
               "_internal\jobforge_agent\filtering\defaults.yaml")            # P1.8b: first-run form defaults

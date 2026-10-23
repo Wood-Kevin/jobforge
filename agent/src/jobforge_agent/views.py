@@ -11,6 +11,7 @@ import sqlite3
 
 from jobforge_agent import applications
 from jobforge_agent.analysis import store as analysis_store
+from jobforge_agent.evaluation import golden
 from jobforge_agent.evaluation import store as evaluation_store
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
@@ -104,4 +105,5 @@ def job_detail(conn: sqlite3.Connection, job_id: int) -> dict | None:
                                                    "latest_done_id": analysis_store.latest_for_job(conn, job_id)},
         "evaluation": rec,
         "application": applications.for_job(conn, job_id),
+        "golden_label": golden.current_label(conn, job_id),
     }

@@ -70,11 +70,37 @@ def _prune(folder: Path, pattern: str, keep: int) -> None:
         old.unlink(missing_ok=True)
 
 
-def restore(db_path: Path, source: Path) -> None:
-    """Replace the database with `source`. The caller must hold the instance lock."""
+class SourceNewer(BackupError):
+    def __init__(self, source_version: int, max_version: int):
+        super().__init__(f"backup schema v{source_version} is newer than this version of JobForge (v{max_version})")
+        self.source_version, self.max_version = source_version, max_version
+
+
+def schema_version(path: Path) -> int:
+    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    try:
+        return conn.execute("PRAGMA user_version").fetchone()[0]
+    finally:
+        conn.close()
+
+
+def restore(db_path: Path, source: Path, backups: Path | None = None, max_version: int | None = None) -> Path | None:
+    """Replace the database with `source`. The caller must hold the instance lock.
+
+    With `backups`, the current database is first copied to `before-restore-v<N>-<time>.db` there and
+    the copy's path returned: a rollback (ARCHITECTURE 7.2) then discards nothing for good, and
+    installing the newer version again and restoring that copy brings the newer data back. Rejected
+    alternative: replacing in place with only a warning, which made every rollback destructive.
+    With `max_version`, a source newer than this agent's schema is refused before anything changes."""
     result = integrity(source)
     if result != "ok":
         raise BackupError(f"restore source failed integrity_check: {result}")
+    if max_version is not None and (v := schema_version(source)) > max_version:
+        raise SourceNewer(v, max_version)
+    kept = None
+    if backups is not None and db_path.exists():
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        kept = backup_to(db_path, backups / f"before-restore-v{schema_version(db_path)}-{stamp}.db")
     for suffix in ("", "-wal", "-shm"):
         Path(str(db_path) + suffix).unlink(missing_ok=True)
     src = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
@@ -84,3 +110,4 @@ def restore(db_path: Path, source: Path) -> None:
     finally:
         dst.close()
         src.close()
+    return kept

@@ -1,8 +1,9 @@
 """ARCHITECTURE 6.6 layer A: E0 segmenter + E2 interpreter against table-driven fixtures, no model.
 
-Fixtures: tests/fixtures/interpretation/layer_a.yaml (format described at its top).
+Fixtures: jobforge_agent/analysis/fixtures/layer_a.yaml (format described at its top; package data since P1.9
+because `jobforge-agent golden --suite interpretation` runs the same cases against a real model).
 """
-from pathlib import Path
+from importlib import resources
 
 import pytest
 import yaml
@@ -12,7 +13,7 @@ from jobforge_agent.analysis.interpret import ModelItem, interpret
 from jobforge_agent.analysis.segment import heading_label, segment
 from jobforge_agent.profile import items as profile_items
 
-CASES = yaml.safe_load((Path(__file__).parent / "fixtures" / "interpretation" / "layer_a.yaml").read_text(encoding="utf-8"))
+CASES = yaml.safe_load((resources.files("jobforge_agent.analysis") / "fixtures" / "layer_a.yaml").read_text(encoding="utf-8"))
 
 
 def _item(m: dict) -> ModelItem:

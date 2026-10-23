@@ -22,6 +22,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from jobforge_agent import PROTOCOL_VERSION, applications as applications_mod, views
+from jobforge_agent.evaluation import golden
 from jobforge_agent.filtering.profile import ProfileError
 from jobforge_agent.inference import configs as model_configs
 from jobforge_agent.inference.client import InferenceError
@@ -415,6 +416,31 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
             return JSONResponse({"error": str(exc)}, status_code=422)
         except LookupError:
             return JSONResponse({"error": "unknown job"}, status_code=404)
+
+    @app.post("/v1/jobs/{job_id}/golden-label")
+    async def golden_label(job_id: int, request: Request):
+        body = await _body(request)
+        if body is None:
+            return _bad_body()
+        try:
+            return runtime.golden_label(job_id, body)
+        except golden.LabelError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+        except LookupError:
+            return JSONResponse({"error": "unknown job"}, status_code=404)
+
+    @app.post("/v1/jobs/{job_id}/golden-label/withdraw")
+    async def golden_withdraw(job_id: int):
+        try:
+            runtime.golden_label(job_id, None)
+        except LookupError:
+            return JSONResponse({"error": "no label on this job"}, status_code=404)
+        return {"withdrawn": True}
+
+    @app.get("/v1/golden/report")
+    async def golden_report():
+        assert runtime.reader is not None
+        return golden.report(runtime.reader)
 
     @app.get("/v1/profile/schema")
     async def profile_schema():

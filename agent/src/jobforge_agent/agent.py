@@ -22,6 +22,7 @@ from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
 from jobforge_agent.discovery import admin as discovery_admin
 from jobforge_agent.evaluation import store as evaluation_store
+from jobforge_agent.evaluation import golden
 from jobforge_agent.evaluation.worker import EvaluationWorker
 from jobforge_agent.discovery.http import HttpClient
 from jobforge_agent.discovery.service import DiscoveryService
@@ -544,6 +545,23 @@ class AgentRuntime:
             self.user.execute("ROLLBACK")
             raise
         self.log.info("application_changed", job_id=job_id, application_id=result["id"], status=result["status"])
+        self.notify_events()
+        return result
+
+    def golden_label(self, job_id: int, fields: dict | None) -> dict | None:
+        """User action: label a job for the golden set (fields) or withdraw the label (None).
+        Raises golden.LabelError / LookupError. Logs ids and the label only."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            result = golden.label(self.user, job_id, fields, now_ms()) if fields is not None else golden.withdraw(self.user, job_id, now_ms())
+            self.user.execute("INSERT INTO change_events (type, job_id, ref, created_at_ms) VALUES ('golden_labeled', ?, ?, ?)",
+                              (job_id, json.dumps({"label": result["recommendation"] if result else None}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("golden_labeled", job_id=job_id, label=result["recommendation"] if result else None)
         self.notify_events()
         return result
 

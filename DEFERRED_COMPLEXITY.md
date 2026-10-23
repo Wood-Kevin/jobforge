@@ -86,6 +86,9 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 ### Export of post-upgrade data before rollback
 - **What:** Restoring a pre-migration backup discards everything recorded after the upgrade (seen in the spike). An export of new rows (applications, labels, profile edits) before restore would preserve the user's own work.
 - **Why deferred:** Phase 1 states the loss clearly in the restore screen; an export format is new scope.
+- **Partly resolved in P1.9 (v0.2.0):** `--restore` keeps the live database as `before-restore-v<N>-<time>.db` first, so
+  nothing is lost for good: reinstalling the newer version and restoring that file brings it back. Still open: moving
+  only the post-upgrade rows (an application, a label) into the restored older database.
 - **Trigger:** The first real rollback, or any migration that ships to more than one install.
 
 ### LM Studio runtime update for qwen3.5 models

@@ -67,3 +67,20 @@ export function onAgentEvent(handler: (e: ChangeEvent) => void): Promise<Unliste
 export function onSupervisorChange(handler: (s: Supervisor) => void): Promise<UnlistenFn> {
   return listen<Supervisor>("supervisor", (msg) => handler(msg.payload));
 }
+
+// ----- restore screen (host commands, not agent routes: the agent is stopped when they are used) -----
+
+export type BackupList = { current_schema: number | null; backups: { name: string; bytes: number; modified_ms: number; schema: number | null }[] };
+
+export async function listBackups(): Promise<BackupList> {
+  return await invoke<BackupList>("list_backups");
+}
+
+/** Runs the agent's --restore (which keeps today's data as a before-restore backup first), then restarts the agent. */
+export async function restoreBackup(name: string): Promise<string> {
+  try {
+    return await invoke<string>("restore_backup", { name });
+  } catch (e) {
+    throw new AgentError(0, String(e));
+  }
+}

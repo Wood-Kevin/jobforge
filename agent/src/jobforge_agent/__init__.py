@@ -1,5 +1,5 @@
 """JobForge background agent. The only process that opens the JobForge database (SPEC D4)."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 # Bumped when the IPC contract changes; the host refuses an agent with a different value.
 PROTOCOL_VERSION = 1

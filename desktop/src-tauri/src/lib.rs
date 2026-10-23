@@ -117,6 +117,19 @@ fn supervisor_status(sup: TauriState<'_, Arc<Supervisor>>) -> Status {
     sup.status()
 }
 
+/// Backups for the restore screen, with the live database's schema so the window can tell which
+/// backups this version can open (ARCHITECTURE 7.2).
+#[tauri::command]
+fn list_backups() -> serde_json::Value {
+    serde_json::json!({ "current_schema": supervisor::current_schema(), "backups": supervisor::list_backups() })
+}
+
+#[tauri::command]
+async fn restore_backup(sup: TauriState<'_, Arc<Supervisor>>, name: String) -> Result<String, String> {
+    let sup = Arc::clone(&sup);
+    tauri::async_runtime::spawn_blocking(move || sup.restore_backup(&name)).await.map_err(|e| e.to_string())?
+}
+
 fn status_text(s: &Status) -> String {
     match s.state {
         State::Starting => "Agent: starting".into(),
@@ -168,7 +181,7 @@ pub fn run() {
                 open_window(app);
             }
         }))
-        .invoke_handler(tauri::generate_handler![agent_call, agent_upload, open_url, supervisor_status])
+        .invoke_handler(tauri::generate_handler![agent_call, agent_upload, open_url, supervisor_status, list_backups, restore_backup])
         .setup(move |app| {
             let handle = app.handle().clone();
             if exit_only {

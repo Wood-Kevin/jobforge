@@ -99,6 +99,7 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "filter_overrides": ins(),
         "applications": full(),
         "application_events": ins(),
+        "golden_labels": ins(),  # append-only (trigger); the user's own labels (6.7)
         "change_events": ins(),
     },
     # Agent lifecycle: run history, startup recovery, notification-log pruning.

@@ -16,6 +16,9 @@ def _seed_append_only(db):
     db.execute("INSERT INTO profile_snapshot_items (snapshot_id, item_id, kind, statement, status, attributes) VALUES (?, 1, 'cert', 'CCNA', 'self_reported', '{}')", (snap,))
     app = db.execute("INSERT INTO applications (job_id, status, created_at_ms) VALUES (?, 'saved', ?) RETURNING id", (ids["job"], NOW)).fetchone()[0]
     db.execute("INSERT INTO application_events (application_id, to_status, at_ms) VALUES (?, 'saved', ?)", (app, NOW))
+    raw = db.execute("SELECT current_raw_posting_id FROM jobs WHERE id = ?", (ids["job"],)).fetchone()[0]
+    db.execute("INSERT INTO golden_labels (job_id, raw_posting_id, recommendation, labeled_by, created_at_ms) "
+               "VALUES (?, ?, 'APPLY', 'user', ?)", (ids["job"], raw, NOW))
     return ids
 
 
@@ -25,6 +28,7 @@ UPDATES = {
     "profile_snapshots": "UPDATE profile_snapshots SET sha256 = 'x'",
     "profile_snapshot_items": "UPDATE profile_snapshot_items SET status = 'verified'",
     "application_events": "UPDATE application_events SET to_status = 'offer'",
+    "golden_labels": "UPDATE golden_labels SET recommendation = 'SKIP'",
 }
 
 
@@ -59,3 +63,14 @@ def test_missing_trigger_is_detected(db):
     db.execute("DROP TRIGGER raw_postings_no_delete")
     with pytest.raises(migrate.MigrationFailed, match="raw_postings_no_delete"):
         migrate.check_append_only_triggers(db)
+
+
+def test_table_since_version_matches_the_migration_that_creates_it():
+    """The trigger check skips tables newer than the database; that needs the right version per table."""
+    import re
+    created = {}
+    for mg in migrate.bundled_migrations():
+        for name in re.findall(r"CREATE TABLE (\w+)", mg.sql):
+            created.setdefault(name, mg.version)
+    for table in migrate.APPEND_ONLY_TRIGGERS:
+        assert created[table] == migrate.TABLE_SINCE_VERSION.get(table, 1), table

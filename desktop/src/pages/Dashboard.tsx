@@ -11,6 +11,7 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const analysis = useLive(api.analysisStatus, [], ["analysis_done", "analysis_failed", "job_queued_for_analysis"], 15_000);
   const evaluation = useLive(api.evaluationStatus, [], ["evaluation_done", "evaluation_failed", "evaluations_queued"], 15_000);
   const recs = useLive(() => api.jobs("recommended", "", 500), [], ["recommendation_computed"]);
+  const gold = useLive(api.goldenReport, [], ["golden_labeled", "recommendation_computed"]);
   const act = useAction();
 
   const h = health.data;
@@ -52,6 +53,10 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
             <div key={c} className="stat"><Badge value={c} /><strong>{counts[c] ?? 0}</strong></div>))}
           <div className="stat"><span className="muted">open jobs found</span><strong>{d?.jobs_open ?? "-"}</strong></div>
         </div>
+        {gold.data && (
+          <p className="muted">Your calls on jobs: {gold.data.labels} of the {gold.data.target[0]}-{gold.data.target[1]} needed to measure
+            JobForge ("Your call" on a job).{gold.data.versions[0] && <> So far: {gold.data.versions[0].false_skip.length} jobs you'd apply to
+            were marked Skip, {gold.data.versions[0].false_apply.length} you'd skip were marked Apply or Stretch.</>}</p>)}
         <ErrorBox error={health.error ?? act.error} />
       </Card>
 

@@ -27,7 +27,11 @@ APPEND_ONLY_TRIGGERS = {
     "profile_snapshot_items": ("profile_snapshot_items_no_update", "profile_snapshot_items_no_delete"),
     "application_events": ("application_events_no_update", "application_events_no_delete"),
     "change_events": ("change_events_no_update", "change_events_prune_only_old"),
+    "golden_labels": ("golden_labels_no_update", "golden_labels_no_delete"),
 }
+# The migration that creates each table; tables not listed come from 0001. A database at an older
+# version (or a test running a partial migration list) is checked only for the tables it has.
+TABLE_SINCE_VERSION = {"golden_labels": 8}
 
 
 class DatabaseNewer(RuntimeError):
@@ -105,6 +109,8 @@ def migrate(conn: sqlite3.Connection, db_path: Path, backups: Path, migrations: 
 
 def check_append_only_triggers(conn: sqlite3.Connection) -> None:
     present = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'")}
-    missing = [t for names in APPEND_ONLY_TRIGGERS.values() for t in names if t not in present]
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    missing = [t for table, names in APPEND_ONLY_TRIGGERS.items() if TABLE_SINCE_VERSION.get(table, 1) <= version
+               for t in names if t not in present]
     if missing:
         raise MigrationFailed(f"append-only triggers missing after migration: {missing}")

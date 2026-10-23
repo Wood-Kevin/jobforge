@@ -140,3 +140,6 @@ details.section > summary::-webkit-details-marker { display: none; }
 details.section > summary h2::before { content: "▸ "; color: var(--muted); }
 details.section[open] > summary h2::before { content: "▾ "; }
 details.section[open] > summary { margin-bottom: 10px; }
+
+/* Your call (golden labels, P1.9): radio and checkbox rows */
+.choice { display: inline-flex; align-items: center; gap: 0.35rem; margin-right: 1rem; font-weight: normal; }

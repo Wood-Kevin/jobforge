@@ -66,6 +66,54 @@ pub fn classify_exit(code: Option<i32>) -> ExitAction {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct BackupFile {
+    pub name: String,
+    pub bytes: u64,
+    pub modified_ms: u64,
+    /// Database schema version (`PRAGMA user_version`), from the file header.
+    pub schema: Option<u32>,
+}
+
+fn backups_dir() -> PathBuf {
+    data_root().join("backups")
+}
+
+/// SQLite keeps `PRAGMA user_version` big-endian at byte offset 60 of the file header. The agent
+/// checks again before restoring; this is only for the list the window shows.
+pub fn sqlite_user_version(path: &std::path::Path) -> Option<u32> {
+    use std::io::Read;
+    let mut head = [0u8; 64];
+    std::fs::File::open(path).ok()?.read_exact(&mut head).ok()?;
+    if &head[..16] != b"SQLite format 3\0" {
+        return None;
+    }
+    Some(u32::from_be_bytes([head[60], head[61], head[62], head[63]]))
+}
+
+/// Schema version of the live database (None if it does not exist yet).
+pub fn current_schema() -> Option<u32> {
+    sqlite_user_version(&data_root().join("data").join("jobforge.db"))
+}
+
+/// Backup files, newest first.
+pub fn list_backups() -> Vec<BackupFile> {
+    let mut out: Vec<BackupFile> = std::fs::read_dir(backups_dir())
+        .map(|rd| {
+            rd.filter_map(|e| e.ok())
+                .filter(|e| e.path().extension().is_some_and(|x| x == "db"))
+                .filter_map(|e| {
+                    let meta = e.metadata().ok()?;
+                    let modified_ms = meta.modified().ok()?.duration_since(std::time::UNIX_EPOCH).ok()?.as_millis() as u64;
+                    Some(BackupFile { name: e.file_name().to_string_lossy().into_owned(), bytes: meta.len(), modified_ms, schema: sqlite_user_version(&e.path()) })
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    out.sort_by(|a, b| b.modified_ms.cmp(&a.modified_ms));
+    out
+}
+
 #[derive(Deserialize)]
 struct IpcInfo {
     port: u16,
@@ -360,6 +408,38 @@ impl Supervisor {
         }
     }
 
+    /// The restore screen (ARCHITECTURE 7.2): offered only while the agent is stopped because the
+    /// database is newer than this version. Runs the agent's own `--restore`, which first keeps the
+    /// current database as `before-restore-*.db` and refuses a backup newer than itself, then starts
+    /// the agent again. Returns the agent's output, or its error text.
+    pub fn restore_backup(&self, name: &str) -> Result<String, String> {
+        if self.status().state != State::StoppedDbNewer {
+            return Err("Restoring a backup is only offered while JobForge is stopped because its data is from a newer version.".into());
+        }
+        if name.contains(['/', '\\', ':']) || name.contains("..") || !name.ends_with(".db") {
+            return Err("not a backup file name".into());
+        }
+        let path = backups_dir().join(name);
+        if !path.is_file() {
+            return Err(format!("no backup named {name}"));
+        }
+        let out = self
+            .agent_command()?
+            .arg("--restore")
+            .arg(&path)
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("could not run the restore: {e}"))?;
+        let text = format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr)).trim().to_string();
+        host_log(&format!("restore {name}: exit {:?}", out.status.code()));
+        if !out.status.success() {
+            return Err(format!("Restore failed: {text}"));
+        }
+        self.restarts.lock().unwrap().clear();
+        self.start_and_wait();
+        Ok(text)
+    }
+
     /// Tray Exit and `JobForge.exe --exit`: stop the agent gracefully, then the host.
     pub fn shutdown_agent(&self) {
         self.exiting.store(true, Ordering::SeqCst);
@@ -377,6 +457,21 @@ impl Supervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_user_version_from_the_sqlite_header() {
+        let dir = std::env::temp_dir().join(format!("jf_hdr_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.db");
+        let mut head = b"SQLite format 3\0".to_vec();
+        head.resize(100, 0);
+        head[60..64].copy_from_slice(&8u32.to_be_bytes());
+        std::fs::write(&f, &head).unwrap();
+        assert_eq!(sqlite_user_version(&f), Some(8));
+        std::fs::write(&f, [b'x'; 100]).unwrap();
+        assert_eq!(sqlite_user_version(&f), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn exit_codes_map_to_actions() {

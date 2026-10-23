@@ -4,10 +4,10 @@
 // itself are one click away. Nothing is hidden for good: every row the agent computed is reachable.
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { openUrl } from "../agent";
-import { api, type EvidenceRow, type JobDetail as Detail } from "../api";
+import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
 import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, matchNote, plain } from "../labels";
 import { sanitizePosting } from "../sanitize";
-import { Badge, Card, ErrorBox, ago, useAction, useLive } from "../ui";
+import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
 
 const STATUSES = ["saved", "applied", "interviewing", "offer", "rejected", "withdrawn"];
 
@@ -77,6 +77,7 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
         <Card title="Recommendation"><p className="muted">{waiting(d)}</p></Card>
       )}
 
+      <YourCall d={d} reload={reload} />
       {ev && <Section title={`Every requirement (${rows.length})`}><Evidence rows={ev.evidence} cited={ev.cited_items} /></Section>}
       {rec && rec.eligibility_reasons.length > 0 && (
         <Section title="Eligibility checks">
@@ -165,6 +166,61 @@ function Application({ d, reload }: { d: Detail; reload: () => void }) {
       <ErrorBox error={act.error} />
     </div>
   );
+}
+
+// ----- your call (the golden set, ARCHITECTURE 6.7) -----
+
+const CALLS: { value: Category; text: string }[] = [
+  { value: "APPLY", text: "I'd apply" }, { value: "STRETCH", text: "A stretch, but worth it" },
+  { value: "REVIEW", text: "Can't tell without more info" }, { value: "SKIP", text: "I'd skip it" }];
+
+function YourCall({ d, reload }: { d: Detail; reload: () => void }) {
+  const act = useAction();
+  const cur = d.golden_label;
+  const [editing, setEditing] = useState(false);
+  const [call, setCall] = useState<Category | null>(cur?.recommendation ?? null);
+  const [obvious, setObvious] = useState(cur?.obvious ?? false);
+  const [elig, setElig] = useState<string>(cur?.eligibility ?? "");
+  const [misread, setMisread] = useState<number[]>(cur?.misread_requirement_ids ?? []);
+  const [note, setNote] = useState(cur?.note ?? "");
+  const reqs = d.evaluation?.evidence.filter((r) => r.class !== "context") ?? [];
+  const save = () => act.run(async () => {
+    await api.setGoldenLabel(d.id, { recommendation: call!, obvious, eligibility: elig || null, misread_requirement_ids: misread, note: note || null });
+    setEditing(false);
+    reload();
+  });
+  if (cur && !editing)
+    return (
+      <Card title="Your call">
+        <p>You said: <strong>{CALLS.find((c) => c.value === cur.recommendation)?.text}</strong>
+          {cur.obvious && " (clear without more info)"}{cur.misread_requirement_ids.length > 0 && `; ${cur.misread_requirement_ids.length} requirement(s) misread`}
+          <span className="muted"> · {ago(cur.created_at_ms)} ago</span></p>
+        <div className="row"><button className="small" onClick={() => setEditing(true)}>Change</button>
+          <ConfirmButton label="Remove" disabled={act.busy} onConfirm={() => act.run(async () => { await api.withdrawGoldenLabel(d.id); reload(); })} /></div>
+        <ErrorBox error={act.error} />
+      </Card>);
+  return (
+    <Section title="Your call (helps measure JobForge)" open={editing}>
+      <p className="muted">What would you do with this job? Your answers are compared with JobForge's to see where it is wrong. They
+        don't change this job's recommendation.</p>
+      <div className="row">{CALLS.map((c) => (
+        <label key={c.value} className="choice"><input type="radio" name={`call-${d.id}`} checked={call === c.value} onChange={() => setCall(c.value)} /> {c.text}</label>))}</div>
+      <label className="choice"><input type="checkbox" checked={obvious} onChange={(e) => setObvious(e.target.checked)} /> I could tell without more information</label>
+      <label>Can you work here at all? <span className="muted">(optional)</span>{" "}
+        <select value={elig} onChange={(e) => setElig(e.target.value)}>
+          <option value="">not answered</option><option value="ELIGIBLE">yes</option><option value="BLOCKED">no (location, clearance, ...)</option>
+          <option value="UNKNOWN">not sure</option></select></label>
+      {reqs.length > 0 && (
+        <details><summary>Requirements JobForge read wrong ({misread.length})</summary>
+          <ul className="compact">{reqs.map((r) => (
+            <li key={r.requirement_id}><label className="choice"><input type="checkbox" checked={misread.includes(r.requirement_id)}
+              onChange={(e) => setMisread(e.target.checked ? [...misread, r.requirement_id] : misread.filter((x) => x !== r.requirement_id))} />
+              {" "}{short(r.quote, 140)} <span className="muted">({plain(r.class)})</span></label></li>))}</ul></details>)}
+      <input className="notes" placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+      <div className="row"><button className="primary" disabled={act.busy || !call} onClick={save}>Save my call</button>
+        {editing && <button onClick={() => setEditing(false)}>Cancel</button>}</div>
+      <ErrorBox error={act.error} />
+    </Section>);
 }
 
 function short(s: string, n = 110): string {

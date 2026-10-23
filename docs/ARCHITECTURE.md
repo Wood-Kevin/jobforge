@@ -465,6 +465,11 @@ supersedes a running one that has a newer pending sibling), and adds `years`, `s
 Migration 0005 (P1.7 follow-up) adds `evaluations.request_sha256` and a partial index on done rows (reuse, 6.4).
 Migration 0006 (P1.8) makes `applications.job_id` unique (one application per job); every status change appends an
 `application_events` row (append-only) in the same user-action transaction.
+Migration 0008 (P1.9, v0.2.0) adds `golden_labels` (append-only, triggers `golden_labels_no_update/_no_delete`): job,
+labeled posting version, state (active/withdrawn), recommendation, optional eligibility, `obvious`, misread requirement ids,
+note, `labeled_by`, `reviewed_by`, `shown_recommendation_id` (what JobForge showed at the time). The latest row per job is
+the label. The append-only trigger check (`migrate.check_append_only_triggers`) now checks a table only once the database
+has reached the migration that creates it (`TABLE_SINCE_VERSION`, pinned by a test against the migration files).
 Migration 0007 (P1.8c) adds `inferred_claims.proposed_by_resume_id` (no foreign key: deleting a resume must neither fail
 nor take accepted suggestions with it) and `inferred_claims.proposed_fields` (JSON: dates or `dates_as_written`, applied on
 accept).
@@ -679,6 +684,15 @@ only by the Rust host.**
   `POST /v1/search-profile/import-scanner {text}` (job-scanner config.yaml), `POST /v1/employers/add {text}` (careers
   links, one per line), `POST /v1/employers/import-watchlist {text}`, `POST /v1/employers/{id}/enable|disable`. The
   window shows no JSON or regex; internal values are translated in `desktop/src/labels.ts`.
+- **Golden set (P1.9):** `POST /v1/jobs/{id}/golden-label` (`{recommendation, eligibility?, obvious?,
+  misread_requirement_ids?, note?}`; requirement ids must belong to the job), `POST /v1/jobs/{id}/golden-label/withdraw`,
+  `GET /v1/golden/report`; job detail carries `golden_label`. The window's "Your call" card on a job writes them; Status
+  shows the count against the 20-30 target. `jobforge-agent golden [--json]` prints the report from a read-only
+  connection (safe beside a running agent); `jobforge-agent golden --suite interpretation [--config ID]` runs 6.6 C.
+- **Restore screen (P1.9, host):** commands `list_backups` (backup files with the schema version read from each SQLite
+  header, plus the live database's) and `restore_backup(name)` (only in state `stopped_db_newer`; plain file names in
+  `<data root>\backups` only; runs the agent's `--restore`, then starts the agent). The window shows it in place of the
+  pages when the agent stopped with exit 4.
 - **Host bridge (P1.8):** `agent_call(method, path, body?)` (GET/POST/PUT/PATCH/DELETE, JSON; 4xx/5xx come back with the
   agent's own message), `agent_upload(path, bytes)` (resumes only, raw bytes), `open_url(url)` (system browser; http(s)
   only, no credentials, no control characters, <= 2048 chars; `javascript:`, `file:`, `ms-settings:`, UNC refused). The
@@ -1109,7 +1123,7 @@ model type of `none` adds no condition), and still never blocks. Compare with
 Three layers, so the code logic is pinned even when no model is running.
 
 **A. Interpreter unit tests (pytest, no LLM).** Table-driven fixtures in
-`tests/fixtures/interpretation/`, each a posting snippet with a heading, the
+`agent/src/jobforge_agent/analysis/fixtures/layer_a.yaml` (in `tests/fixtures/interpretation/` until P1.9), each a posting snippet with a heading, the
 model reading E1 would plausibly produce, and the expected E2 output.
 Minimum Phase 1 set:
 
@@ -1292,7 +1306,10 @@ section 2. Spike P1.0d proves it before the decision is final (9).
   will warn on unsigned installers; Q22).
 - **Rollback:** previous installer + restore pre-migration backup (4.4).
   Proven in spike P1.0d (older agent refused the newer DB; restore brought it
-  back). The restore screen must say plainly that **everything recorded after
+  back). Since P1.9 (v0.2.0) `--restore` first copies the live database to
+  `backups\before-restore-v<N>-<time>.db` and refuses a backup newer than the agent (exit 4),
+  so a rollback discards nothing for good; the restore screen (section 5) offers the backups
+  older than the live data. The restore screen must say plainly that **everything recorded after
   the upgrade is discarded** (the spike lost the v0.2 run, as expected).
   Exporting new data before rollback is deferred (DEFERRED_COMPLEXITY.md).
 

@@ -46,7 +46,15 @@ export type JobDetail = { id: number; title: string; company: string; location: 
   salary: { min: number | null; max: number | null; period: string } | null; posted_at: string | null; first_seen_at_ms: number;
   closed_at_ms: number | null; posting_versions: number; listing_url: string | null; apply_url: string | null; employer: string; source: string;
   description_html: string | null; description_text: string | null; filter: { verdict: string; reasons: { primary: string | null; failed: { rule: string; category: string; detail: string | null }[] } } | null;
-  override: boolean; analysis: { id: number; status: string; last_error: string | null } | null; evaluation: Evaluation | null; application: Application | null };
+  override: boolean; analysis: { id: number; status: string; last_error: string | null } | null; evaluation: Evaluation | null; application: Application | null;
+  golden_label: GoldenLabel | null };
+export type GoldenLabel = { id: number; recommendation: Category; eligibility: string | null; obvious: boolean; misread_requirement_ids: number[];
+  note: string | null; labeled_by: string; shown_recommendation_id: number | null; created_at_ms: number };
+export type GoldenVersion = { model: string; extraction_prompt: string; interpreter: string; match_prompt: string; rules: string;
+  labeled_with_answer: number; false_skip: number[]; false_apply: number[]; review_share: number | null; review_count: number;
+  review_labeled_obvious: number[]; eligibility_labeled: number; eligibility_agree: number; confusion: Record<Category, Record<Category, number>> };
+export type GoldenReport = { labels: number; target: [number, number]; provisional_unreviewed: number; labels_without_system_answer: number[];
+  misread_requirements: number; versions: GoldenVersion[] };
 
 export type Item = { id: number; kind: string; statement: string; attributes: Record<string, unknown>; start_date: string | null;
   end_date: string | null; years: number | null; status: "verified" | "self_reported"; source: string; verified_at_ms: number | null };
@@ -90,6 +98,10 @@ export const api = {
     agentCall<Application>("PUT", `/v1/jobs/${id}/application`, fields),
   applications: () => agentCall<ApplicationRow[]>("GET", "/v1/applications"),
   reviewQuestions: () => agentCall<ReviewGroup[]>("GET", "/v1/review-questions"),
+  setGoldenLabel: (id: number, fields: { recommendation: Category; eligibility?: string | null; obvious?: boolean; misread_requirement_ids?: number[]; note?: string | null }) =>
+    agentCall<GoldenLabel>("POST", `/v1/jobs/${id}/golden-label`, fields),
+  withdrawGoldenLabel: (id: number) => agentCall<{ withdrawn: boolean }>("POST", `/v1/jobs/${id}/golden-label/withdraw`),
+  goldenReport: () => agentCall<GoldenReport>("GET", "/v1/golden/report"),
   recompute: () => agentCall<Record<string, unknown>>("POST", "/v1/recompute"),
 
   items: () => agentCall<Item[]>("GET", "/v1/experience"),

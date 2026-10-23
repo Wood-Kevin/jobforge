@@ -9,6 +9,7 @@ import Jobs from "./pages/Jobs";
 import Preferences from "./pages/Preferences";
 import Profile from "./pages/Profile";
 import Review from "./pages/Review";
+import Restore from "./pages/Restore";
 import Setup from "./pages/Setup";
 import { api } from "./api";
 
@@ -46,6 +47,7 @@ export default function App() {
       </nav>
       <main>
         {down && <p className="banner">{supervisorText(sup!)}</p>}
+        {sup?.state === "stopped_db_newer" && <Restore />}
         {job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
           : page === "dashboard" ? <Dashboard sup={sup} onSetup={() => go("setup")} />
           : page === "jobs" ? <Jobs onOpen={open} />
@@ -65,7 +67,7 @@ function supervisorText(s: Supervisor): string {
     starting: "Starting the agent...",
     running: "Running",
     not_responding: "The agent is not responding.",
-    stopped_db_newer: "Stopped: the database is newer than this version of JobForge. Restore a backup or install the newer version.",
+    stopped_db_newer: "Stopped: your data is from a newer version of JobForge. See below.",
     stopped_elevated: "Stopped: JobForge must run as you, without administrator rights.",
     failing: "The agent keeps failing; see the log folder.",
     exiting: "Exiting...",
