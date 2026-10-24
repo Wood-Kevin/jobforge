@@ -162,6 +162,9 @@ def test_editing_what_a_verified_item_says_clears_verification(paths):
     ({"type": "work_authorization", "us_citizen": "yes", "authorized_to_work_us": True}, "us_citizen must be"),
     ({"type": "travel", "max_travel_percent": 150}, "max_travel_percent must be"),
     ({"type": "physical"}, "needs at least one of"),
+    ({"type": "availability"}, "needs at least one of"),
+    ({"type": "availability", "on_call": "yes"}, "on_call must be"),
+    ({"type": "availability", "time_zone": "eastern"}, "do not take time_zone"),
     ({"type": "astrology"}, "attributes.type must be one of"),
     ({}, "attributes.type must be one of"),
 ])
@@ -178,6 +181,9 @@ def test_one_fact_per_eligibility_type_except_licenses(paths):
         await _item(client, kind="eligibility", statement="Secret clearance, inactive", attributes=clr)
         r = await client.post("/v1/experience", headers=AUTH, json={"kind": "eligibility", "statement": "again", "attributes": clr})
         assert r.status_code == 409
+        avail = {"type": "availability", "on_call": True, "weekends": False}
+        r = await client.post("/v1/experience", headers=AUTH, json={"kind": "eligibility", "statement": "on call, no weekends", "attributes": avail})
+        assert r.status_code == 200, r.text
         lic = {"type": "license", "name": "FCC GROL", "active": True}
         await _item(client, kind="eligibility", statement="license 1", attributes=lic)
         await _item(client, kind="eligibility", statement="license 2", attributes={**lic, "name": "CDL"})

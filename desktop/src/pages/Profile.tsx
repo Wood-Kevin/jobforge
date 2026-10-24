@@ -131,6 +131,12 @@ function FactRow({ type, fields, item, reload }: { type: string; fields: Schema[
     </tr>);
 }
 
+// Field names that read wrong as plain words (the rest show their name with spaces).
+const FIELD_LABEL: Record<string, string> = {
+  on_call: "on-call", other_time_zone_hours: "work hours set in another time zone", night_shifts: "night shifts",
+  rotating_shifts: "rotating shifts",
+};
+
 // One eligibility fact's typed form; also used on the job page (Answer.tsx). `onSaved` gets the item id.
 export function FactForm({ type, fields, item, onSaved, onCancel }: { type: string; fields: Schema["eligibility"][string]; item?: Item;
   onSaved: (id: number) => void; onCancel: () => void }) {
@@ -148,7 +154,7 @@ export function FactForm({ type, fields, item, onSaved, onCancel }: { type: stri
     <>
       <div className="fact-form">
         {Object.entries(fields).map(([f, spec]) => (
-          <label key={f}>{f.replace(/_/g, " ")}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
+          <label key={f}>{FIELD_LABEL[f] ?? f.replace(/_/g, " ")}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
         <label>description<input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="optional; generated if empty" /></label>
       </div>
       <div className="row"><button className="primary" disabled={act.busy} onClick={save}>Save</button><button onClick={onCancel}>Cancel</button></div>

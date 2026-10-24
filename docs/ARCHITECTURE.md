@@ -615,6 +615,13 @@ split below is kept as documentation for any future server port (A13).
   | travel | **max_travel_percent** (0-100) |
   | license | **name**, **active**; several allowed |
   | program_status | active_duty, veteran, student (at least one) |
+  | availability | on_call, weekends, holidays, night_shifts, rotating_shifts, other_time_zone_hours (bool, at least one) |
+
+  `availability` (2026-10-24) is stored but not matched yet: it is in `items.AWAITING_CUES`, the E2
+  lexicon assigns no line that type, and `facts.py` has no check for it, until the reading fix in
+  Evaluation calibration 1 (cases E1-E2) is approved. The E1 schema's type list is the lexicon's, so
+  it is unchanged. Two tests hold that state (`test_eligibility_types_match_the_profile_fact_types`,
+  `test_fact_types_cover_every_e2_eligibility_type`).
 
   One fact per type except licenses (409). Unknown fields are refused, so a typo cannot
   silently drop a fact. Rejected alternative: free-form attributes, which P1.7 code could only

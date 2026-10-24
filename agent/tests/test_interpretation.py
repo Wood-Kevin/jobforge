@@ -110,8 +110,11 @@ def test_field_lines_and_amounts_are_not_headings():
 
 def test_eligibility_types_match_the_profile_fact_types():
     """Dependent system (P1.5): a hard requirement's type picks the declared eligibility fact it is
-    matched against in P1.7, so the lexicon and the profile must name the same types."""
-    assert set(cues.ELIGIBILITY_TYPES) == set(profile_items.ELIGIBILITY)
+    matched against in P1.7, so the lexicon and the profile must name the same types. A fact type may
+    exist before its cues only when listed in AWAITING_CUES (availability, 2026-10-24: stored, not yet
+    matched); the E1 schema's type list is the lexicon's, so it is unchanged by that."""
+    assert set(cues.ELIGIBILITY_TYPES) == set(profile_items.ELIGIBILITY) - profile_items.AWAITING_CUES
+    assert not profile_items.AWAITING_CUES & set(cues.ELIGIBILITY_TYPES)
 
 
 @pytest.mark.parametrize("text,want", [

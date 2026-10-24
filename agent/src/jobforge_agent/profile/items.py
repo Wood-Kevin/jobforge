@@ -47,7 +47,16 @@ ELIGIBILITY = {
     "travel": {"max_travel_percent": (_num(0, 100), True)},
     "license": {"name": (_STR, True), "active": (_BOOL, True)},
     "program_status": {"active_duty": (_BOOL, False), "veteran": (_BOOL, False), "student": (_BOOL, False)},
+    # Kevin, 2026-10-24: hours, shifts and on-call lines ("Friday - Tuesday, 8A - 5P Eastern", "24x7x365, shift work,
+    # weekends and holidays", "on-call rotation") had nowhere to be answered. The facts are stored now; no posting
+    # line is typed "availability" until the reading fix in Evaluation calibration 1 (cases E1-E2) is approved,
+    # so cues.ELIGIBILITY_TYPES does not list it yet (AWAITING_CUES).
+    "availability": {"on_call": (_BOOL, False), "weekends": (_BOOL, False), "holidays": (_BOOL, False),
+                     "night_shifts": (_BOOL, False), "rotating_shifts": (_BOOL, False),
+                     "other_time_zone_hours": (_BOOL, False)},
 }
+# Fact types whose posting lines the E2 cues do not recognize yet (see "availability" above).
+AWAITING_CUES = {"availability"}
 MULTIPLE_ALLOWED = {"license"}
 
 

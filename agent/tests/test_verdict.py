@@ -146,10 +146,11 @@ def test_eligibility_fact_matching(case):
 
 
 def test_fact_types_cover_every_e2_eligibility_type():
-    """A type the E2 lexicon can assign but facts.py cannot check would always be unanswered."""
+    """A type the E2 lexicon can assign but facts.py cannot check would always be unanswered. A fact type
+    awaiting its cues (AWAITING_CUES: stored, never assigned to a line yet) needs no check until it gets them."""
     from jobforge_agent.analysis.cues import ELIGIBILITY_TYPES
-    from jobforge_agent.profile.items import ELIGIBILITY
-    assert set(facts._CHECKS) == set(ELIGIBILITY_TYPES) == set(ELIGIBILITY)
+    from jobforge_agent.profile.items import AWAITING_CUES, ELIGIBILITY
+    assert set(facts._CHECKS) == set(ELIGIBILITY_TYPES) == set(ELIGIBILITY) - AWAITING_CUES
 
 
 # ----- E4 validation -----

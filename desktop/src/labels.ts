@@ -29,7 +29,7 @@ export const PLAIN: Record<string, string> = {
   // kinds and fact types
   role: "Role", achievement: "Achievement", skill: "Skill", cert: "Certification", education: "Education", eligibility: "Eligibility",
   work_authorization: "Work authorization", sponsorship: "Visa sponsorship", clearance: "Security clearance", residency: "Where you live",
-  physical: "Physical", travel: "Travel", license: "License", program_status: "Military or student program",
+  physical: "Physical", travel: "Travel", license: "License", program_status: "Military or student program", availability: "Hours and availability",
   // opportunity factor names
   pay: "Pay", work_mode: "Remote / on-site", location: "Location", seniority: "Level", role_family: "Kind of role", age: "Posting age",
   // employer status
