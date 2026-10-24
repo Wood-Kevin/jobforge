@@ -1143,7 +1143,8 @@ LOW opportunity should also demote APPLY is Q15.
 
 Noise control: the list view defaults to APPLY + STRETCH, ranked by
 opportunity value; REVIEW appears as questions, not as a job list: counted in jobs ("8 jobs need your
-input"), with questions several jobs share first and then each job's own questions, fewest first
+input"), with questions several jobs share first and then each job's own questions, fewest first, each
+answered in place (`pages/Answer.tsx`: an empty item form in your own words, or the fact's typed form)
 (usability pass 2026-10-24: 45 question groups were 8 jobs, and only 1 group covered more than one job).
 Exact copies (one employer posting the same job under several ids) show as one row,
 "posted N times", and the job's detail links each open copy (`views.py` `_COPY_KEY`: employer,

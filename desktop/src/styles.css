@@ -69,6 +69,8 @@ th .sort:hover { color: var(--text); }
 button.link { background: none; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; }
 button.link:hover strong, button.link:focus-visible strong { text-decoration: underline; }
 .small-note { font-size: 12px; margin-left: 6px; }
+.answer { margin: 4px 0 8px; }
+.answer.form { padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
 details.advanced > summary { cursor: pointer; color: var(--muted); margin: 8px 0; }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--bg); }

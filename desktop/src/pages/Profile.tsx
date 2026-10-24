@@ -64,7 +64,9 @@ function ItemRow({ item, reload }: { item: Item; reload: () => void }) {
   );
 }
 
-function ItemForm({ kind, item, onSaved, onCancel }: { kind: string; item?: Item; onSaved: () => void; onCancel?: () => void }) {
+// Also used on the job page to answer a question in place (Answer.tsx); `onSaved` gets the saved item's id.
+export function ItemForm({ kind, item, onSaved, onCancel, placeholder }: { kind: string; item?: Item; onSaved: (id: number) => void;
+  onCancel?: () => void; placeholder?: string }) {
   const act = useAction();
   const [statement, setStatement] = useState(item?.statement ?? "");
   const [start, setStart] = useState(item?.start_date ?? "");
@@ -72,13 +74,12 @@ function ItemForm({ kind, item, onSaved, onCancel }: { kind: string; item?: Item
   const dated = kind === "role" || kind === "achievement" || kind === "education";
   const save = () => act.run(async () => {
     const fields = { statement, ...(dated ? { start_date: start || null, end_date: end || null } : {}) };
-    if (item) await api.updateItem(item.id, fields);
-    else await api.createItem({ kind, source: "user", ...fields });
-    onSaved();
+    if (item) { await api.updateItem(item.id, fields); onSaved(item.id); }
+    else onSaved((await api.createItem({ kind, source: "user", ...fields })).id);
   });
   return (
     <div className="form">
-      <textarea rows={2} value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="What it says, in your words" />
+      <textarea rows={2} value={statement} onChange={(e) => setStatement(e.target.value)} placeholder={placeholder ?? "What it says, in your words"} />
       {dated && <div className="row">
         <input value={start} onChange={(e) => setStart(e.target.value)} placeholder="start YYYY-MM" />
         <input value={end} onChange={(e) => setEnd(e.target.value)} placeholder="end YYYY-MM (empty = present)" />
@@ -112,17 +113,6 @@ function Facts({ schema, items, reload }: { schema: Schema; items: Item[]; reloa
 function FactRow({ type, fields, item, reload }: { type: string; fields: Schema["eligibility"][string]; item?: Item; reload: () => void }) {
   const act = useAction();
   const [editing, setEditing] = useState(false);
-  const [vals, setVals] = useState<Record<string, unknown>>(() => ({ ...(item?.attributes ?? {}) }));
-  const [statement, setStatement] = useState(item?.statement ?? "");
-  const save = () => act.run(async () => {
-    const attributes: Record<string, unknown> = { type };
-    for (const f of Object.keys(fields)) if (vals[f] !== undefined && vals[f] !== "") attributes[f] = vals[f];
-    const st = statement.trim() || describe(type, attributes);
-    if (item) await api.updateItem(item.id, { statement: st, attributes });
-    else await api.createItem({ kind: "eligibility", statement: st, attributes, source: "user" });
-    setEditing(false);
-    reload();
-  });
   if (!editing) return (
     <tr>
       <th>{title(type)}</th>
@@ -137,16 +127,33 @@ function FactRow({ type, fields, item, reload }: { type: string; fields: Schema[
   return (
     <tr>
       <th>{title(type)}</th>
-      <td colSpan={2}>
-        <div className="fact-form">
-          {Object.entries(fields).map(([f, spec]) => (
-            <label key={f}>{f.replace(/_/g, " ")}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
-          <label>description<input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="optional; generated if empty" /></label>
-        </div>
-        <div className="row"><button className="primary" disabled={act.busy} onClick={save}>Save</button><button onClick={() => setEditing(false)}>Cancel</button></div>
-        <ErrorBox error={act.error} />
-      </td>
+      <td colSpan={2}><FactForm type={type} fields={fields} item={item} onSaved={() => { setEditing(false); reload(); }} onCancel={() => setEditing(false)} /></td>
     </tr>);
+}
+
+// One eligibility fact's typed form; also used on the job page (Answer.tsx). `onSaved` gets the item id.
+export function FactForm({ type, fields, item, onSaved, onCancel }: { type: string; fields: Schema["eligibility"][string]; item?: Item;
+  onSaved: (id: number) => void; onCancel: () => void }) {
+  const act = useAction();
+  const [vals, setVals] = useState<Record<string, unknown>>(() => ({ ...(item?.attributes ?? {}) }));
+  const [statement, setStatement] = useState(item?.statement ?? "");
+  const save = () => act.run(async () => {
+    const attributes: Record<string, unknown> = { type };
+    for (const f of Object.keys(fields)) if (vals[f] !== undefined && vals[f] !== "") attributes[f] = vals[f];
+    const st = statement.trim() || describe(type, attributes);
+    if (item) { await api.updateItem(item.id, { statement: st, attributes }); onSaved(item.id); }
+    else onSaved((await api.createItem({ kind: "eligibility", statement: st, attributes, source: "user" })).id);
+  });
+  return (
+    <>
+      <div className="fact-form">
+        {Object.entries(fields).map(([f, spec]) => (
+          <label key={f}>{f.replace(/_/g, " ")}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
+        <label>description<input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="optional; generated if empty" /></label>
+      </div>
+      <div className="row"><button className="primary" disabled={act.busy} onClick={save}>Save</button><button onClick={onCancel}>Cancel</button></div>
+      <ErrorBox error={act.error} />
+    </>);
 }
 
 function FieldInput({ spec, value, onChange }: { spec: string; value: unknown; onChange: (v: unknown) => void }) {

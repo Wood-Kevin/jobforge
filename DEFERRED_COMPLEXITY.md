@@ -367,7 +367,16 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
     work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
     (50 of 112 state one).
 
-## Answering a "Needs your input" question in place (2026-10-24)
+## Answering a "Needs your input" question in place (2026-10-24; "Yes" part RESOLVED same day)
+- **Resolved (Kevin: "We should be able to answer the questions directly", meaning on "Needs your input"):** each
+  question on "Needs your input", shared or one job's own, has "Answer here": an empty item form
+  (choose skill, role, achievement, certification or education) shown under the posting's requirement, written in
+  your own words and never prefilled with the posting's sentence; an eligibility question opens that fact's typed
+  form, or offers Confirm for a fact already declared. Saved items are not confirmed; Confirm is Kevin's click.
+  `desktop/src/pages/Answer.tsx`.
+- **Still open:** "No" and "Not sure" answers, and concept grouping. "No" would record an absence, which changes how
+  matching treats the requirement (today only a complete cert list turns an unknown into a gap), so it is an
+  evaluation change and waits for Evaluation calibration 1. Same for "Show resume evidence" (no resume search exists).
 - **What:** a usability pass (pasted by Kevin) asked for each question to offer Yes / No / Not sure / Show resume
   evidence, with Yes opening a prefilled profile item, and for questions grouped by concept (ChromeOS, Kubernetes,
   communication, office attendance) so one answer covers more jobs. Today the page links to Profile only, and
