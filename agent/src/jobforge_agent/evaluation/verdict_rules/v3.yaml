@@ -1,0 +1,37 @@
+# Verdict rules v3: the thresholds of v2, unchanged. What changes is E5's fact checking (facts.py): the
+# availability check (hours, shifts, weekends, holidays, on-call) and residency time zones read from the
+# person's time_zone or from "Eastern US" / "eastern timezone" wording (Evaluation calibration 1, cases
+# E1-E2, the Nash case 2026-10-24). A version of its own so v2 and v3 compare side by side on the
+# same evaluations (scripts/compare_reading_fix.py). Not active until Kevin approves.
+#
+# Verdict rules v2: v1 plus one eligibility rule. Built and measured in P1.7; made the active version by
+# Kevin 2026-10-23 (v1 stays for comparison with scripts/compare_verdict_rules.py).
+#
+# A hard requirement whose ONLY interpretation conflict is the eligibility type (P1.7 live: all 10
+# hard conflicts in 42 postings, mostly Gemma typing a residency rule "work_authorization") is
+# checked under both readings: the code's type and the model's. It counts as answered only when
+# verified facts meet it under both (a model type of "none" imposes no condition of its own). Any
+# other outcome stays UNKNOWN as in v1. A conflict still never blocks.
+
+gap:
+  years_tolerance_abs: 2
+  years_tolerance_share: 0.40
+
+fit:
+  min_judgeable: 3
+  max_uncertain_share: 0.30
+  max_conflicts: 3
+  strong_max_unknown: 1
+  competitive_max_unknown: 2
+  max_stretch_gaps: 2
+  stretch_max_unknown: 2
+
+opportunity:
+  low_min_unfavorable: 2
+  high_min_favorable: 3
+  unknown_min_unknown: 4
+  age_favorable_days: 7
+  age_unfavorable_days: 30
+
+eligibility:
+  type_only_conflict: check_both   # v1 behavior: unknown

@@ -143,6 +143,8 @@ def test_eligibility_fact_matching(case):
         assert fc.detail.get("reason") == exp["reason"], fc.detail
     if exp.get("has_question"):
         assert fc.question
+    if "question_contains" in exp:
+        assert exp["question_contains"] in (fc.question or ""), fc.question
 
 
 def test_fact_types_cover_every_e2_eligibility_type():

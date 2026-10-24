@@ -348,3 +348,64 @@
   quote: "Must have a valid driver's license and reliable transportation."
   facts: {license: {name: "Florida driver's license", active: true}}
   expect: {outcome: met}
+
+# ----- v3 (Evaluation calibration 1, cases E1-E2; the Nash case 2026-10-24) -----
+- name: a declared time zone settles a state split between zones
+  type: residency
+  quote: "Remote in Eastern US (required)"
+  facts: {residency: {country: US, state: FL, time_zone: eastern}}
+  expect: {outcome: met, reason: time_zone_declared}
+
+- name: a split state without a declared time zone stays a question
+  type: residency
+  quote: "Located in US, eastern timezone (remote)"
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: unanswered, reason: state_partly_in_time_zone}
+
+- name: a declared time zone outside the required one fails
+  type: residency
+  quote: "Located in US, eastern timezone (remote)"
+  facts: {residency: {country: US, state: CA, time_zone: pacific}}
+  expect: {outcome: fails}
+
+- name: hours in your own time zone ask nothing more
+  type: availability
+  quote: "US Time (Eastern): Friday - Tuesday, 8A - 5P"
+  facts: {residency: {country: US, state: FL, time_zone: eastern}}
+  expect: {outcome: met}
+
+- name: hours in another time zone need your answer
+  type: availability
+  quote: "Must be able to work Pacific time hours"
+  facts: {residency: {country: US, state: FL, time_zone: eastern}}
+  expect: {outcome: unanswered, reason: no_availability_fact}
+
+- name: shifts, weekends and holidays all declared
+  type: availability
+  quote: "Support a 24x7x365 operation, including shift work, weekends, and holidays as required."
+  facts: {availability: {weekends: true, holidays: true, rotating_shifts: true}}
+  expect: {outcome: met}
+
+- name: a declared no to weekends fails
+  type: availability
+  quote: "This role includes rotating weekend support coverage"
+  facts: {availability: {weekends: false, rotating_shifts: true}}
+  expect: {outcome: fails}
+
+- name: an undeclared field is asked, not assumed
+  type: availability
+  quote: "Support a 24x7x365 operation, including shift work, weekends, and holidays as required."
+  facts: {availability: {weekends: true, rotating_shifts: true}}
+  expect: {outcome: unanswered, reason: field_not_declared}
+
+- name: on-call with no availability fact is a question
+  type: availability
+  quote: "Participate in an on-call rotation as needed."
+  facts: {}
+  expect: {outcome: unanswered, reason: no_availability_fact}
+
+- name: a split state asks for the time zone, not another residency fact
+  type: residency
+  quote: "Remote in Eastern US (required)"
+  facts: {residency: {country: US, state: FL}}
+  expect: {outcome: unanswered, reason: state_partly_in_time_zone, question_contains: "Add your time zone"}

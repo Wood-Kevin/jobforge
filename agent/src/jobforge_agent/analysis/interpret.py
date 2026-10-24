@@ -323,6 +323,12 @@ def interpret_item(seg: Segmented, item: ModelItem) -> Requirement:
                        final_class=final, interpretation_status=status, flags=chosen.flags + flags_extra, spans=spans)
 
 
+# Types the recall scan does not raise from unextracted sentences (interp-v3): hours and on-call wording
+# in prose ("our ticketing, on-call and incident setup", "night shift bonus") is rarely a condition, and a
+# recall row is a REVIEW question. A schedule the model extracted is still typed and checked.
+RECALL_SKIPS = {"availability"}
+
+
 def recall_scan(seg: Segmented, extracted: list[Requirement]) -> list[Requirement]:
     """Check 7 (D15): every eligibility-cue sentence outside EEO/privacy text whose types
     no extracted requirement covers becomes an `unextracted_eligibility` row (unverifiable), so a
@@ -331,7 +337,7 @@ def recall_scan(seg: Segmented, extracted: list[Requirement]) -> list[Requiremen
     for s in seg.sentences:
         if s.heading or s.label in RECALL_EXCLUDED or cues.EEO.search(s.text) or cues.PRIVACY.search(s.text):
             continue
-        types = cues.eligibility_types(s.text)
+        types = [t for t in cues.eligibility_types(s.text) if t not in RECALL_SKIPS]
         if not types:
             continue
         covering = [r for r in extracted if r.quote_found and any(a < s.end and s.start < b for a, b in r.spans)]

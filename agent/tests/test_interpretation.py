@@ -10,7 +10,7 @@ import yaml
 
 from jobforge_agent.analysis import cues
 from jobforge_agent.analysis.interpret import ModelItem, interpret
-from jobforge_agent.analysis.segment import heading_label, segment
+from jobforge_agent.analysis.segment import heading_label, norm, segment
 from jobforge_agent.profile import items as profile_items
 
 CASES = yaml.safe_load((resources.files("jobforge_agent.analysis") / "fixtures" / "layer_a.yaml").read_text(encoding="utf-8"))
@@ -123,3 +123,33 @@ def test_eligibility_types_match_the_profile_fact_types():
 ])
 def test_years(text, want):
     assert cues.years(text.lower()) == want
+
+
+@pytest.mark.parametrize("quote,want", [
+    # Evaluation calibration 1, cases E1-E2 (the Nash case, 2026-10-24): these went to the matcher as experience.
+    ("Remote in Eastern US (required)", ["residency"]),
+    ("Located in US, eastern timezone (remote)", ["residency"]),
+    ("US Time (Eastern): Friday - Tuesday, 8A - 5P", ["availability"]),
+    ("Participate in an on-call rotation as needed.", ["availability"]),
+    ("Support a 24x7x365 operation, including shift work, weekends, and holidays as required.", ["availability"]),
+    ("Candidates must have authorization to work in the United States", ["work_authorization"]),
+    # Not eligibility: a collaboration line, an office address, working a zone's hours from anywhere.
+    ("Collaborate with teammates across time zones", []),
+    ("Our office is located in Austin, Texas", []),
+    ("Comfortable working with distributed teams in Eastern and Pacific time", []),
+    # Before/after round 1 (2026-10-24): a zone with hours or alignment is about hours, not where you live;
+    # benefit holidays are not a schedule.
+    ("Ability to support customers and collaborate with colleagues during Pacific Time Zone business hours.", ["availability"]),
+    ("Opportunity to work remotely within the United States, with a focus on Pacific Time Zone alignment.", ["availability"]),
+    ("Flexible paid time off, plus 10 U.S. company holidays", []),
+    ("Weekends and holidays as required by the support schedule", ["availability"]),
+])
+def test_interp_v3_eligibility_cues(quote, want):
+    assert cues.eligibility_types(norm(quote)) == want
+
+
+def test_recall_scan_does_not_raise_hours_from_prose():
+    """Before/after round 1: Cogent's "our ticketing, on-call, and incident communication setup" became an
+    eligibility question and turned an APPLY into REVIEW."""
+    seg = segment("Requirements\nWe run our ticketing, on-call, and incident communication setup on Pylon.\n")
+    assert interpret(seg, []) == []

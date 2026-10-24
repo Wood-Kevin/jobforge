@@ -372,6 +372,20 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   model-only eligibility type as a conflict (as `type_only_conflict: check_both` already does for hard lines) or
   widens its location cues; an `INTERPRETER_VERSION` change, re-analysis without new model calls for E1. The
   window now says so on such a line instead of offering an experience answer (v0.3.7); that is display only.
+- **Reading fix prepared, NOT active (branch `calibration/eligibility-routing`, 2026-10-24; Kevin: "write both"):**
+  interp-v3 cues (availability; zone and remote-region residency, not when hours or alignment follow; "authorization
+  to work"), the recall scan skipping availability, the E1 schema fixed with e1-v1 (no E1 re-run), rules v3 = v2
+  thresholds with an availability check and residency time zones (the person's `time_zone` settles a split state),
+  and type-only conflicts asking for the fact. Before/after: `scripts/compare_reading_fix.py`, same database copy,
+  main's code vs the branch's, zero model calls, stored E3 answers reused; the before run reproduced all 17 stored
+  recommendations. Result in `docs/calibration/reading_fix_before_after.txt`: 17 jobs re-read (95 not: text dropped
+  by the 7-day filter). APPLY 4 kept, 2 APPLY -> REVIEW (Bridgeway x2: an on-call duty joined to a SOC 2 line, now
+  asked), STRETCH 3 kept, REVIEW 8 kept; Nash unknown 3 -> 0 (fit INSUFFICIENT -> COMPETITIVE), now waiting on time
+  zone and schedule. Two earlier drafts were rejected by this comparison (round 1: benefit holidays and team prose
+  "on-call" raised questions, 3 APPLY -> REVIEW; "Pacific Time Zone business hours" read as residency, a false fail).
+  Not measured: golden labels (1 so far), E3 drift on rollout (11-14% baseline), jobs whose text was dropped.
+  Rollout if approved: merge; reuse each posting's stored E1 answer for the interp-v3 analysis (to write: today a new
+  interpreter version re-runs E1); E3 re-runs where the request changes; Kevin declares time zone and availability.
 - **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
   unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
   reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212

@@ -12,7 +12,9 @@ import re
 # ----- check 6: eligibility type from code, not the model -----
 # Order is priority when a span shows several types and the model named none of them.
 ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
+    # interp-v3: "authorization to work" (job 16212, "Candidates must have authorization to work in the United States").
     ("work_authorization", r"\b(u\.?s\.? |united states )?citizen(s|ship)?\b|\bauthori[sz]ed to work\b|\bwork(ing)? authori[sz]ation\b"
+                           r"|\bauthori[sz]ation to work\b"
                            r"|\b(legally )?eligible to work\b|\bright to work\b|\bpermanent residen(t|ts|cy)\b|\bgreen card\b"),
     ("sponsorship", r"\bvisas?\b|\bimmigration\b|\bwork permit\b|\bh-?1b\b|\bsponsor(ship)?\b[^.]{0,40}\b(visa|employment|work|candidates|applicants)\b"
                     r"|\b(no|not|unable to|cannot|can't|will not|won't|do not|does not|don't)\b[^.]{0,20}\bsponsor"),
@@ -21,6 +23,18 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
     ("clearance", r"\bclearances?\b|\btop secret\b|\b(active|current|interim|dod|final) secret\b"
                   r"|\bsecret\b(?=[^.]{0,25}\b(clearance|level|or (higher|above)|eligib\w*|sci)\b)"
                   r"|\bts ?/ ?sci\b|\bts-sci\b|\bsci\b|\bpolygraph\b|\bpublic trust\b"),
+    # interp-v3: hours, shifts and on-call (Nash "Friday - Tuesday, 8A - 5P", DDN "24x7x365 ... weekends and
+    # holidays", PDI "on-call rotation"), matched against the availability fact. Before residency: a line with
+    # both hours and a zone ("9-5 Eastern", "Pacific Time Zone business hours", "Pacific time zone alignment")
+    # is about hours. "Holidays" only as work ("weekends and holidays", "cover holidays"), not "10 paid
+    # holidays". Not used by the recall scan (interpret.RECALL_SKIPS): unextracted sentences that mention
+    # on-call or holidays were team and benefit prose (before/after, 2026-10-24: three APPLY became REVIEW).
+    ("availability", r"\bon-?call\b|\bweekends?\b|\b(work|working|cover|covering|support|including)\b[^.;]{0,30}\bholidays?\b"
+                     r"|\bovernight\b|\bnight shifts?\b|\bshift work\b"
+                     r"|\brotating (shifts?|schedule)\b|\b(work|cover|covering|support)\b[^.;]{0,25}\bshifts?\b|\b24\s*[x/]\s*7\b"
+                     r"|\boutside (of )?(normal |regular )?(business |working )?hours\b|\bafter[- ]hours\b"
+                     r"|\b\d{1,2}(:\d\d)?\s*(a|p)\.?m?\.?\s*[-–]\s*\d{1,2}(:\d\d)?\s*(a|p)\b"
+                     r"|\b(pacific|mountain|central|eastern)\b[^.;]{0,25}\b(business hours|working hours|hours|alignment|overlap)\b"),
     ("residency", r"\breside\b|\bresiding\b|\bresidency\b|\bresident of\b|\bcommut(e|ing|able) distance\b|\bcommutable\b"
                   r"|\bmust (live|be located|be based)\b|\b(live|located|based) within\b|\bwithin \d+ miles\b"
                   r"|\b(candidates|applicants) (located|based|residing|living) in\b"
@@ -31,7 +45,17 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
                   # not "provide on-site support".
                   r"|\bbe local to\b|\blocal to (the |our )?[\w .,'-]{1,40}\b(area|office|region|metro|city|campus|site)\b"
                   r"|\b(on-?site|in[- ]office|in the office|in person)\b[^.;]{0,30}?\b(\d|one|two|three|four|five)\s*(\+\s*)?"
-                  r"(days?|x)\s*(a|per|each|every)\s*week\b"),
+                  r"(days?|x)\s*(a|per|each|every)\s*week\b"
+                  # interp-v3 (the Nash case, 2026-10-24): "Remote in Eastern US (required)" and "Located in US,
+                  # eastern timezone (remote)" went to the matcher as experience. A time zone next to a zone word,
+                  # "remote in/within <region>", and a line that starts with "located/based in" count. Not
+                  # "work across time zones" (a collaboration line) and not "our office is located in".
+                  r"|\b(pacific|mountain|central|eastern)\s+(standard\s+)?(time\s*zone|timezone|us|u\.s\.|united states)\b"
+                  r"(?![^.;]{0,25}\b(business hours|working hours|hours|alignment|overlap)\b)"
+                  r"|\b(pst|mst|cst|est|pt|mt|ct|et)\s+time\s*zone\b"
+                  r"|\bremote\b[^.;]{0,10}\b(in|within|from)\s+(the\s+)?(us|u\.s\.|usa|united states|eastern|central|mountain|pacific"
+                  r"|canada|uk|europe|emea|latam|americas)\b"
+                  r"|^\W*(located|based|living)\s+in\b"),
     ("physical", r"\blift(ing)?\b[^.]{0,30}\b(\d+ ?(lbs?|pounds)|heavy)\b|\b\d+ ?(lbs?|pounds)\b|\bstand(ing)? for (long|extended|\d+)"
                  r"|\bphysical (demands|requirements)\b|\bclimb(ing)? ladders\b"),
     ("travel", r"\btravel\b[^.]{0,20}\b\d+ ?%|\b\d+ ?% (of the time )?travel\b|\bwilling(ness)? to travel\b|\bability to travel\b"

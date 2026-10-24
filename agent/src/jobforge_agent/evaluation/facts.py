@@ -55,6 +55,11 @@ _OTHER_COUNTRY = re.compile(r"\b(canada|(?<!new )mexico|united kingdom|u\.?k\.?|
 # Time hours" is a schedule (independent P1.7 review).
 _ZONE = re.compile(r"\b(?:located|reside|residing|resident|based|live|living)\s+(?:(?:in|within)\s+)?(?:the\s+)?"
                    r"(?:(pacific|mountain|central|eastern) (?:standard )?time(?: zone)?|(pst|pt|mst|mt|cst|ct|est|et) (?:time )?zone)\b")
+# v3 (calibration E1-E2): a zone named without "located/based in" right before it: "Remote in Eastern US",
+# "Located in US, eastern timezone", "PST time zone". The same wording the interp-v3 residency cue reads.
+# Not "Eastern Time" alone: "able to work Eastern Time hours" is about hours, not where you live.
+_ZONE_WORDING = re.compile(r"\b(pacific|mountain|central|eastern)\s+(?:standard\s+)?(?:time\s*zone|timezone|us|u\.s\.|united states)\b"
+                           r"|\b(pst|mst|cst|est|pt|mt|ct|et)\s+time\s*zone\b")
 _ZONE_ABBR = {"pst": "pacific", "pt": "pacific", "mst": "mountain", "mt": "mountain", "cst": "central", "ct": "central",
               "est": "eastern", "et": "eastern"}
 # "El Dorado Hills, CA": case-sensitive on the original quote. In lower-cased text only codes
@@ -271,7 +276,7 @@ def _places(t: str, original: str) -> dict:
         if m.group(1).upper() in STATES and m.group(1).upper() not in _WORD_CODES:
             states.add(m.group(1).upper())
     zone = None
-    z = _ZONE.search(t)
+    z = _ZONE.search(t) or _ZONE_WORDING.search(t)
     if z:
         zone = z.group(1) or _ZONE_ABBR.get(z.group(2) or "")
     return {"states": sorted(states), "zone": zone, "us": bool(_US.search(t)), "other_country": bool(_OTHER_COUNTRY.search(t)),
@@ -292,13 +297,19 @@ def _residency(req, facts, completeness, siblings):
 
     def result(ok: bool | None, why: str) -> FactCheck:
         if ok is None:
-            return FactCheck("unanswered", _basis([f]), [f.id], {**detail, "reason": why}, q)
+            # v3: a split state is settled by the person's time zone, not by another residency fact.
+            ask = (f"Which time zone do you live in? The posting asks for {p['zone']} time: \"{req.jd_quote[:120]}\". "
+                   "Add your time zone to your residency fact.") if why == "state_partly_in_time_zone" else q
+            return FactCheck("unanswered", _basis([f]), [f.id], {**detail, "reason": why}, ask)
         if not ok and f.attributes.get("willing_to_relocate"):
             return FactCheck("unanswered", _basis([f]), [f.id], {**detail, "reason": "fails_but_willing_to_relocate"},
                              f"Would you relocate for this role? \"{req.jd_quote[:120]}\"")
         return FactCheck("met" if ok else "fails", _basis([f]), [f.id], {**detail, "reason": why}, None if ok else q)
 
     if p["zone"]:
+        own = f.attributes.get("time_zone")
+        if own:  # the person's own answer settles a state split between zones (v3)
+            return result(own == p["zone"], "time_zone_declared")
         if not home_us or home_state is None:
             return result(None, "home_state_unknown")
         fully, partly = _ZONES[p["zone"]]
@@ -423,6 +434,54 @@ def _program_status(req, facts, completeness, siblings):
     return FactCheck("met" if has else "fails", _basis([f]), [f.id], {"needs": need, "has": has}, None if has else q)
 
 
+# v3 (calibration E1-E2): what an hours line asks, by availability field. A posting line can ask several.
+_NEEDS = [
+    ("on_call", re.compile(r"\bon-?call\b|\boutside (of )?(normal |regular )?(business |working )?hours\b|\bafter[- ]hours\b")),
+    ("weekends", re.compile(r"\bweekends?\b|\b24\s*[x/]\s*7\b")),
+    ("holidays", re.compile(r"\bholidays?\b|\b24\s*[x/]\s*7\s*[x/]\s*365\b")),
+    ("night_shifts", re.compile(r"\bovernight\b|\bnight shifts?\b|\bgraveyard\b")),
+    ("rotating_shifts", re.compile(r"\brotating (shifts?|schedule)\b|\bshift work\b|\b(work|cover|covering|support)\b[^.;]{0,25}\bshifts?\b"
+                                   r"|\b24\s*[x/]\s*7\b")),
+]
+_HOURS_ZONE = re.compile(r"\b(pacific|mountain|central|eastern)\b|\b(pst|mst|cst|est|pt|mt|ct|et)\b")
+
+
+def _availability(req, facts, completeness, siblings):
+    """Hours, shifts and on-call against the availability fact; hours set in a time zone against the
+    residency fact's zone first (working 8-5 Eastern from the Eastern zone asks nothing more)."""
+    t = _text(req)
+    q = f"Can you work this schedule? \"{req.jd_quote[:120]}\" Add your hours and availability fact."
+    needs = [name for name, rx in _NEEDS if rx.search(t)]
+    z = _HOURS_ZONE.search(t)
+    zone = (z.group(1) or _ZONE_ABBR.get(z.group(2) or "")) if z else None
+    used: list[Item] = []
+    if zone:
+        res = _facts_of(facts, "residency")
+        home = res[0].attributes.get("time_zone") if res else None
+        if home == zone:
+            used.append(res[0])
+        else:
+            needs.append("other_time_zone_hours")
+    if not needs:
+        if used:
+            return FactCheck("met", _basis(used), [i.id for i in used], {"zone": zone})
+        return FactCheck("unanswered", "none", [], {"reason": "schedule_not_readable"}, q)
+    fs = _facts_of(facts, "availability")
+    if not fs:
+        return FactCheck("unanswered", "none", [i.id for i in used], {"needs": needs, "reason": "no_availability_fact"}, q)
+    f = fs[0]
+    has = {n: f.attributes.get(n) for n in needs}
+    detail = {"needs": needs, "has": has, "zone": zone}
+    ids = [f.id] + [i.id for i in used]
+    if any(v is False for v in has.values()):
+        return FactCheck("fails", _basis([f, *used]), ids, detail, q)
+    if any(v is None for v in has.values()):
+        missing = [n.replace("_", " ") for n, v in has.items() if v is None]
+        return FactCheck("unanswered", _basis([f, *used]), ids, {**detail, "reason": "field_not_declared"},
+                         f"Add to your hours and availability fact: {', '.join(missing)}. The posting says: \"{req.jd_quote[:120]}\"")
+    return FactCheck("met", _basis([f, *used]), ids, detail)
+
+
 _CHECKS = {"work_authorization": _work_authorization, "sponsorship": _sponsorship, "clearance": _clearance,
            "residency": _residency, "physical": _physical, "travel": _travel, "license": _license,
-           "program_status": _program_status}
+           "program_status": _program_status, "availability": _availability}

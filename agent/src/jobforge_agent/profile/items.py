@@ -59,7 +59,7 @@ ELIGIBILITY = {
                      "other_time_zone_hours": (_BOOL, False)},
 }
 # Fact types whose posting lines the E2 cues do not recognize yet (see "availability" above).
-AWAITING_CUES = {"availability"}
+AWAITING_CUES: set[str] = set()  # availability got its cues in interp-v3
 MULTIPLE_ALLOWED = {"license"}
 
 

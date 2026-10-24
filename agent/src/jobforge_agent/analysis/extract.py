@@ -19,7 +19,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jobforge_agent.analysis.cues import ELIGIBILITY_TYPES
 from jobforge_agent.analysis.interpret import ModelItem
 
 IMPORTANCE = ("hard", "required", "preferred")
@@ -27,7 +26,12 @@ IMPORTANCE = ("hard", "required", "preferred")
 # negated (spike P1.0b draft 1). The schema lint test pins "no enum value in two fields".
 POLARITY = ("affirmative", "negated")
 SUBJECT = ("candidate", "company", "team", "benefit")
-ELIGIBILITY = ("none", *ELIGIBILITY_TYPES)
+# The model's type list is fixed with prompt e1-v1, not taken from the E2 lexicon: E2 can learn a type
+# (availability, interp-v3) without changing the E1 schema, its pinned hash, or re-running E1 on every
+# posting. The model never names the newer types; E2 assigns them from the text.
+E1_ELIGIBILITY_TYPES = ("work_authorization", "sponsorship", "clearance", "residency", "physical", "travel", "license",
+                        "program_status")
+ELIGIBILITY = ("none", *E1_ELIGIBILITY_TYPES)
 
 SCHEMA = {
     "type": "object",

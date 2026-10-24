@@ -127,9 +127,13 @@ def eligibility(reqs: list[Req], matches: dict[int, Validated], rules: dict | No
             reasons.append({**base, "effect": "ok", "readings": _conflict_fields(r), **both,
                             "why": "type-only conflict; met by verified facts under both readings (rules v2)"})
         elif r.interpretation_status == "conflict":
+            # A type-only conflict settles once verified facts meet it (check_both), so ask for the fact; any
+            # other conflict is a reading question (v3, before/after round 2: Nash's location lines asked
+            # "Is this a requirement for you?", which no fact can answer).
+            ask_fact = question and _type_only_conflict(r) is not None
             reasons.append({**base, "effect": "unknown", "why": "model and code read this requirement differently",
                             "readings": _conflict_fields(r),
-                            "question": f"Is this a requirement for you? \"{r.jd_quote[:160]}\""})
+                            "question": question if ask_fact else f"Is this a requirement for you? \"{r.jd_quote[:160]}\""})
         elif outcome == "fails" and basis == "verified":
             reasons.append({**base, "effect": "blocks", "why": "a verified fact fails this requirement"})
         elif outcome == "met" and basis == "verified":
