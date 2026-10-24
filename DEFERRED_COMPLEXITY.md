@@ -318,15 +318,26 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   1. Keep a requirement's full meaning, including qualifiers (B2B SaaS, developer-focused products, specific
      technologies, work environments). Years alone never satisfy a qualified requirement.
   2. Use the code-computed experience duration in both decisions and every displayed or stored explanation.
-  3. Keep `MATCH_PROMPT_VERSION = m1-v1` and `VERDICT_RULE_VERSION = v2` as they are until golden labels exist.
+  3. Keep `MATCH_PROMPT_VERSION = m1-v1` and `VERDICT_RULE_VERSION = v2` until a change is approved under the
+     evaluation rule below (it no longer waits for golden labels).
   4. The direct-versus-transferable issue is an explicit item of this calibration, with D1-D7 as regression
      cases (and C1-C3 as controls against over-correction).
   5. Never verify eligibility facts automatically or infer missing profile experience.
-- **Trigger:** Kevin confirms his eligibility facts and labels the sample jobs (the 9 audited; 0 golden labels
-  on 2026-10-24).
-- **Then:** produce a before/after comparison of each proposed rule or prompt change, measured on the golden
-  labels and on every case in the file (recommendation changes per job, match-type changes per case), and
-  stop for Kevin's approval. No implementation of a rule or prompt change before that approval.
+- **Evaluation rule (Kevin, 2026-10-24; replaces "gated on golden labels": "I don't think myself or a regular user
+  would walk through skips and label them"):**
+  1. Every change to recommendation behavior keeps a before/after on real job data, the regression cases in
+     `docs/calibration/calibration_1_cases.json`, and Kevin's explicit approval before it is merged or deployed.
+  2. Application status (applied, interviewing, offer) and "I'd skip it" are high-confidence preference signals;
+     saved is a weaker interest signal; views and inactivity are not verdicts.
+  3. Preference stays separate from qualification and eligibility accuracy: applying to a stretch does not mean the
+     fit assessment was wrong, and skipping a qualified job does not mean the match was bad.
+  4. Deterministic eligibility routing is validated by tests and actual posting text, not by subjective labels.
+  5. Manual labels ("Your call") are optional, never required for calibration.
+  Also: on-call participation is an availability fact, not a negative job attribute; pay and working conditions
+  are separate considerations.
+- **Then:** for each proposed change, a before/after on real data (recommendation changes per job, line changes,
+  noise baseline beside it) and every case in the file, then stop for Kevin's approval. Not yet built: counting
+  applications and skips per recommendation as an ongoing preference scorecard (kept apart from accuracy, rule 3).
 - **Candidate changes, not decided:** the E3 prompt stating when `direct` applies; an E4 check that a `direct`
   citation names the requirement's technology; years from qualifying roles only; the years tolerance in
   `verdict_rules` (a shortfall is minor if at most 2 years *or* at most 40%, so 1.83 of "3-5 years" is minor).
