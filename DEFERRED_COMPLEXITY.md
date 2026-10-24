@@ -549,3 +549,11 @@ Five steps from Kevin's UX review and mockup (SPEC change log, "UX redesign step
 - **Search drafts end with the window:** `draft.ts` keeps unsaved search edits in the window's memory only. Closing
   the window destroys it (the host frees WebView2 and rebuilds the window on demand), so unsaved edits are lost on
   close, as before; moving between pages keeps them. Trigger: lost edits after closing the window.
+- **A commute town matches the same name anywhere** (found 2026-10-24 building the README demo): a home town
+  "Dublin" (Ohio) let Asana's "IT Support Specialist" in Dublin, Ireland through the filter, because a location
+  with no state or country is matched on the town name alone. The same could happen to any home town that shares a
+  name with a place abroad. A filtering rule change (re-filter of every job), so it goes through the evaluation
+  before/after rule. Trigger: a foreign job in "For you", or the next filtering round.
+- **"A fix waiting for your approval"** on Needs your input (`Answer.tsx`, `Misread`): addressed to Kevin about an
+  evaluation change; a shared user can't act on it. Reword to say what happens ("JobForge can't use this answer for
+  this job yet") when the wording is next touched; left out of the README screenshots meanwhile.

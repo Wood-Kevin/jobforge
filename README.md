@@ -11,6 +11,20 @@ traffic is JobForge fetching public job boards.
 > **Status:** a personal project. There is no published installer yet; see
 > [Building from source](#building-from-source).
 
+![The job list: each job with its pay, why it's listed, and a recommendation](docs/screenshots/jobs.png)
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/job.png" alt="A job's page: the verdict, the one thing to know, and what you bring"></td>
+    <td><img src="docs/screenshots/profile.png" alt="Your profile: a summary, your resume, and facts in plain words"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/setup.png" alt="The setup guide, one step at a time"></td>
+    <td>The screenshots show a made-up person (an IT support specialist with a sample resume) and real public job
+      postings, judged by JobForge with the local model.</td>
+  </tr>
+</table>
+
 ## What it does
 
 - **Finds jobs.** Watches about 5,800 companies' boards on Greenhouse, Lever and Ashby (a built-in list you can
