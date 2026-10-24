@@ -732,7 +732,7 @@ only by the Rust host.**
   `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
   action and the stream is relayed by the host.
 - **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Filtered out and
-  Skipped by you views; search; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
+  Skipped by you views; search; column headers sort the loaded rows, `desktop/src/sortJobs.ts`; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
   REVIEW questions grouped across jobs, Profile (items by kind, typed eligibility-fact forms built from
   `GET /v1/profile/schema`, verify/unverify, completeness, resumes, inferred claims, import of a reviewed JSON file, all
