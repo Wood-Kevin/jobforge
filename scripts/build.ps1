@@ -30,7 +30,8 @@ $required = @("jobforge-agent.exe", "_internal\jobforge_agent\db\migrations\0001
               "_internal\jobforge_agent\discovery\directory.json",          # P1.10: built-in company list
               "_internal\jobforge_agent\analysis\fixtures\layer_a.yaml",       # P1.9: golden --suite interpretation
               "_internal\jobforge_agent\evaluation\verdict_rules\v1.yaml",   # P1.7: E5/E6 thresholds are package data
-              "_internal\jobforge_agent\evaluation\verdict_rules\v2.yaml",   # the active rule version
+              "_internal\jobforge_agent\evaluation\verdict_rules\v2.yaml",   # kept for comparison
+              "_internal\jobforge_agent\evaluation\verdict_rules\v3.yaml",   # the active rule version (0.3.9)
               "_internal\jobforge_agent\filtering\defaults.yaml")            # P1.8b: first-run form defaults
 foreach ($r in $required) { if (-not (Test-Path (Join-Path $agentDir $r))) { throw "agent layout check failed: missing $r" } }
 if (-not (Get-ChildItem "$agentDir\_internal" -Filter 'python3*.dll')) { throw "agent layout check failed: no python3*.dll in _internal" }
