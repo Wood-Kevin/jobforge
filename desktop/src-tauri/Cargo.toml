@@ -1,6 +1,6 @@
 [package]
 name = "jobforge"
-version = "0.3.4"
+version = "0.3.5"
 description = "JobForge desktop host: tray, window, agent supervision. No business logic."
 edition = "2021"
 
