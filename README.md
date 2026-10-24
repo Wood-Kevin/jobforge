@@ -1,5 +1,7 @@
 # JobForge
 
+[![CI](https://github.com/Wood-Kevin/jobforge/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Wood-Kevin/jobforge/actions/workflows/ci.yml)
+
 JobForge is a Windows desktop app that does the tedious part of a job search for you. It keeps checking
 thousands of companies' job boards, skips the postings that don't fit what you're looking for, and reads the
 rest against your own experience, then tells you which jobs are worth applying to and why.
