@@ -1,0 +1,118 @@
+# Public CI: the agent's tests, the window's build and tests, and the Tauri host's check and tests.
+# Needs no secrets, no local AI model and no private files. Actions are pinned to commit SHAs (the comment
+# gives the version); Dependabot keeps them current.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only token for every job; nothing here writes to the repository.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  agent:
+    name: Python agent
+    # Windows: the agent is Windows-only (ctypes Win32 calls for elevation and the instance lock).
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "0.11.28"
+          python-version: "3.14"
+          enable-cache: true
+          cache-dependency-glob: agent/uv.lock
+      - name: Install from the lockfile
+        run: uv sync --locked
+      # Left out by marker, not skipped silently; the next step lists them in the run summary.
+      #   integration:    starts real agent processes; needs an interactive, unelevated Windows session
+      #                   (hosted runners are elevated and have no desktop).
+      #   private_config: the scanner filter suite against the owner's private config.yaml.
+      - name: Run tests
+        run: uv run --locked pytest -m "not integration and not private_config" -rs
+      - name: List tests not run here
+        if: always()
+        shell: bash
+        run: |
+          integration=$(uv run --locked pytest -q --collect-only -m integration | tail -n 1)
+          private=$(uv run --locked pytest -q --collect-only -m private_config | tail -n 1)
+          {
+            echo "### Agent tests not run in public CI"
+            echo "- \`integration\` (real agent processes; need an unelevated desktop session): ${integration}"
+            echo "- \`private_config\` (need the owner's private scanner config): ${private}"
+            echo "Run them locally: \`cd agent && uv run pytest -q\` (see README, Testing)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  frontend:
+    name: Window (TypeScript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install from the lockfile
+        run: npm ci
+      - name: Type-check and bundle
+        run: npm run build
+      - name: Tests
+        run: npx vitest run
+
+  host:
+    name: Desktop host (Rust)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # Tauri embeds the built window (frontendDist ../dist) at compile time, so the host needs it first.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Build the window
+        working-directory: desktop
+        run: |
+          npm ci
+          npm run build
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: desktop/src-tauri -> target
+      - name: cargo check
+        working-directory: desktop/src-tauri
+        run: cargo check --locked --all-targets
+      - name: cargo test
+        working-directory: desktop/src-tauri
+        run: cargo test --locked
