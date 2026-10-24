@@ -194,6 +194,13 @@ def recompute(conn: sqlite3.Connection, profile, now: int, rule_version: str | N
 
 # ----- requirements and matches as E5 reads them -----
 
+def unrecognized_eligibility(model_type: str | None, code_type: str | None) -> str | None:
+    """The model's eligibility type when the code gave the requirement none: an eligibility condition that
+    went to the matcher as experience (2026-10-24: 61 lines in 43 jobs, 56 of them unknown). For display;
+    no decision reads it."""
+    return model_type if model_type not in (None, "none") and code_type is None else None
+
+
 def load_reqs(conn: sqlite3.Connection, analysis_id: int) -> list[facts.Req]:
     return [facts.Req(r[0], r[1], r[2], r[3], r[4], r[5], r[6], r[7], r[8], r[9], r[10], tuple(json.loads(r[11])))
             for r in conn.execute(
@@ -497,11 +504,16 @@ def job_recommendation(conn: sqlite3.Connection, job_id: int) -> dict | None:
     ev = dict(conn.execute("SELECT id, posting_analysis_id, profile_snapshot_id, model_config_id, model_id_reported, "
                            "match_prompt_version, status, created_at_ms FROM evaluations WHERE id = ?", (eid,)).fetchone())
     matches = load_matches(conn, eid)
+    # Display only: the model's eligibility reading, so the window can tell a condition the code did not
+    # recognize (sent to the matcher, so "unknown") from a real experience question.
+    model_types = dict(conn.execute("SELECT id, model_eligibility_type FROM requirements WHERE posting_analysis_id = ?",
+                                    (ev["posting_analysis_id"],)).fetchall())
     table = []
     for r in load_reqs(conn, ev["posting_analysis_id"]):
         m = matches.get(r.id)
         table.append({"requirement_id": r.id, "quote": r.jd_quote, "class": r.final_class, "status": r.interpretation_status,
                       "origin": r.origin, "eligibility_type": r.eligibility_type,
+                      "unrecognized_eligibility": unrecognized_eligibility(model_types.get(r.id), r.eligibility_type),
                       "match": None if m is None else {"matched_by": m.matched_by, "match_type": m.match_type, "basis": m.basis,
                                                        "citations": m.citations, "bridge": m.bridge,
                                                        "transfer_limits": m.transfer_limits, "gap_size": m.gap_size,

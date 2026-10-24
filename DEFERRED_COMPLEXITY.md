@@ -349,6 +349,18 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
     no profile item does, and the resume suggester proposed none (all 179 open inbox suggestions come from
     evaluations, none from the resume). Not a matcher change: the matcher reads snapshot items only (D2) and
     requirement 5 forbids inferring them. Measured as resume-suggestion recall (`RESUME_PROMPT_VERSION`).
+- **Added 2026-10-24 (E2, cases E1-E2): eligibility lines the code does not type go to the matcher.** Across
+  current recommendations, 61 lines in 43 jobs (34 of them REVIEW) were typed as eligibility by the model
+  (work_authorization 43, travel 12, physical 4, sponsorship 1, license 1) and given no type by E2, so they were
+  matched as experience: 56 unknown, 5 transferable. the confirmed facts never see them. Nash "Technical Support
+  Specialist, US East Coast" (job 108580): "candidates must be located in the US in Eastern timezone" (1558) was
+  typed residency and met by his Florida fact, while "Remote in Eastern US (required)" (1556) and "Located in US,
+  eastern timezone (remote)" (1565) were not, and with "US Time (Eastern) ... 8A-5P" (1557, a schedule) made 3
+  unknowns and REVIEW. Also "Candidates must have authorization to work in the United States" (job 16212,
+  requirement 216) went unchecked against a confirmed citizenship fact. Candidate, not decided: E2 treats a
+  model-only eligibility type as a conflict (as `type_only_conflict: check_both` already does for hard lines) or
+  widens its location cues; an `INTERPRETER_VERSION` change, re-analysis without new model calls for E1. The
+  window now says so on such a line instead of offering an experience answer (v0.3.7); that is display only.
 - **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
   unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
   reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212

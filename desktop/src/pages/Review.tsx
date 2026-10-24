@@ -17,8 +17,8 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
   const { shared, jobs } = byJob(groups.data ?? []);
   const schema = useLive(api.schema, [], []);
   const items = useLive(api.items, [], ["profile_changed"]);
-  const answer = (q: { kind: string; type: string | null; question: string }) => (
-    <Answer q={{ kind: q.kind, type: q.type ?? undefined, question: q.question }} schema={schema.data ?? null} items={items.data ?? []} />);
+  const answer = (q: { kind: string; type: string | null; question: string; unrecognized?: string | null }) => (
+    <Answer q={{ kind: q.kind, type: q.type ?? undefined, question: q.question, unrecognized: q.unrecognized }} schema={schema.data ?? null} items={items.data ?? []} />);
   const link = (id: number, title: string) => <a href="#" onClick={(e) => { e.preventDefault(); onOpen(id); }}>{title}</a>;
   return (
     <div className="page">
@@ -33,7 +33,7 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
           {shared.map((g, i) => (
             <details key={i} className="group" open>
               <summary><strong>{g.jobs.length} jobs</strong> {badge(g)} {g.example}</summary>
-              {answer({ kind: g.kind, type: g.type, question: g.example })}
+              {answer({ kind: g.kind, type: g.type, question: g.example, unrecognized: g.jobs[0]?.unrecognized_eligibility })}
               <ul>{g.jobs.map((j) => <li key={j.job_id}>{link(j.job_id, j.title)}<span className="muted"> · {j.company}</span>
                 <div className="muted">{j.question}</div></li>)}</ul>
             </details>))}

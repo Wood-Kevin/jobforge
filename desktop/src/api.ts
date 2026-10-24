@@ -36,7 +36,9 @@ export type JobList = { view: string; total: number; jobs: JobRow[]; search_prof
 
 export type Match = { matched_by: string; match_type: string; basis: string; citations: number[]; bridge: string | null;
   transfer_limits: string | null; gap_size: Record<string, unknown> | null; gap_materiality: string; flags: { flag: string; [k: string]: unknown }[] };
-export type EvidenceRow = { requirement_id: number; quote: string; class: string; status: string; origin: string; eligibility_type: string | null; match: Match | null };
+export type EvidenceRow = { requirement_id: number; quote: string; class: string; status: string; origin: string; eligibility_type: string | null;
+  // The model's eligibility reading of a line the code did not type (it went to the matcher as experience).
+  unrecognized_eligibility: string | null; match: Match | null };
 export type Reason = { rule: number; name: string; detail: string; questions?: { kind: string; type?: string; requirement_id?: number; question: string }[] };
 export type Recommendation = { recommendation: Category; eligibility: string; fit: string; opportunity: string; verdict_rule_version: string;
   eligibility_reasons: { requirement_id: number; quote: string; type: string; status: string; origin: string; outcome: string; basis: string; effect: string; why: string; question?: string }[];
@@ -70,7 +72,8 @@ export type Claim = { id: number; statement: string; kind: string; rationale: st
   evidence: { quote?: string; [k: string]: unknown } };
 export type SuggestReport = { proposed: number; added: number; already_known: number; quote_not_found: number; bad_kind: number; repeated: number; seconds: number };
 export type Resume = { id: number; label: string | null; original_filename: string; mime: string; sha256: string; bytes: number; text_chars: number; uploaded_at_ms: number };
-export type ReviewGroup = { kind: string; type: string | null; example: string; jobs: { job_id: number; title: string; company: string; question: string; current: boolean }[] };
+export type ReviewGroup = { kind: string; type: string | null; example: string; jobs: { job_id: number; title: string; company: string; question: string;
+  current: boolean; requirement_id?: number; unrecognized_eligibility?: string | null }[] };
 export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; enabled: boolean; tested_at_ms: number | null; default: boolean };
 export type ApplicationRow = { id: number; job_id: number; status: string; notes: string | null; title: string; company: string; job_closed: boolean; last_change_ms: number };
 

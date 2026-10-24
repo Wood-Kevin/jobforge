@@ -5,7 +5,9 @@
 // to requirements it did not show). An eligibility question opens that fact's typed form, or offers to
 // confirm the fact you already declared. Saving adds a not-confirmed item; Confirm is your own click.
 // There is no "No" answer: recording an absence would change how matching treats the requirement,
-// which waits for Evaluation calibration 1 (DEFERRED_COMPLEXITY.md).
+// which waits for Evaluation calibration 1 (DEFERRED_COMPLEXITY.md). A line the model read as an
+// eligibility condition but the code did not type (`unrecognized`) gets an explanation, not a form:
+// your facts cannot answer it yet and an experience item would be the wrong fix (Nash, 2026-10-24).
 import { useState } from "react";
 import { api, type Item, type Schema } from "../api";
 import { ErrorBox, useAction } from "../ui";
@@ -14,7 +16,12 @@ import { FactForm, ItemForm } from "./Profile";
 const KINDS: [string, string][] = [["skill", "Skill"], ["role", "Job or role"], ["achievement", "Achievement"], ["cert", "Certification"],
   ["education", "Education"]];
 
-export type Question = { kind: string; type?: string; requirement_id?: number; question: string };
+export type Question = { kind: string; type?: string; requirement_id?: number; question: string; unrecognized?: string | null };
+
+const CONDITION: Record<string, string> = {
+  work_authorization: "where or when you can work", residency: "where you live", travel: "travel", physical: "a physical requirement",
+  sponsorship: "visa sponsorship", license: "a license", clearance: "a security clearance", program_status: "a program status",
+};
 
 export function Answer({ q, schema, items }: { q: Question; schema: Schema | null; items: Item[] }) {
   const act = useAction();
@@ -26,6 +33,10 @@ export function Answer({ q, schema, items }: { q: Question; schema: Schema | nul
   const confirm = (id: number) => act.run(async () => { await api.verifyItem(id, null); setSaved(null); setOpen(false); });
 
   if (q.kind !== "experience" && q.kind !== "eligibility") return null; // a reading conflict has nothing to answer
+  if (q.kind === "experience" && q.unrecognized) return (
+    <div className="answer muted">This is about {CONDITION[q.unrecognized] ?? "eligibility"}, not experience. The AI read it that way,
+      but JobForge's rules didn't, so your eligibility facts can't answer it yet (a known reading problem, being fixed).
+      Don't add it as experience; if the job suits you anyway, say so in "Your call".</div>);
   if (saved !== null) return (
     <div className="answer"><span>Added to your profile (not confirmed). JobForge re-checks your jobs with it; this page
       updates when that's done.</span> <button className="small primary" disabled={act.busy} onClick={() => confirm(saved)}>Confirm it</button>

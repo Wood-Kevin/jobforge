@@ -119,11 +119,16 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
 
 def review_questions(conn: sqlite3.Connection) -> list[dict]:
     """The REVIEW questions without the jobs you skipped (and their copies); a question left with no
-    job is dropped."""
+    job is dropped. Each job entry says whether its line is an eligibility condition the code did not
+    recognize (`unrecognized_eligibility`), so the window does not offer an experience answer for it."""
     _, hidden = skipped(conn)
     groups = []
     for g in evaluation_store.review_questions(conn):
         jobs = [j for j in g["jobs"] if j["job_id"] not in hidden]
+        for j in jobs:
+            row = conn.execute("SELECT model_eligibility_type, eligibility_type FROM requirements WHERE id = ?",
+                               (j.get("requirement_id"),)).fetchone() if j.get("requirement_id") else None
+            j["unrecognized_eligibility"] = evaluation_store.unrecognized_eligibility(*row) if row else None
         if jobs:
             groups.append({**g, "jobs": jobs})
     return sorted(groups, key=lambda g: -len(g["jobs"]))

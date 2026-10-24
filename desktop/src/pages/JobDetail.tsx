@@ -7,12 +7,13 @@ import { openUrl } from "../agent";
 import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
 import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, factorText, headline, matchNote, opportunityLabel, plain } from "../labels";
 import { sanitizePosting } from "../sanitize";
+import { Answer } from "./Answer";
 import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
 
 const STATUSES = ["saved", "applied", "interviewing", "offer", "rejected", "withdrawn"];
 
 export default function JobDetail({ id, onBack }: { id: number; onBack: () => void }) {
-  const job = useLive(() => api.job(id), [id], ["recommendation_computed", "application_changed", "analysis_done"], 0);
+  const job = useLive(() => api.job(id), [id], ["recommendation_computed", "application_changed", "analysis_done", "profile_changed"], 0);
   return (
     <div className="page">
       <p><button onClick={onBack}>&larr; Back</button></p>
@@ -28,6 +29,9 @@ function Section({ title, children, open = false }: { title: string; children: R
 
 function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
   const act = useAction();
+  // "JobForge needs your answer" is answered in place, as on Needs your input (Answer.tsx).
+  const schema = useLive(api.schema, [], []);
+  const items = useLive(api.items, [], ["profile_changed"]);
   const ev = d.evaluation;
   const rec = ev?.recommendation;
   // The post itself; Lever's and Ashby's apply_url is the application form (.../apply, .../application).
@@ -79,7 +83,9 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
           </div>
           {questions.length > 0 && (
             <div className="reason"><strong>JobForge needs your answer:</strong>
-              <ul>{questions.slice(0, 6).map((q, k) => <li key={k}>{q.question}</li>)}</ul>
+              <ul>{questions.slice(0, 6).map((q, k) => (
+                <li key={k}>{q.question} <Answer q={{ ...q, unrecognized: ev!.evidence.find((r) => r.requirement_id === q.requirement_id)?.unrecognized_eligibility }}
+                  schema={schema.data ?? null} items={items.data ?? []} /></li>))}</ul>
               {questions.length > 6 && <p className="muted">and {questions.length - 6} more in "Needs your input".</p>}
             </div>)}
           <div className="two">

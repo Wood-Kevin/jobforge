@@ -90,13 +90,32 @@ def test_a_job_you_skip_leaves_the_default_views_with_its_copies(env):
         env.user_tx(golden.label, job, {"recommendation": "SKIP", "keep_details": "yes"}, NOW)
 
 
+def test_an_eligibility_line_the_code_did_not_type_is_marked_for_the_window(env):
+    """Nash, 2026-10-24: "Remote in Eastern US (required)" was typed work_authorization by the model and
+    nothing by the code, so it went to the matcher and came back unknown; the window must not offer an
+    experience answer for it. Display only: no decision reads the field."""
+    from jobforge_agent.evaluation import store
+    assert store.unrecognized_eligibility("work_authorization", None) == "work_authorization"
+    assert store.unrecognized_eligibility("work_authorization", "residency") is None  # the code typed it: checked by facts
+    assert store.unrecognized_eligibility("none", None) is None and store.unrecognized_eligibility(None, None) is None
+    evaluated(env)
+    rid = env.db.execute("SELECT r.id FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id "
+                         "WHERE pa.job_id = ? AND r.eligibility_type IS NULL ORDER BY r.id LIMIT 1", (env.ids["job"],)).fetchone()[0]
+    env.db.execute("UPDATE requirements SET model_eligibility_type = 'work_authorization' WHERE id = ?", (rid,))
+    rows = {r["requirement_id"]: r for r in views.job_detail(env.ev, env.ids["job"])["evaluation"]["evidence"]}
+    assert rows[rid]["unrecognized_eligibility"] == "work_authorization"
+    assert all(r["unrecognized_eligibility"] is None for i, r in rows.items() if i != rid)
+
+
 def test_needs_your_input_drops_skipped_jobs(env):
     from jobforge_agent.evaluation import store
     profile_basic(env)
     _, e = env.analyze(FakeServer(("ok", E1), ("ok", e3())))  # nothing matched: REVIEW with questions
     assert asyncio.run(e.run_once()) == "done"
     asked = store.review_questions(env.ev)
-    assert asked and views.review_questions(env.ev) == asked
+    shown = views.review_questions(env.ev)
+    assert all(j.pop("unrecognized_eligibility") is None for g in shown for j in g["jobs"])  # the window's extra field
+    assert asked and shown == asked
     env.user_tx(golden.label, env.ids["job"], {"recommendation": "SKIP"}, NOW)
     assert views.review_questions(env.ev) == [] and store.review_questions(env.ev) == asked
 
