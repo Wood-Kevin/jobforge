@@ -8,6 +8,8 @@ import pytest
 
 from conftest import NOW
 from jobforge_agent import applications, views
+from jobforge_agent.db import textpack
+from jobforge_agent.evaluation import golden
 from jobforge_agent.db.connect import open_connection
 from jobforge_agent.profile import items as profile_items
 from test_analysis import FakeServer, _run_with_fake
@@ -60,6 +62,43 @@ def test_exact_copies_show_as_one_row_and_different_jobs_do_not(env):
     # A closed copy drops out of the group; the open one remains.
     env.db.execute("UPDATE jobs SET closed_at_ms = ? WHERE id = ?", (NOW, b))
     assert rows() == {a: 1, other: 1, elsewhere: 1} and views.job_detail(env.ev, a)["copies"] == []
+
+
+def test_a_job_you_skip_leaves_the_default_views_with_its_copies(env):
+    """Kevin, 2026-10-24: jobs he'd skip sat in the list and got looked at again. A SKIP label hides the
+    job (and its exact copies) from "For you" and "Needs your input"; the recommendation is unchanged."""
+    evaluated(env)
+    job = env.ids["job"]
+    copy, _ = add_job(env.db, env.ids, 51, "NOC Engineer", desc=env.db.execute(
+        f"SELECT {textpack.TEXT} FROM raw_postings rp {textpack.JOIN} WHERE rp.id = ?", (env.ids["raw"],)).fetchone()[0])
+    assert [c["id"] for c in views.job_detail(env.ev, job)["copies"]] == [copy]  # really an exact copy
+    env.user_tx(golden.label, job, {"recommendation": "APPLY", "misread_requirement_ids": [], "note": "kept"}, NOW)
+    env.user_tx(golden.label, copy, {"recommendation": "SKIP", "keep_details": True}, NOW + 1)  # skip the copy
+    env.user_tx(golden.label, job, {"recommendation": "SKIP", "keep_details": True}, NOW + 2)   # one-click skip
+    assert golden.current_label(env.ev, job)["note"] == "kept"  # details from the earlier call survive
+    env.user_tx(golden.withdraw, copy, NOW + 3)                  # only the original is skipped now
+    assert views.list_jobs(env.ev, "recommended", None, 50, 0)["jobs"] == []
+    (row,) = views.list_jobs(env.ev, "skipped", None, 50, 0)["jobs"]
+    assert (row["id"], row["skipped"], row["copies"]) == (job, "you", 2) and row["recommendation"]["recommendation"]
+    shown = {j["id"]: j["skipped"] for j in views.list_jobs(env.ev, "all", "noc", 50, 0)["jobs"]}
+    assert shown[job] == "you" and copy not in shown  # "Everything found" still lists it, once
+    assert views.job_detail(env.ev, job)["evaluation"]["recommendation"]["recommendation"] == row["recommendation"]["recommendation"]
+    env.user_tx(golden.withdraw, job, NOW + 4)                   # undo
+    assert [j["id"] for j in views.list_jobs(env.ev, "recommended", None, 50, 0)["jobs"]] == [job]
+    assert views.list_jobs(env.ev, "skipped", None, 50, 0)["jobs"] == []
+    with pytest.raises(golden.LabelError):
+        env.user_tx(golden.label, job, {"recommendation": "SKIP", "keep_details": "yes"}, NOW)
+
+
+def test_needs_your_input_drops_skipped_jobs(env):
+    from jobforge_agent.evaluation import store
+    profile_basic(env)
+    _, e = env.analyze(FakeServer(("ok", E1), ("ok", e3())))  # nothing matched: REVIEW with questions
+    assert asyncio.run(e.run_once()) == "done"
+    asked = store.review_questions(env.ev)
+    assert asked and views.review_questions(env.ev) == asked
+    env.user_tx(golden.label, env.ids["job"], {"recommendation": "SKIP"}, NOW)
+    assert views.review_questions(env.ev) == [] and store.review_questions(env.ev) == asked
 
 
 def _ruleset():

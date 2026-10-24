@@ -755,7 +755,9 @@ only by the Rust host.**
   window shows no JSON or regex; internal values are translated in `desktop/src/labels.ts`.
 - **Golden set (P1.9):** `POST /v1/jobs/{id}/golden-label` (`{recommendation, eligibility?, obvious?,
   misread_requirement_ids?, note?}`; requirement ids must belong to the job), `POST /v1/jobs/{id}/golden-label/withdraw`,
-  `GET /v1/golden/report`; job detail carries `golden_label`. The window's "Your call" card on a job writes them; Status
+  `GET /v1/golden/report`; job detail carries `golden_label`. `keep_details: true` keeps the current label's
+  eligibility, obvious, misread ids and note (the one-click Skip); `GET /v1/jobs?view=skipped` lists jobs labeled SKIP
+  and their copies, and each row carries `skipped` (`you`, `copy` or null). The window's "Your call" card on a job writes them; Status
   shows the count against the 20-30 target. `jobforge-agent golden [--json]` prints the report from a read-only
   connection (safe beside a running agent); `jobforge-agent golden --suite interpretation [--config ID]` runs 6.6 C.
 - **Restore screen (P1.9, host):** commands `list_backups` (backup files with the schema version read from each SQLite
@@ -1144,6 +1146,13 @@ title and location). The shown copy is the one with an application, else the old
 merged in the database: each posting keeps its own link, closure and analysis. Rejected: merging at
 ingestion (loses a real posting's link and closure) and matching similar text (Voxel's "Tier 2" and
 "Tier 3 Support Engineer" share an intro but are different jobs).
+A job you skip leaves the default views (Kevin, 2026-10-24: skipped jobs "sit in the list taking up
+space and will probably get looked at more than once"). Skip, on a list row or the job's header, saves
+your call SKIP (6.7) and keeps any details already given (`keep_details`). A job whose current label is
+SKIP, with its open exact copies, is left out of "For you" and "Needs your input" and listed under
+"Skipped by you"; "Everything found" still lists it; Undo withdraws the label. JobForge's own
+recommendation is unchanged, so the report still measures it. Rejected: a "not interested" application
+status (a table rebuild for its CHECK, a non-application in the application history, and no label).
 The golden-set report (6.7) tracks REVIEW share; if it exceeds the target
 (Q16), thresholds get tuned in a new rule version, measured against labels,
 not intuition.
@@ -1262,6 +1271,8 @@ requirement he thinks is misread (Q12). Report per model/prompt/rule version:
 **Provenance rule (Kevin, Q27, 2026-10-21).** Labels written by anyone other
 than Kevin, including the P1.0b spike reference in `spikes/p1_0/reference.py`,
 are provisional: usable for testing and model comparison, never golden.
+A label of SKIP also hides the job from the default views (Noise control, 6.5); the
+label is still the measurement and the recommendation is not changed by it.
 Before any of those items enters the golden set, every item a model got
 "wrong" against them gets an independent review: the reviewer sees the
 posting text, the reference label and the model's output side by side, did

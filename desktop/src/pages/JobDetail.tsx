@@ -39,7 +39,12 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
 
   return (
     <>
-      <Card title={d.title} actions={link && <button onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}>
+      <Card title={d.title} actions={<>
+        {d.golden_label?.recommendation === "SKIP"
+          ? <><span className="muted">Skipped by you </span><button disabled={act.busy} onClick={() => act.run(async () => { await api.withdrawGoldenLabel(d.id); reload(); })}>Undo</button></>
+          : <button disabled={act.busy} title="Hide it from For you; counts as your call"
+              onClick={() => act.run(async () => { await api.setGoldenLabel(d.id, { recommendation: "SKIP", keep_details: true }); reload(); })}>Skip</button>}
+        {link && <button onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}</>}>
         <p className="muted">{d.company} · {d.location ?? "location not stated"}{d.salary && ` · ${fmtSalary(d.salary)}`}
           {` · found ${ago(d.first_seen_at_ms)} ago`}{d.closed_at_ms && " · no longer listed"}</p>
         {d.copies.length > 0 && (

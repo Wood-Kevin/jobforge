@@ -29,7 +29,9 @@ export type RecSummary = { recommendation: Category; eligibility: string; fit: s
   current: boolean; newer_evaluation_pending: boolean };
 export type JobRow = { id: number; title: string; company: string; location: string | null; work_mode: string | null; posted_at: string | null;
   first_seen_at_ms: number; filter_verdict: "pass" | "reject" | null; filter_primary: string | null; override: boolean;
-  application_status: string | null; recommendation: RecSummary | null; copies: number };
+  application_status: string | null; recommendation: RecSummary | null; copies: number;
+  // "you": your current call on this job is SKIP; "copy": an exact copy of one you skipped.
+  skipped: "you" | "copy" | null };
 export type JobList = { view: string; total: number; jobs: JobRow[]; search_profile: { id: number; version: number } | null };
 
 export type Match = { matched_by: string; match_type: string; basis: string; citations: number[]; bridge: string | null;
@@ -94,7 +96,7 @@ export const api = {
   analysisStatus: () => agentCall<QueueStatus>("GET", "/v1/analysis/status"),
   evaluationStatus: () => agentCall<QueueStatus>("GET", "/v1/evaluation/status"),
 
-  jobs: (view: "recommended" | "rejected" | "all", search: string, limit = 200, offset = 0) =>
+  jobs: (view: "recommended" | "rejected" | "skipped" | "all", search: string, limit = 200, offset = 0) =>
     agentCall<JobList>("GET", `/v1/jobs?view=${view}&limit=${limit}&offset=${offset}${search ? `&q=${q(search)}` : ""}`),
   job: (id: number) => agentCall<JobDetail>("GET", `/v1/jobs/${id}`),
   evaluateAnyway: (id: number, note: string) => agentCall<{ queued: boolean; waiting_for_text: boolean }>("POST", `/v1/jobs/${id}/evaluate-anyway`, { note }),
@@ -102,7 +104,8 @@ export const api = {
     agentCall<Application>("PUT", `/v1/jobs/${id}/application`, fields),
   applications: () => agentCall<ApplicationRow[]>("GET", "/v1/applications"),
   reviewQuestions: () => agentCall<ReviewGroup[]>("GET", "/v1/review-questions"),
-  setGoldenLabel: (id: number, fields: { recommendation: Category; eligibility?: string | null; obvious?: boolean; misread_requirement_ids?: number[]; note?: string | null }) =>
+  setGoldenLabel: (id: number, fields: { recommendation: Category; eligibility?: string | null; obvious?: boolean; misread_requirement_ids?: number[]; note?: string | null;
+    keep_details?: boolean }) =>
     agentCall<GoldenLabel>("POST", `/v1/jobs/${id}/golden-label`, fields),
   withdrawGoldenLabel: (id: number) => agentCall<{ withdrawn: boolean }>("POST", `/v1/jobs/${id}/golden-label/withdraw`),
   goldenReport: () => agentCall<GoldenReport>("GET", "/v1/golden/report"),

@@ -277,6 +277,9 @@ fi
 
 if run golden; then
   section "GOLDEN — your labels against JobForge (read only)"
+  sql "SELECT 'current labels by your call (SKIP also hides the job from For you and Needs your input):' AS note"
+  sql "SELECT g.recommendation, count(*) FROM golden_labels g WHERE g.state = 'active'
+         AND g.id = (SELECT max(id) FROM golden_labels WHERE job_id = g.job_id) GROUP BY g.recommendation"
   probe "jobforge-agent golden" env JOBFORGE_DATA_DIR="$(cygpath -w "$DATA" 2>/dev/null || echo "$DATA")" "$PY" -m jobforge_agent golden
   if [[ "${VERIFY_INTERPRETATION:-}" == "1" ]]; then
     probe "jobforge-agent golden --suite interpretation (calls the default model)" \

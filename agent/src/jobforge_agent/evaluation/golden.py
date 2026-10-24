@@ -38,6 +38,14 @@ def label(conn: sqlite3.Connection, job_id: int, fields: dict, now: int) -> dict
     row = conn.execute("SELECT current_raw_posting_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
     if row is None:
         raise LookupError(f"job {job_id}")
+    keep = fields.get("keep_details", False)
+    if not isinstance(keep, bool):
+        raise LabelError("keep_details must be true or false")
+    if keep:
+        # The list's one-click Skip: a new call, keeping the details already given (eligibility, misread
+        # requirements, note) rather than erasing them.
+        cur = current_label(conn, job_id) or {}
+        fields = {k: cur.get(k) for k in ("eligibility", "obvious", "misread_requirement_ids", "note") if cur.get(k) is not None} | fields
     rec = fields.get("recommendation")
     if rec not in CATEGORIES:
         raise LabelError("recommendation must be APPLY, STRETCH, REVIEW or SKIP")
@@ -86,6 +94,14 @@ def current_label(conn: sqlite3.Connection, job_id: int) -> dict | None:
     return {"id": r[0], "raw_posting_id": r[1], "recommendation": r[3], "eligibility": r[4], "obvious": bool(r[5]),
             "misread_requirement_ids": json.loads(r[6]), "note": r[7], "labeled_by": r[8], "reviewed_by": r[9],
             "shown_recommendation_id": r[10], "created_at_ms": r[11]}
+
+
+def skipped_job_ids(conn: sqlite3.Connection) -> set[int]:
+    """Jobs whose current label is SKIP. The window hides them from its default views (the job's own
+    recommendation is unchanged, so the report still measures it)."""
+    return {r[0] for r in conn.execute(
+        "SELECT g.job_id FROM golden_labels g WHERE g.id = (SELECT max(g2.id) FROM golden_labels g2 WHERE g2.job_id = g.job_id) "
+        "AND g.state = 'active' AND g.recommendation = 'SKIP'")}
 
 
 # ----- golden-set report (read only) -----

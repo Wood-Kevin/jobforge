@@ -17,7 +17,7 @@ from jobforge_agent.evaluation import store as evaluation_store
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
 
-VIEWS = ("recommended", "rejected", "all")
+VIEWS = ("recommended", "rejected", "skipped", "all")
 MAX_LIMIT = 500
 
 
@@ -30,6 +30,25 @@ MAX_LIMIT = 500
 _COPY_KEY = (f"j.employer_id, lower(trim(j.title)), lower(trim(coalesce(j.location_text, ''))), "
              f"CASE WHEN {textpack.KEPT} THEN {textpack.TEXT} ELSE '' END")
 _POSTING_JOIN = f"JOIN raw_postings rp ON rp.id = j.current_raw_posting_id {textpack.JOIN}"
+
+
+def skipped(conn: sqlite3.Connection) -> tuple[set[int], set[int]]:
+    """(labeled, hidden): the jobs the user called SKIP (golden label), and those plus their open exact
+    copies. A skip hides the whole copy group, or the other copy would take the skipped one's row.
+    Rejected: an application status for "not interested", which needs a table rebuild for its CHECK and
+    mixes a non-application into the application history; and it would not count as a label."""
+    labeled = golden.skipped_job_ids(conn)
+    if not labeled:
+        return labeled, set()
+    marks = ",".join("?" * len(labeled))
+    copies = {r[0] for r in conn.execute(
+        f"SELECT j.id FROM jobs j {_POSTING_JOIN} WHERE j.employer_id IN (SELECT employer_id FROM jobs WHERE id IN ({marks})) "
+        f"AND ({_COPY_KEY}) IN (SELECT {_COPY_KEY} FROM jobs j {_POSTING_JOIN} WHERE j.id IN ({marks}))", (*labeled, *labeled))}
+    return labeled, labeled | copies
+
+
+def _ids(ids) -> str:
+    return ",".join(str(int(i)) for i in ids) or "-1"
 
 
 def _filter_join() -> str:
@@ -45,6 +64,7 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
     if profile is None:
         return {"view": view, "total": 0, "jobs": [], "search_profile": None}
     recs = {r["job_id"]: r for r in evaluation_store.recommendation_list(conn, None, limit=100_000)}
+    labeled, hidden = skipped(conn)
     where = ["j.closed_at_ms IS NULL"]
     params: list = []
     fr_join = ""  # the grouping query needs the verdict only to pick rejected jobs
@@ -53,20 +73,23 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
         params += [profile.id, filter_rules.RULESET_VERSION]
         where.append("fr.verdict = 'reject'")
     elif view == "recommended":
-        ids = list(recs) or [-1]
+        ids = [i for i in recs if i not in hidden] or [-1]
         where.append(f"j.id IN ({','.join('?' * len(ids))})")
         params += ids
+    elif view == "skipped":
+        where.append(f"j.id IN ({_ids(hidden)})")
     if q:
         where.append("(j.title LIKE ? OR j.company LIKE ? OR j.location_text LIKE ?)")
         params += [f"%{q}%"] * 3
-    # One row per copy group: the copy with an application, else the oldest (so a status stays visible).
+    # One row per copy group: the copy with an application, else the one you skipped (so Undo works on
+    # its row), else the oldest (so a status stays visible).
     # Only ids go through the sort; the page's columns are read for its rows alone.
     grouped = (
         f"SELECT j.id, j.first_seen_at_ms, count(*) OVER copy AS copies, row_number() OVER copy AS copy_rank "
         f"FROM jobs j {_POSTING_JOIN} {fr_join} WHERE {' AND '.join(where)} "
         # One sort serves both: the frame spans the whole group, which count needs and row_number ignores.
         f"WINDOW copy AS (PARTITION BY {_COPY_KEY} ORDER BY EXISTS (SELECT 1 FROM applications a WHERE a.job_id = j.id) DESC, "
-        f"j.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)")
+        f"j.id IN ({_ids(labeled)}) DESC, j.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING)")
     page = (f"SELECT id, first_seen_at_ms, copies, count(*) OVER () AS total FROM ({grouped}) WHERE copy_rank = 1 "
             f"ORDER BY first_seen_at_ms DESC, id DESC LIMIT ? OFFSET ?")
     rows = conn.execute(
@@ -85,12 +108,25 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
         jobs.append({"id": r[0], "title": r[1], "company": r[2], "location": r[3], "work_mode": r[4], "posted_at": r[5],
                      "first_seen_at_ms": r[6], "filter_verdict": r[7], "filter_primary": reasons.get("primary"),
                      "override": bool(r[9]), "application_status": r[10], "copies": r[11],
+                     "skipped": "you" if r[0] in labeled else "copy" if r[0] in hidden else None,
                      "recommendation": None if rec is None else {
                          k: rec[k] for k in ("recommendation", "eligibility", "fit", "opportunity", "rank_key", "current",
                                              "newer_evaluation_pending")}})
     if view == "recommended":
         jobs.sort(key=lambda j: (order[j["recommendation"]["recommendation"]], -(j["recommendation"]["rank_key"] or 0), j["id"]))
     return {"view": view, "total": total, "jobs": jobs, "search_profile": {"id": profile.id, "version": profile.version}}
+
+
+def review_questions(conn: sqlite3.Connection) -> list[dict]:
+    """The REVIEW questions without the jobs you skipped (and their copies); a question left with no
+    job is dropped."""
+    _, hidden = skipped(conn)
+    groups = []
+    for g in evaluation_store.review_questions(conn):
+        jobs = [j for j in g["jobs"] if j["job_id"] not in hidden]
+        if jobs:
+            groups.append({**g, "jobs": jobs})
+    return sorted(groups, key=lambda g: -len(g["jobs"]))
 
 
 def copies_of(conn: sqlite3.Connection, job_id: int) -> list[dict]:

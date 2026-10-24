@@ -330,6 +330,12 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Candidate changes, not decided:** the E3 prompt stating when `direct` applies; an E4 check that a `direct`
   citation names the requirement's technology; years from qualifying roles only; the years tolerance in
   `verdict_rules` (a shortfall is minor if at most 2 years *or* at most 40%, so 1.83 of "3-5 years" is minor).
+- **Added 2026-10-24 (case F1, HumanSignal):** a COMPETITIVE fit, so APPLY, with zero direct matches. Rule
+  `assess.fit` asks only for no material gap and at most 2 unknowns, so 5 transferable bridges (Azure to AWS,
+  "scheduled scripting" to Python/JavaScript, VPN troubleshooting to container and browser debugging) plus
+  the Q2 gap are enough. It is the only such APPLY of 19 today. Candidate, not decided: a minimum direct share
+  for COMPETITIVE (a `verdict_rules` change, so a new `VERDICT_RULE_VERSION`), compared alongside the Q2 fix,
+  which on its own may turn this job's gap material and its fit STRETCH.
 
 ## Exact copies are analyzed once per copy (2026-10-24)
 - **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
@@ -345,6 +351,8 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **What:** collapsing copies groups every open job, so the "All" view of Kevin's 59,500 open jobs takes about
   260 ms per load instead of about 68 ms (Recommended about 5 ms and Rejected about 60 ms, unchanged). Measured:
   the bare grouping sort is about 160 ms of that, and it runs on the agent's event loop.
+- **Measured again 2026-10-24 (v0.3.2 work):** about 600 ms with 119,393 open jobs (the database doubled after the
+  re-filter); the skip filter changes it by nothing measurable (595-601 ms with it stubbed out). "For you" about 40 ms.
 - **Why deferred:** "All" is not the default view, and a grouping key column or cache would add a schema change.
 - **Trigger:** the window feels slow on "All", or polls visibly stall while it is open; then store a copy-group
   key per job (computed on ingest) with an index.

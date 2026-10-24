@@ -506,7 +506,7 @@ class AgentRuntime:
 
     def review_questions(self) -> list[dict]:
         assert self.reader is not None
-        return evaluation_store.review_questions(self.reader)
+        return views.review_questions(self.reader)
 
     def recompute(self) -> dict:
         """Snapshot, queue and recompute now (code only, no model call; the worker would do the

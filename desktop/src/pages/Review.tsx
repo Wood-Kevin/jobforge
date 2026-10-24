@@ -4,7 +4,7 @@ import { api } from "../api";
 import { Badge, Card, ErrorBox, useLive } from "../ui";
 
 export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => void; onProfile: () => void }) {
-  const groups = useLive(api.reviewQuestions, [], ["recommendation_computed", "profile_changed"]);
+  const groups = useLive(api.reviewQuestions, [], ["recommendation_computed", "profile_changed", "golden_labeled"]);
   const g = groups.data ?? [];
   return (
     <div className="page">
