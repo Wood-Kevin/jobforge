@@ -6,10 +6,16 @@ next; those files hold the decisions and their reasons. No personal profile data
 
 ## State
 
-- **Installed and running:** v0.3.13 (unelevated), from `main` at `eaa8828` (fast-forwarded from
-  `ux-visual-foundation`, which carried the unmerged 0.3.10 and 0.3.11 commits too).
-- **Open branch not merged:** `audit-fixes` (interp-v4, rules v4: proposed, not active; an evaluation change,
-  so before/after plus Kevin's approval first). Its window commits were rebased into 0.3.10/0.3.11.
+- **Installed and running:** v0.3.13 (unelevated), built from the commit now `7c2e023` on `main`.
+- **Remote (public):** https://github.com/Wood-Kevin/jobforge, `origin`, `main` tracked. Before the first
+  push the whole history was rewritten (git-filter-repo): the home towns became other towns (Live Oak,
+  Valdosta, Thomasville, Lake City, Monticello, Jasper), real fact values in examples and tests became made-up
+  ones, and the author email became `143909465+Wood-Kevin@users.noreply.github.com` (also this repo's
+  `user.email`). Commit IDs before 2026-10-24 16:45 no longer exist. Keep personal profile data out: the repo
+  is public. Tests that read a private scanner config (`../job-scanner/config.yaml`, outside the repo) must
+  not name the home towns.
+- **Open branch not merged or pushed:** `audit-fixes` (interp-v4, rules v4: proposed, not active; an
+  evaluation change, so before/after plus Kevin's approval first). Rewritten with the rest.
 - **Versions:** E1 prompt `e1-v1`, segmenter `seg-v1`, interpreter `interp-v3`, E3 prompt `m1-v1`,
   verdict rules `v3` (v2 thresholds; v1 and v2 kept for comparison). Unchanged by the UX redesign.
 - **Tests:** agent 770 (`uv run pytest -q` in `agent/`), desktop 39 (`npx vitest run` in `desktop/`).
