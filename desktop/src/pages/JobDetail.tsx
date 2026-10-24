@@ -5,7 +5,7 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { openUrl } from "../agent";
 import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
-import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, factorText, matchNote, opportunityLabel, plain } from "../labels";
+import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, factorText, headline, matchNote, opportunityLabel, plain } from "../labels";
 import { sanitizePosting } from "../sanitize";
 import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
 
@@ -36,14 +36,18 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
   const have = rows.filter((r) => r.match && ["direct", "transferable"].includes(r.match.match_type) && r.class !== "preferred");
   const missing = rows.filter((r) => r.match && (r.match.match_type === "gap" || r.match.match_type === "unknown") && r.class !== "preferred");
   const questions = rec?.decisive_reasons.flatMap((r) => r.questions ?? []) ?? [];
+  // The most consequential open point, shown under the headline: an important gap, else a small gap,
+  // else an unanswered requirement (required items only).
+  const open = missing.find((r) => r.match!.match_type === "gap" && r.match!.gap_materiality === "material")
+    ?? missing.find((r) => r.match!.match_type === "gap") ?? missing.find((r) => r.match!.match_type === "unknown");
 
   return (
     <>
       <Card title={d.title} actions={<>
         {d.golden_label?.recommendation === "SKIP"
           ? <><span className="muted">Skipped by you </span><button disabled={act.busy} onClick={() => act.run(async () => { await api.withdrawGoldenLabel(d.id); reload(); })}>Undo</button></>
-          : <button disabled={act.busy} title="Hide it from For you; counts as your call"
-              onClick={() => act.run(async () => { await api.setGoldenLabel(d.id, { recommendation: "SKIP", keep_details: true }); reload(); })}>Skip</button>}
+          : <><button disabled={act.busy} onClick={() => act.run(async () => { await api.setGoldenLabel(d.id, { recommendation: "SKIP", keep_details: true }); reload(); })}>I'd skip it</button>
+              <span className="muted small-note">hides the job · counts as your call</span></>}
         {link && <button onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}</>}>
         <p className="muted">{d.company} · {d.location ?? "location not stated"}{d.salary && ` · ${fmtSalary(d.salary)}`}
           {` · found ${ago(d.first_seen_at_ms)} ago`}{d.closed_at_ms && " · no longer listed"}</p>
@@ -63,7 +67,11 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
       {rec ? (
         <Card title={<>Recommendation: <Badge value={rec.recommendation} /></>}>
           {!ev!.current && <p className="warn">Based on your profile before your latest edit; an update is {ev!.newer_evaluation_pending ? "on its way" : "not queued yet"}.</p>}
-          <p className="lead">{rec.decisive_reasons[0] ? plainReason(rec.recommendation, rec.decisive_reasons[0].detail) : ""}</p>
+          <p className="lead">{headline(rec.recommendation, rec.fit_counts)
+            ?? (rec.decisive_reasons[0] ? plainReason(rec.recommendation, rec.decisive_reasons[0].detail) : "")}</p>
+          {open && ["APPLY", "STRETCH"].includes(rec.recommendation) && (
+            <p><strong>{open.match!.match_type === "gap" ? (open.match!.gap_materiality === "material" ? "Biggest gap" : "Biggest open point (small gap)") : "Biggest open point (unanswered)"}:</strong>{" "}
+              {short(open.quote, 160)}</p>)}
           <div className="summary">
             <div><Badge value={rec.eligibility} /> <span>{ELIGIBILITY_TEXT[rec.eligibility]}</span></div>
             <div><Badge value={rec.fit} /> <span>{FIT_TEXT[rec.fit]}</span></div>
@@ -247,10 +255,7 @@ function short(s: string, n = 110): string {
 }
 
 function plainReason(rec: string, detail: string): string {
-  if (rec === "APPLY") return detail.includes("self-reported")
-    ? "A good match. Some of it rests on experience you haven't confirmed yet in Profile."
-    : "A good match for your experience.";
-  if (rec === "STRETCH") return "Worth a try: you cover most of it, with one or two important gaps.";
+  // APPLY and STRETCH lead with labels.ts headline (the evidence counts).
   if (rec === "SKIP") {
     if (detail.startsWith("blocker:")) return `Skip: a requirement rules you out (${short(detail.slice(8).trim(), 90)}).`;
     if (detail.includes("material gaps")) return "Skip: several important requirements are missing from your experience.";

@@ -367,6 +367,20 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
     work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
     (50 of 112 state one).
 
+## Answering a "Needs your input" question in place (2026-10-24)
+- **What:** a usability pass (pasted by Kevin) asked for each question to offer Yes / No / Not sure / Show resume
+  evidence, with Yes opening a prefilled profile item, and for questions grouped by concept (ChromeOS, Kubernetes,
+  communication, office attendance) so one answer covers more jobs. Today the page links to Profile only, and
+  questions group by their exact text (1 of 45 groups covered more than one job).
+- **Why deferred:** a prefilled item would copy the employer's sentence into the profile. That is how item 55 began
+  as "experience with AI tools", which echoed posting language and was matched to requirements it did not show
+  (SQL, "fast learner"). A design must have Kevin write the statement in his own words, with the requirement shown
+  beside it, and No / Not sure must be stored somewhere (today an unknown simply stays unknown). Concept grouping
+  needs a way to cluster requirements (a keyword list or a model call) and is its own decision.
+- **Trigger:** Kevin asks for it, or the page still shows many single-job questions after a profile pass.
+- **Done instead (v0.3.5):** the page counts jobs, lists shared questions first, then each job with its own
+  questions, fewest first, and marks jobs with 6 or more open questions as maybe not worth completing.
+
 ## Exact copies are analyzed once per copy (2026-10-24)
 - **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
   filter still gets its own E1-E3 model run. Live: Bridgeway's two identical "System Administrator" postings were

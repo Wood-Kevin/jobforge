@@ -8,7 +8,8 @@ export const PLAIN: Record<string, string> = {
   // fit
   STRONG: "Strong fit", COMPETITIVE: "Good fit", WEAK: "Big gaps", INSUFFICIENT: "Not enough info",
   // opportunity
-  HIGH: "Great", MEDIUM: "OK", LOW: "Poor",
+  // (not "Great": a green "Great" on a REVIEW row read as an overall verdict, usability pass 2026-10-24)
+  HIGH: "Favorable", MEDIUM: "Mixed", LOW: "Unfavorable",
   // match
   direct: "You have this", transferable: "Related experience", gap: "Missing", unknown: "Not in your profile",
   // requirement class
@@ -48,7 +49,7 @@ export const ELIGIBILITY_TEXT: Record<string, string> = {
 };
 export const FIT_TEXT: Record<string, string> = {
   STRONG: "Your experience covers the requirements directly.",
-  COMPETITIVE: "You cover the requirements, some through related experience.",
+  COMPETITIVE: "No important gaps, but some requirements rest on related experience or are unanswered.",
   STRETCH: "You cover most requirements, with one or two important gaps.",
   WEAK: "Several important requirements are missing from your experience.",
   INSUFFICIENT: "Too many requirements aren't covered by your profile to judge yet.",
@@ -59,6 +60,26 @@ export const OPPORTUNITY_TEXT: Record<string, string> = {
   LOW: "Pay, location or the kind of role are not what you're after.",
   UNKNOWN: "The posting doesn't say enough about pay, location or level.",
 };
+
+// The job page's first sentence for APPLY and STRETCH, from the fit counts (required items only), so it
+// says how much rests on direct evidence instead of a fixed "A good match" (usability pass 2026-10-24).
+export function evidenceSentence(c: Record<string, unknown>): string {
+  const n = (k: string) => Number(c[k] ?? 0) || 0;
+  const count = (k: string, one: string, many: string) => `${n(k)} ${n(k) === 1 ? one : many}`;
+  const parts = [count("direct", "requirement matches directly", "requirements match directly")];
+  if (n("transferable")) parts.push(count("transferable", "relies on related experience", "rely on related experience"));
+  if (n("gap_material")) parts.push(count("gap_material", "is an important gap", "are important gaps"));
+  if (n("gap_minor")) parts.push(count("gap_minor", "is a small gap", "are small gaps"));
+  if (n("unknown")) parts.push(count("unknown", "is unanswered", "are unanswered"));
+  return parts.length === 1 ? `${parts[0]}.` : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}.`;
+}
+
+export function headline(rec: string, c: Record<string, unknown>): string | null {
+  const lead = rec === "APPLY" ? "Worth applying" : rec === "STRETCH" ? "Worth a try" : null;
+  if (!lead) return null;
+  const unconfirmed = Number(c["self_reported_covering"] ?? 0) > 0 ? " Some of it rests on experience you haven't confirmed in Profile." : "";
+  return `${lead}: ${evidenceSentence(c)}${unconfirmed}`;
+}
 
 function years(n: unknown): string {
   const v = Number(n);

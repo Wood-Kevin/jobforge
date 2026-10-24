@@ -14,12 +14,14 @@ export default function Profile() {
   const list = items.data ?? [];
   return (
     <div className="page">
-      <Import existing={list} onDone={items.reload} />
+      {/* Resumes first and the profile-file import last (usability pass 2026-10-24): the file is an
+          advanced, mostly one-time step; Setup tucks it away the same way. */}
+      <Resumes />
       {schema.data && <Facts schema={schema.data} items={list.filter((i) => i.kind === "eligibility")} reload={items.reload} />}
       <Completeness c={comp.data} reload={comp.reload} />
       {KIND_ORDER.map((k) => <Kind key={k} kind={k} items={list.filter((i) => i.kind === k)} reload={items.reload} />)}
       <Claims />
-      <Resumes />
+      <details className="advanced"><summary>Advanced: load a profile file</summary><Import existing={list} onDone={items.reload} /></details>
       <ErrorBox error={items.error ?? schema.error} />
     </div>
   );

@@ -81,6 +81,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
             (v) => set({ foundWithinDays: v ? Number(v) : null }))}
           {isFiltered(filters) && <button className="small" onClick={() => setFilters(NO_FILTERS)}>Clear filters</button>}
         </div>
+        {view !== "skipped" && <p className="muted">"I'd skip it" hides a job and counts as your call on it; Undo under Skipped by you.</p>}
         {view === "skipped" && <p className="muted">Jobs you said you'd skip, with their exact copies. Each one also counts as your
           call for measuring JobForge. Undo puts a job back.</p>}
         <ErrorBox error={list.error} />
@@ -105,7 +106,7 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
   const run = (e: MouseEvent, f: () => Promise<unknown>) => { e.stopPropagation(); act.run(f); };
   return (
     <tr className="clickable" onClick={() => onOpen(j.id)}>
-      <td><strong>{j.title}</strong><div className="muted">{j.company}{j.location ? ` · ${j.location}` : ""}
+      <td><button className="link" onClick={(e) => { e.stopPropagation(); onOpen(j.id); }}><strong>{j.title}</strong></button><div className="muted">{j.company}{j.location ? ` · ${j.location}` : ""}
         {j.copies > 1 && ` · posted ${j.copies} times`}
         {j.application_status && <> · <Badge value={j.application_status} /></>}</div>
         <ErrorBox error={act.error} /></td>
@@ -117,8 +118,8 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
       <td><Badge value={r?.fit} /></td><td><Badge value={r?.opportunity} text={opportunityLabel(r?.opportunity)} /></td>
       <td className="muted">{ago(j.first_seen_at_ms)}</td>
       <td>{j.skipped === "you" ? <button className="small" disabled={act.busy} onClick={(e) => run(e, () => api.withdrawGoldenLabel(j.id))}>Undo</button>
-        : !j.skipped && <button className="small" disabled={act.busy} title="Hide it from For you; counts as your call"
-          onClick={(e) => run(e, () => api.setGoldenLabel(j.id, { recommendation: "SKIP", keep_details: true }))}>Skip</button>}</td>
+        : !j.skipped && <button className="small" disabled={act.busy} title="Hides the job and counts as your call on it"
+          onClick={(e) => run(e, () => api.setGoldenLabel(j.id, { recommendation: "SKIP", keep_details: true }))}>I'd skip it</button>}</td>
     </tr>
   );
 }

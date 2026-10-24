@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factorText, opportunityLabel, plain } from "./labels";
+import { evidenceSentence, factorText, headline, opportunityLabel, plain } from "./labels";
 
 describe("factorText", () => {
   it("tells a posting that doesn't say apart from a preference you haven't set", () => {
@@ -27,5 +27,14 @@ describe("factorText", () => {
     expect(opportunityLabel("UNKNOWN")).toBe("Not enough info");
     expect(plain("UNKNOWN")).toBe("Check eligibility");
     expect(opportunityLabel("MEDIUM")).toBeUndefined();
+  });
+  it("leads APPLY and STRETCH with the evidence counts, not a fixed 'good match'", () => {
+    const c = { direct: 1, transferable: 4, gap_minor: 0, gap_material: 0, unknown: 2, self_reported_covering: 0 };
+    expect(headline("APPLY", c)).toBe("Worth applying: 1 requirement matches directly, 4 rely on related experience and 2 are unanswered.");
+    expect(evidenceSentence({ direct: 3 })).toBe("3 requirements match directly.");
+    expect(headline("STRETCH", { direct: 2, transferable: 1, gap_material: 1, unknown: 1 }))
+      .toBe("Worth a try: 2 requirements match directly, 1 relies on related experience, 1 is an important gap and 1 is unanswered.");
+    expect(headline("APPLY", { direct: 2, self_reported_covering: 1 })).toContain("haven't confirmed");
+    expect(headline("REVIEW", c)).toBeNull();
   });
 });
