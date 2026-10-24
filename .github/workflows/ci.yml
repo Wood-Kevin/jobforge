@@ -104,6 +104,14 @@ jobs:
         run: |
           npm ci
           npm run build
+      # tauri.conf.json bundles the frozen agent (../../agent/dist/jobforge-agent, built by scripts/build.ps1 with
+      # PyInstaller), and Tauri's build script checks the folder exists even for cargo check. CI doesn't package,
+      # so a stand-in folder is enough; the real one is built only by scripts/build.ps1.
+      - name: Stand in for the frozen agent
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force agent/dist/jobforge-agent | Out-Null
+          Set-Content agent/dist/jobforge-agent/CI-PLACEHOLDER.txt "Stand-in for CI only; not an agent build."
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: stable
