@@ -1,6 +1,6 @@
 // The JobForge window (P1.8). Navigation is local state (no router): the window is one process's
 // view of the agent, and closing it keeps JobForge running in the tray.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { onSupervisorChange, supervisorStatus, type Supervisor } from "./agent";
 import Applications from "./pages/Applications";
 import Dashboard from "./pages/Dashboard";
@@ -36,9 +36,25 @@ export default function App() {
     api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setCheckedSetup(true); setStartError(null); })
       .catch((e) => setStartError(`Could not check whether setup is finished: ${e instanceof Error ? e.message : String(e)}`));
   }, [sup, checkedSetup]);
-  const go = (p: Page) => { setJob(null); setPage(p); };
-  const open = (id: number) => setJob(id);
-  useEffect(() => { window.scrollTo(0, 0); }, [page, job]); // a new view starts at its top
+  // Opening a job keeps the page it was opened from mounted (hidden), so its tab, search, filters and
+  // sort survive; Back restores the scroll position and puts focus back on what opened the job (UX
+  // review 2026-10-24: returning used to rebuild the list with defaults, scrolled to the top).
+  const back = useRef<{ y: number; focus: HTMLElement | null } | null>(null);
+  const go = (p: Page) => { back.current = null; setJob(null); setPage(p); };
+  const open = (id: number) => {
+    back.current = { y: window.scrollY, focus: document.activeElement instanceof HTMLElement ? document.activeElement : null };
+    setJob(id);
+  };
+  const close = () => setJob(null);
+  useEffect(() => { window.scrollTo(0, 0); }, [page]); // another page starts at its top
+  useEffect(() => {
+    if (job !== null) { window.scrollTo(0, 0); return; }
+    const b = back.current;
+    back.current = null;
+    if (!b) return;
+    window.scrollTo(0, b.y);
+    if (b.focus?.isConnected) b.focus.focus({ preventScroll: true });
+  }, [job]);
   const down = sup && sup.state !== "running";
 
   return (
@@ -54,14 +70,18 @@ export default function App() {
         {startError && <p className="banner">{startError}</p>}
         {/* Only the restore screen while stopped this way: every page would just show "not reachable" (P1.9 drill). */}
         {sup?.state === "stopped_db_newer" ? <Restore />
-          : job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />
-          : page === "dashboard" ? <Dashboard sup={sup} onSetup={() => go("setup")} />
-          : page === "jobs" ? <Jobs onOpen={open} />
-          : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
-          : page === "profile" ? <Profile />
-          : page === "applications" ? <Applications onOpen={open} />
-          : page === "setup" ? <Setup onDone={() => go("jobs")} />
-          : <Preferences />}
+          : <>
+            {job !== null && <JobDetail id={job} onBack={close} />}
+            <div hidden={job !== null}>
+              {page === "dashboard" ? <Dashboard sup={sup} onSetup={() => go("setup")} />
+                : page === "jobs" ? <Jobs onOpen={open} />
+                : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
+                : page === "profile" ? <Profile />
+                : page === "applications" ? <Applications onOpen={open} onJobs={() => go("jobs")} />
+                : page === "setup" ? <Setup onDone={() => go("jobs")} />
+                : <Preferences />}
+            </div>
+          </>}
         <p className="muted">Closing this window keeps JobForge running in the tray. Use the tray menu to exit.</p>
       </main>
     </div>

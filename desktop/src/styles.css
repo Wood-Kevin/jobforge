@@ -69,6 +69,9 @@ th .sort:hover { color: var(--text); }
 button.link { background: none; border: 0; padding: 0; color: inherit; text-align: left; cursor: pointer; }
 button.link:hover strong, button.link:focus-visible strong { text-decoration: underline; }
 .small-note { font-size: 12px; margin-left: 6px; }
+button.quiet { background: none; border-color: transparent; color: var(--muted); padding: 3px 6px; font-size: 12.5px; }
+button.quiet:hover, button.quiet:focus-visible { color: inherit; text-decoration: underline; }
+.glance { display: flex; gap: 8px; align-items: baseline; margin: 4px 0 8px; }
 .answer { margin: 4px 0 8px; }
 .answer.form { padding: 8px; border: 1px solid var(--border); border-radius: 6px; }
 details.advanced > summary { cursor: pointer; color: var(--muted); margin: 8px 0; }

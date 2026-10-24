@@ -3,7 +3,7 @@
 import { api } from "../api";
 import { Badge, Card, ErrorBox, ago, useLive } from "../ui";
 
-export default function Applications({ onOpen }: { onOpen: (id: number) => void }) {
+export default function Applications({ onOpen, onJobs }: { onOpen: (id: number) => void; onJobs: () => void }) {
   const apps = useLive(api.applications, [], ["application_changed"]);
   const rows = apps.data ?? [];
   return (
@@ -11,7 +11,10 @@ export default function Applications({ onOpen }: { onOpen: (id: number) => void 
       <Card title={`Applications (${rows.length})`}>
         <p className="muted">Set a status from a job's page. JobForge only keeps your record; it never applies or contacts an employer.</p>
         <ErrorBox error={apps.error} />
-        {rows.length === 0 && !apps.loading ? <p className="muted">No applications tracked yet.</p> : (
+        {/* Loading, failed and empty are different states (UX review 2026-10-24: an empty table showed while loading). */}
+        {apps.data === null ? (apps.error ? null : <p className="muted">Loading...</p>)
+          : rows.length === 0 ? <p className="muted">No applications tracked yet. Save a job or set its status from the job's page.{" "}
+            <button className="small" onClick={onJobs}>Go to Jobs</button></p> : (
           <table>
             <thead><tr><th>Job</th><th>Status</th><th>Notes</th><th>Last change</th></tr></thead>
             <tbody>{rows.map((a) => (

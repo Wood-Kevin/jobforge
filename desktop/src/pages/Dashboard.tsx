@@ -25,7 +25,13 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const waitingAi = (analysis.data?.counts.pending ?? 0) + (evaluation.data?.counts.pending ?? 0);
   const lastCheck = Math.min(...enabled.map((e) => e.last_success_age_s ?? Infinity), b?.last_success_age_s ?? Infinity);
 
+  // "Everything is working" only once the essential checks answered (UX review 2026-10-24: it showed
+  // before any data arrived). Until then "Checking...", and a failed check is a problem, not silence.
+  const essentials = [health, disc, analysis, evaluation];
+  const checking = essentials.some((x) => x.data === null && x.error === null);
+  const failed = essentials.map((x) => x.error).filter((e): e is string => e !== null);
   const problems: string[] = [];
+  for (const e of failed) problems.push(`A status check failed: ${e}`);
   if (sup && sup.state !== "running") problems.push("JobForge's background service is not running.");
   if (h?.discovery_paused) problems.push("Checking for new jobs is paused.");
   if (gate && gate.up === false) problems.push(`The AI model isn't reachable (LM Studio closed or its server stopped). ${waitingAi} postings are waiting; they'll be read automatically when it's back.`);
@@ -47,13 +53,14 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
           {h.discovery_paused ? "Resume checking for jobs" : "Pause checking for jobs"}
         </button>)}>
         <p className="lead">
-          {watched === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>
+          {!d && !disc.error ? <span className="muted">Checking status...</span>
+            : watched === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>
             : <>Watching <strong>{watched}</strong> companies{isFinite(lastCheck) ? <>, last check {age(lastCheck)} ago</> : ""}.
               {" "}{waitingAi > 0 ? <>{waitingAi} postings are waiting to be read by the AI model.</> : "Every posting found so far has been read."}</>}
         </p>
         <div className="stats">
           {(["APPLY", "STRETCH", "REVIEW", "SKIP"] as const).map((c) => (
-            <div key={c} className="stat"><Badge value={c} /><strong>{counts[c] ?? 0}</strong></div>))}
+            <div key={c} className="stat"><Badge value={c} /><strong>{recs.data ? counts[c] ?? 0 : "-"}</strong></div>))}
           <div className="stat"><span className="muted">open jobs found</span><strong>{d?.jobs_open ?? "-"}</strong></div>
         </div>
         {gold.data && (
@@ -64,7 +71,7 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
       </Card>
 
       <Card title={problems.length ? `Needs attention (${problems.length})` : "Needs attention"}>
-        {problems.length === 0 ? <p className="ok-text">Nothing. Everything is working.</p>
+        {problems.length === 0 ? (checking ? <p className="muted">Checking status...</p> : <p className="ok-text">Nothing. Everything is working.</p>)
           : <ul className="compact">{problems.map((p, i) => <li key={i}>{p}</li>)}</ul>}
       </Card>
 

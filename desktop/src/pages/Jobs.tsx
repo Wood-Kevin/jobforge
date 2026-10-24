@@ -85,8 +85,13 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
         {view === "skipped" && <p className="muted">Jobs you said you'd skip, with their exact copies. Each one also counts as your
           call for measuring JobForge. Undo puts a job back.</p>}
         <ErrorBox error={list.error} />
-        {list.loading && !list.data ? <p className="muted">Loading...</p> : rows.length === 0 ? (
-          <p className="muted">{isFiltered(filters) && loaded.length > 0 ? "No jobs match these filters." : view === "recommended" ? "No jobs here yet. New postings are checked every 15 minutes and each one is read by the AI model before it shows up here. Jobs that need an answer from you are under Needs your input." : "Nothing here."}</p>) : (
+        {/* Loading, failed, filtered to nothing, and truly empty are different states (UX review 2026-10-24). */}
+        {!list.data ? (list.error ? null : <p className="muted">Loading...</p>) : rows.length === 0 ? (
+          isFiltered(filters) || (view === "recommended" && loaded.length > 0)
+            ? <p className="muted">{isFiltered(filters) ? "No jobs match these filters" : "No jobs in the categories selected above"}
+                {partial || list.data.total > loaded.length ? ` (among the ${loaded.length} loaded)` : ""}.{" "}
+                {isFiltered(filters) && <button className="small" onClick={() => setFilters(NO_FILTERS)}>Clear filters</button>}</p>
+            : <p className="muted">{view === "recommended" ? "No jobs here yet. New postings are checked every 15 minutes and each one is read by the AI model before it shows up here (Status shows how many are waiting). Jobs that need an answer from you are under Needs your input." : "Nothing here."}</p>) : (
           <table className="jobs">
             <thead><tr>{head("job", "Job")}{rejected ? head("reason", "Why it was filtered out") : head("recommendation", "Recommendation")}
               {head(rejected ? null : "fit", "Fit")}{head(rejected ? null : "opportunity", "Pay, place, level")}{head("found", "Found")}<th /></tr></thead>

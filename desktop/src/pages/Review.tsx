@@ -22,12 +22,13 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
   const link = (id: number, title: string) => <a href="#" onClick={(e) => { e.preventDefault(); onOpen(id); }}>{title}</a>;
   return (
     <div className="page">
-      <Card title={`${jobs.length} job${jobs.length === 1 ? "" : "s"} need${jobs.length === 1 ? "s" : ""} your input`}
+      <Card title={groups.data === null ? "Needs your input" : `${jobs.length} job${jobs.length === 1 ? "" : "s"} need${jobs.length === 1 ? "s" : ""} your input`}
         actions={<button onClick={onProfile}>Open your profile</button>}>
         <p className="muted">These jobs can't be judged until you answer something. Use "Answer here" to add the experience in
           your own words or declare a fact; once it's saved (and confirmed), the jobs it covers update.</p>
         <ErrorBox error={groups.error ?? schema.error ?? items.error} />
-        {jobs.length === 0 && !groups.loading && <p className="muted">Nothing needs your input right now.</p>}
+        {groups.data === null && !groups.error && <p className="muted">Loading questions...</p>}
+        {groups.data !== null && jobs.length === 0 && <p className="muted">Nothing needs your input right now.</p>}
         {shared.length > 0 && (<>
           <h3>One answer covers several jobs</h3>
           {shared.map((g, i) => (

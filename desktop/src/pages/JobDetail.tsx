@@ -47,14 +47,23 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
 
   return (
     <>
+      {/* One clear next action (UX review 2026-10-24): Open job posting is primary, Save job sits beside it,
+          and "I'd skip it" stays one stated action (Kevin, v0.3.5 and again 2026-10-24) but quieter, last. */}
       <Card title={d.title} actions={<>
+        {link && <button className="primary" onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}
+        {d.application ? <span className="muted">Your status: <Badge value={d.application.status} /></span>
+          : <button disabled={act.busy} onClick={() => act.run(async () => { await api.setApplication(d.id, { status: "saved" }); reload(); })}>Save job</button>}
         {d.golden_label?.recommendation === "SKIP"
-          ? <><span className="muted">Skipped by you </span><button disabled={act.busy} onClick={() => act.run(async () => { await api.withdrawGoldenLabel(d.id); reload(); })}>Undo</button></>
-          : <><button disabled={act.busy} onClick={() => act.run(async () => { await api.setGoldenLabel(d.id, { recommendation: "SKIP", keep_details: true }); reload(); })}>I'd skip it</button>
-              <span className="muted small-note">hides the job · counts as your call</span></>}
-        {link && <button onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}</>}>
+          ? <><span className="muted">Skipped by you </span><button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.withdrawGoldenLabel(d.id); reload(); })}>Undo</button></>
+          : <button className="quiet" disabled={act.busy} title="Hides the job and counts as your call on it"
+              onClick={() => act.run(async () => { await api.setGoldenLabel(d.id, { recommendation: "SKIP", keep_details: true }); reload(); })}>I'd skip it</button>}</>}>
         <p className="muted">{d.company} · {d.location ?? "location not stated"}{d.salary && ` · ${fmtSalary(d.salary)}`}
           {` · found ${ago(d.first_seen_at_ms)} ago`}{d.closed_at_ms && " · no longer listed"}</p>
+        {rec && (
+          <p className="glance"><Badge value={rec.recommendation} />{" "}
+            {open && ["APPLY", "STRETCH"].includes(rec.recommendation)
+              ? <span><span className="muted">{open.match!.match_type === "gap" ? "Biggest gap:" : "Biggest open point:"}</span> {short(open.quote, 120)}</span>
+              : <span className="muted">Details below.</span>}</p>)}
         {d.copies.length > 0 && (
           <p className="muted">The company also posted this exact job {d.copies.length === 1 ? "once more" : `${d.copies.length} more times`}:{" "}
             {d.copies.map((c, i) => c.url && <button key={c.id} onClick={() => act.run(() => openUrl(c.url!))}>Copy {i + 2}</button>)}</p>)}

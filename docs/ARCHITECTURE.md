@@ -772,6 +772,9 @@ only by the Rust host.**
   written to `agent.jsonl` as `ipc_unhandled_error` (it went only to the console log before). A
   background task (heartbeat, maintenance, discovery, analysis) that ends before a stop is logged as
   `background_task_died` and listed in `/v1/health` `task_errors`.
+- **Window navigation (UX round 1, 2026-10-24):** opening a job hides, but keeps mounted, the page it came from
+  (`App.tsx`), so Back returns to the same tab, search, filters, sort, scroll position and focused row; the job page
+  leads with Open job posting and Save job, "I'd skip it" last and quieter.
 - **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Filtered out and
   Skipped by you views; search; column headers sort and a filter row (fit, pay/place/level or filter reason, found within) narrows the loaded rows, `desktop/src/sortJobs.ts` and `filterJobs.ts`; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),

@@ -507,3 +507,27 @@ failure. Everything else it found is fixed on the branch with a regression test 
   the UI needs; if the sanitizer ever failed, `open_url` and top-level navigation would be an exfiltration path CSP
   does not cover. The Profile import retry fix has no automated test: the window has no React component test setup
   (vitest covers pure modules only). Trigger for that: the next window bug in a component.
+
+## UX review 2026-10-24: items not in this round
+A read-only review of the window code (pasted by Kevin). Kevin chose items 1, 3 and 8 for this round (keep your place
+returning from a job; one clear action on the job page; distinct loading, empty and failure states) and kept "I'd skip
+it" as one stated action (item 4, below). Each claim was checked against the code first.
+- **2. Filters and sorting over the whole result set:** the list loads 500 rows (`Jobs.tsx` `LIMIT`) and filters and
+  sorts those; the footer and the empty state now say "among the N loaded". Doing it properly means filtering and
+  sorting in the agent's `/v1/jobs` query plus Load more, and "Filtered out" (about 122k rows) already takes about
+  720 ms to group (see "Grouping makes the big job lists slower"). Trigger: a filter that hides a job Kevin knew existed.
+- **4. Split "I'd skip it" into Hide + separate feedback:** declined by Kevin 2026-10-24 ("Keep one action"), as in
+  v0.3.5; skips stay a high-confidence preference signal. Only made quieter (item 3). Revisit if a skip ever needs to
+  mean "hide" without "your call".
+- **5. Guided resume onboarding:** Setup says "All set" once companies, search and model are done, whatever the
+  experience step says; the resume path is upload -> suggest -> add -> confirm across sections. Wanted: one sequence
+  and a "profile ready for reliable matching" state apart from "search is running".
+- **6. "Needs your input" as a finishable task:** a job count in the navigation and progress after answering are
+  window-only; "I don't have this" / "Not sure" answers change matching and wait for Evaluation calibration 1.
+- **7. Applications:** status filters, search, sort by last activity, inline status changes (the empty state now
+  links to Jobs).
+- **9. Keyboard and labels:** recommendation chips hide their checkbox with `display: none` (no keyboard access);
+  application rows are click-only `<tr>`; several fields have placeholders without persistent labels; no focus ring
+  style; saves are not announced.
+- **10. Visual hierarchy and narrow windows:** card headings 15px against 14px body; dense tables with no overflow or
+  stacked layout at narrow widths or zoom; dark mode's primary button is white on `#7aa2f7` (about 2.3:1 contrast).
