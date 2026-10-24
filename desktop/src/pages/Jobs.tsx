@@ -43,7 +43,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
         {list.loading && !list.data ? <p className="muted">Loading...</p> : rows.length === 0 ? (
           <p className="muted">{view === "recommended" ? "No jobs here yet. New postings are checked every 15 minutes and each one is read by the AI model before it shows up here. Jobs that need an answer from you are under Needs your input." : "Nothing here."}</p>) : (
           <table className="jobs">
-            <thead><tr><th>Job</th><th>{view === "rejected" ? "Why it was filtered out" : "Recommendation"}</th><th>Eligibility</th><th>Fit</th><th>Pay, place, level</th><th>Found</th><th /></tr></thead>
+            <thead><tr><th>Job</th><th>{view === "rejected" ? "Why it was filtered out" : "Recommendation"}</th><th>Fit</th><th>Pay, place, level</th><th>Found</th><th /></tr></thead>
             <tbody>{rows.map((j) => <Row key={j.id} j={j} view={view} onOpen={onOpen} />)}</tbody>
           </table>)}
         <p className="muted">{rows.length} shown{list.data ? ` of ${list.data.total}` : ""}</p>
@@ -66,7 +66,9 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
       <td>{view === "rejected" ? <span className="muted">{filterReason(j.filter_primary)}{j.override ? " (assessing anyway)" : ""}</span>
         : r ? <><Badge value={r.recommendation} />{!r.current && <span className="muted" title="based on your profile before your latest edit"> (updating)</span>}</>
         : <span className="muted">{j.filter_verdict === "pass" ? "being read" : "-"}</span>}</td>
-      <td><Badge value={r?.eligibility} /></td><td><Badge value={r?.fit} /></td><td><Badge value={r?.opportunity} /></td>
+      {/* No eligibility column: APPLY and STRETCH require ELIGIBLE, so on "For you" it could only say
+          "You qualify" (29 of 29, 2026-10-24); the job page lists each eligibility check. */}
+      <td><Badge value={r?.fit} /></td><td><Badge value={r?.opportunity} /></td>
       <td className="muted">{ago(j.first_seen_at_ms)}</td>
       <td>{j.skipped === "you" ? <button className="small" disabled={act.busy} onClick={(e) => run(e, () => api.withdrawGoldenLabel(j.id))}>Undo</button>
         : !j.skipped && <button className="small" disabled={act.busy} title="Hide it from For you; counts as your call"
