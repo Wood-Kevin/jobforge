@@ -73,7 +73,10 @@ export type Claim = { id: number; statement: string; kind: string; rationale: st
 export type SuggestReport = { proposed: number; added: number; already_known: number; quote_not_found: number; bad_kind: number; repeated: number; seconds: number };
 export type Resume = { id: number; label: string | null; original_filename: string; mime: string; sha256: string; bytes: number; text_chars: number; uploaded_at_ms: number };
 export type ReviewGroup = { kind: string; type: string | null; example: string; jobs: { job_id: number; title: string; company: string; question: string;
-  current: boolean; requirement_id?: number; unrecognized_eligibility?: string | null }[] };
+  current: boolean; requirement_id?: number; unrecognized_eligibility?: string | null; reading_problem?: ReadingProblem | null }[] };
+// A line your confirmed fact was checked against that still can't decide the job (the AI and JobForge read it
+// differently, or only JobForge's scan found it): no fact you add settles it (views.py _reading_problem).
+export type ReadingProblem = { outcome: "met" | "fails" | "unanswered"; quote: string; status: string; origin: string };
 export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; enabled: boolean; tested_at_ms: number | null; default: boolean };
 export type ApplicationRow = { id: number; job_id: number; status: string; notes: string | null; title: string; company: string; job_closed: boolean; last_change_ms: number };
 

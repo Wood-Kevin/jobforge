@@ -556,7 +556,7 @@ def review_questions(conn: sqlite3.Connection) -> list[dict]:
             for q in reason.get("questions", []):
                 key = (q["kind"], q.get("type")) if q["kind"] == "eligibility" else (q["kind"], q["question"])
                 g = groups.setdefault(key, {"kind": q["kind"], "type": q.get("type"), "example": q["question"], "jobs": []})
-                g["jobs"].append({"job_id": rec["job_id"], "title": rec["title"], "company": rec["company"],
+                g["jobs"].append({"job_id": rec["job_id"], "evaluation_id": rec["evaluation_id"], "title": rec["title"], "company": rec["company"],
                                   "question": q["question"], "requirement_id": q.get("requirement_id"),
                                   "current": rec["current"], "newer_evaluation_pending": rec["newer_evaluation_pending"]})
     return sorted(groups.values(), key=lambda g: -len(g["jobs"]))

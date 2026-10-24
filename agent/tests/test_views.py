@@ -114,10 +114,37 @@ def test_needs_your_input_drops_skipped_jobs(env):
     assert asyncio.run(e.run_once()) == "done"
     asked = store.review_questions(env.ev)
     shown = views.review_questions(env.ev)
-    assert all(j.pop("unrecognized_eligibility") is None for g in shown for j in g["jobs"])  # the window's extra field
+    assert all(j.pop("unrecognized_eligibility") is None for g in shown for j in g["jobs"])  # the window's extra fields
+    assert all(j.pop("reading_problem") is None for g in shown for j in g["jobs"])
     assert asked and shown == asked
     env.user_tx(golden.label, env.ids["job"], {"recommendation": "SKIP"}, NOW)
     assert views.review_questions(env.ev) == [] and store.review_questions(env.ev) == asked
+
+
+def test_a_line_your_confirmed_fact_cannot_settle_is_marked_a_reading_problem(env):
+    """Kevin, 2026-10-24: "Needs your input" asked "Add a residency fact" on four jobs whose residency fact was
+    confirmed. Each line had been checked against it (fails / unanswered) but stayed unknown, because the AI
+    and the code typed it differently (or only the code's scan found it), and that never decides a job. The
+    window gets `reading_problem` so it stops asking for a fact. Display only."""
+    from jobforge_agent.evaluation.versions import VERDICT_RULE_VERSION
+    profile_basic(env)
+    _, e = env.analyze(FakeServer(("ok", E1), ("ok", e3())))
+    assert asyncio.run(e.run_once()) == "done"
+    [job] = [j for g in views.review_questions(env.ev) for j in g["jobs"]][:1]
+    rid = job["requirement_id"]
+    rec_id, reasons = env.db.execute("SELECT id, eligibility_reasons FROM recommendations WHERE evaluation_id = ? AND verdict_rule_version = ?",
+                                     (job["evaluation_id"], VERDICT_RULE_VERSION)).fetchone()
+    base = {"requirement_id": rid, "quote": "based in India", "type": "residency", "status": "conflict", "origin": "model",
+            "outcome": "fails", "effect": "unknown", "question": "Add a residency fact."}
+
+    def shown_with(reason):
+        env.db.execute("UPDATE recommendations SET eligibility_reasons = ? WHERE id = ?", (json.dumps(json.loads(reasons) + [reason]), rec_id))
+        return next(j for g in views.review_questions(env.ev) for j in g["jobs"] if j["requirement_id"] == rid)["reading_problem"]
+
+    assert shown_with({**base, "basis": "verified"}) == {"outcome": "fails", "quote": "based in India", "status": "conflict", "origin": "model"}
+    assert shown_with({**base, "basis": "self_reported"}) is None  # confirming the fact is still an answer
+    assert shown_with({**base, "basis": "verified", "effect": "blocks"}) is None
+    assert shown_with({**base, "basis": "none", "outcome": "unanswered"}) is None  # no fact yet: a real question
 
 
 def _ruleset():

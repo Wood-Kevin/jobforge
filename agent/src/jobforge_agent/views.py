@@ -14,6 +14,7 @@ from jobforge_agent.analysis import store as analysis_store
 from jobforge_agent.db import textpack
 from jobforge_agent.evaluation import golden
 from jobforge_agent.evaluation import store as evaluation_store
+from jobforge_agent.evaluation.versions import VERDICT_RULE_VERSION
 from jobforge_agent.filtering import pipeline as filter_pipeline
 from jobforge_agent.filtering import rules as filter_rules
 
@@ -120,18 +121,41 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
 def review_questions(conn: sqlite3.Connection) -> list[dict]:
     """The REVIEW questions without the jobs you skipped (and their copies); a question left with no
     job is dropped. Each job entry says whether its line is an eligibility condition the code did not
-    recognize (`unrecognized_eligibility`), so the window does not offer an experience answer for it."""
+    recognize (`unrecognized_eligibility`), so the window does not offer an experience answer for it,
+    and whether it is a reading problem only JobForge can settle (`reading_problem`, below). Display
+    only: no decision reads either field."""
     _, hidden = skipped(conn)
     groups = []
+    reasons: dict[int, dict[int, dict]] = {}
     for g in evaluation_store.review_questions(conn):
         jobs = [j for j in g["jobs"] if j["job_id"] not in hidden]
         for j in jobs:
             row = conn.execute("SELECT model_eligibility_type, eligibility_type FROM requirements WHERE id = ?",
                                (j.get("requirement_id"),)).fetchone() if j.get("requirement_id") else None
             j["unrecognized_eligibility"] = evaluation_store.unrecognized_eligibility(*row) if row else None
+            if j["evaluation_id"] not in reasons:
+                reasons[j["evaluation_id"]] = _eligibility_reasons(conn, j["evaluation_id"])
+            j["reading_problem"] = _reading_problem(reasons[j["evaluation_id"]].get(j.get("requirement_id")))
         if jobs:
             groups.append({**g, "jobs": jobs})
     return sorted(groups, key=lambda g: -len(g["jobs"]))
+
+
+def _eligibility_reasons(conn: sqlite3.Connection, evaluation_id: int) -> dict[int, dict]:
+    row = conn.execute("SELECT eligibility_reasons FROM recommendations WHERE evaluation_id = ? AND verdict_rule_version = ? "
+                       "ORDER BY id DESC LIMIT 1", (evaluation_id, VERDICT_RULE_VERSION)).fetchone()
+    return {r["requirement_id"]: r for r in json.loads(row[0]) if r.get("requirement_id") is not None} if row else {}
+
+
+def _reading_problem(reason: dict | None) -> dict | None:
+    """An eligibility line your confirmed fact was already checked against, still "unknown" because the
+    AI and the code read it differently or only the code's scan found it: those never decide a job
+    (ARCHITECTURE 6.4, D15). No fact you add can settle it, so the window must not ask for one (Kevin,
+    2026-10-24: residency questions shown for jobs whose residency fact was confirmed)."""
+    if not reason or reason.get("basis") != "verified" or reason.get("effect") != "unknown":
+        return None
+    return {"outcome": reason.get("outcome"), "quote": reason.get("quote"), "status": reason.get("status"),
+            "origin": reason.get("origin")}
 
 
 def copies_of(conn: sqlite3.Connection, job_id: int) -> list[dict]:

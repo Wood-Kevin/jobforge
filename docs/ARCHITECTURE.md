@@ -772,6 +772,11 @@ only by the Rust host.**
   written to `agent.jsonl` as `ipc_unhandled_error` (it went only to the console log before). A
   background task (heartbeat, maintenance, discovery, analysis) that ends before a stop is logged as
   `background_task_died` and listed in `/v1/health` `task_errors`.
+- **Reading problems in "Needs your input" (2026-10-24):** `views.review_questions` marks a question `reading_problem`
+  when its eligibility reason has basis `verified` and effect `unknown` (the confirmed fact was checked; the line is a
+  model/code disagreement or a recall line, which never decides a job). The window lists those under "JobForge
+  couldn't settle these" with the check's outcome and "I'd skip it", and does not count them as needing input
+  (`desktop/src/reviewGroups.ts`). Display only.
 - **Window navigation (UX round 1, 2026-10-24):** opening a job hides, but keeps mounted, the page it came from
   (`App.tsx`), so Back returns to the same tab, search, filters, sort, scroll position and focused row; the job page
   leads with Open job posting and Save job, "I'd skip it" last and quieter.
