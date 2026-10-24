@@ -731,8 +731,8 @@ only by the Rust host.**
   15 s keepalive; ends when the agent stops so it never blocks shutdown). The host's
   `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
   action and the stream is relayed by the host.
-- **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Rejected and
-  All views; search), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
+- **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Filtered out and
+  Skipped by you views; search; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
   REVIEW questions grouped across jobs, Profile (items by kind, typed eligibility-fact forms built from
   `GET /v1/profile/schema`, verify/unverify, completeness, resumes, inferred claims, import of a reviewed JSON file, all
@@ -1150,7 +1150,7 @@ A job you skip leaves the default views (Kevin, 2026-10-24: skipped jobs "sit in
 space and will probably get looked at more than once"). Skip, on a list row or the job's header, saves
 your call SKIP (6.7) and keeps any details already given (`keep_details`). A job whose current label is
 SKIP, with its open exact copies, is left out of "For you" and "Needs your input" and listed under
-"Skipped by you"; "Everything found" still lists it; Undo withdraws the label. JobForge's own
+"Skipped by you"; Undo withdraws the label. JobForge's own
 recommendation is unchanged, so the report still measures it. Rejected: a "not interested" application
 status (a table rebuild for its CHECK, a non-application in the application history, and no label).
 The golden-set report (6.7) tracks REVIEW share; if it exceeds the target

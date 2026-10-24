@@ -336,6 +336,22 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   the Q2 gap are enough. It is the only such APPLY of 19 today. Candidate, not decided: a minimum direct share
   for COMPETITIVE (a `verdict_rules` change, so a new `VERDICT_RULE_VERSION`), compared alongside the Q2 fix,
   which on its own may turn this job's gap material and its fit STRETCH.
+- **Added 2026-10-24 (second audit, pasted by Kevin; each claim checked against the live data):**
+  - Q3 (Re:Build, APPLY): "3-5 years ... Microsoft Defender, Purview, and Sentinel" is a minor gap because 1.83
+    years of general IT is within the tolerance; the products are the qualifier and none is shown (requirement 1).
+    As material: STRETCH.
+  - T1 (Hut 8, APPLY): about 4 months against "2 years or more" is minor. With `years_tolerance_abs: 2` no shortfall
+    against a requirement of 2 years or less can be material; the comparison must include the tolerance alone.
+  - Bridgeway (D3, D4): the audit counted the two overclaims as `unknown`, which makes 3 unknowns and REVIEW. The
+    prompt's own definitions make cited adjacent experience `transferable`, which leaves 1 unknown and APPLY.
+    The comparison shows both readings; the expected value stays "not direct".
+  - R1-R2 (DDN, PDI, REVIEW with exactly 3 unknowns): the resume states communication and client-facing work, but
+    no profile item does, and the resume suggester proposed none (all 179 open inbox suggestions come from
+    evaluations, none from the resume). Not a matcher change: the matcher reads snapshot items only (D2) and
+    requirement 5 forbids inferring them. Measured as resume-suggestion recall (`RESUME_PROMPT_VERSION`).
+  - Not a defect: the work-mode factor is `unknown` on all 112 recommendations because the active profile has no
+    work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
+    (50 of 112 state one).
 
 ## Exact copies are analyzed once per copy (2026-10-24)
 - **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
@@ -347,14 +363,17 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Trigger:** the analysis queue backs up, or copies are a visible share of passes; then reuse a done analysis
   when the description text is byte-identical within one employer.
 
-## Grouping makes the "All" tab slower (2026-10-24)
+## Grouping makes the big job lists slower (2026-10-24; was "the All tab")
 - **What:** collapsing copies groups every open job, so the "All" view of Kevin's 59,500 open jobs takes about
   260 ms per load instead of about 68 ms (Recommended about 5 ms and Rejected about 60 ms, unchanged). Measured:
   the bare grouping sort is about 160 ms of that, and it runs on the agent's event loop.
 - **Measured again 2026-10-24 (v0.3.2 work):** about 600 ms with 119,393 open jobs (the database doubled after the
   re-filter); the skip filter changes it by nothing measurable (595-601 ms with it stubbed out). "For you" about 40 ms.
-- **Why deferred:** "All" is not the default view, and a grouping key column or cache would add a schema change.
-- **Trigger:** the window feels slow on "All", or polls visibly stall while it is open; then store a copy-group
+- **Measured again after removing the "Everything found" tab (same session):** the slowness did not leave the
+  window. "Filtered out" groups nearly the same jobs: about 720 ms for 122,574 rows (old "Everything found" 680 ms,
+  "For you" about 45 ms, "Skipped by you" about 37 ms; three loads each, a copy of the real data).
+- **Why deferred:** "Filtered out" is not the default view, and a grouping key column or cache would add a schema change.
+- **Trigger:** the window feels slow on "Filtered out", or polls visibly stall while it is open; then store a copy-group
   key per job (computed on ingest) with an index.
 
 ## Re-filter waits for a full fetch (P1.10) — RESOLVED 2026-10-24

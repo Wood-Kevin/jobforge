@@ -1,13 +1,14 @@
 // Job list (P1.8). Default view APPLY + STRETCH ranked by opportunity value (ARCHITECTURE 6.5 noise
 // control); REVIEW jobs live in the REVIEW questions view; SKIP and the filter's rejects are one click
-// away, never hidden. A job you skip (your call, the golden label) moves to "Skipped by you" with its
+// away, never hidden. No "everything" tab: it was "For you" plus "Filtered out" (2026-10-24: 111 and
+// 125,232 of 125,378 open jobs) and the slowest list to load. A job you skip (your call, the golden label) moves to "Skipped by you" with its
 // exact copies; JobForge's own recommendation for it is unchanged. A new posting appears without reload
 // (posting_new / recommendation_computed).
 import { useState, type MouseEvent } from "react";
 import { api, type Category, type JobRow } from "../api";
 import { Badge, Card, ErrorBox, ago, useAction, useLive } from "../ui";
 
-type View = "recommended" | "rejected" | "skipped" | "all";
+type View = "recommended" | "rejected" | "skipped";
 
 export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
   const [view, setView] = useState<View>("recommended");
@@ -27,9 +28,9 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
           <button type="submit">Search</button>
         </form>}>
         <div className="tabs">
-          {(["recommended", "rejected", "skipped", "all"] as View[]).map((v) => (
+          {(["recommended", "rejected", "skipped"] as View[]).map((v) => (
             <button key={v} className={view === v ? "tab active" : "tab"} onClick={() => setView(v)}>
-              {v === "recommended" ? "For you" : v === "rejected" ? "Filtered out" : v === "skipped" ? "Skipped by you" : "Everything found"}</button>))}
+              {v === "recommended" ? "For you" : v === "rejected" ? "Filtered out" : "Skipped by you"}</button>))}
         </div>
         {view === "recommended" && (
           <div className="chips">{(["APPLY", "STRETCH", "REVIEW", "SKIP"] as Category[]).map((c) => (
@@ -61,7 +62,7 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
       <td><strong>{j.title}</strong><div className="muted">{j.company}{j.location ? ` · ${j.location}` : ""}
         {j.copies > 1 && ` · posted ${j.copies} times`}
         {j.application_status && <> · <Badge value={j.application_status} /></>}
-        {view === "all" && j.skipped && " · skipped by you"}</div><ErrorBox error={act.error} /></td>
+</div><ErrorBox error={act.error} /></td>
       <td>{view === "rejected" ? <span className="muted">{filterReason(j.filter_primary)}{j.override ? " (assessing anyway)" : ""}</span>
         : r ? <><Badge value={r.recommendation} />{!r.current && <span className="muted" title="based on your profile before your latest edit"> (updating)</span>}</>
         : <span className="muted">{j.filter_verdict === "pass" ? "being read" : "-"}</span>}</td>

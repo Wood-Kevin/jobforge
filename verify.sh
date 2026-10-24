@@ -269,7 +269,7 @@ if run window; then
     bash -c "echo cursor: \$(cat '$DATA/host/event_cursor' 2>/dev/null || echo none); grep -hE 'event_stream_(connected|first_event)' '$DATA/logs/host.log' | tail -6"
   cat <<'MANUAL'
 
-── Manual rows (screenshots): a new posting appears at the top of Jobs > Everything found without a
+── Manual rows (screenshots): a new posting appears at the top of Jobs > Filtered out (most new postings) or For you without a
    reload (posting_new within 5 s of the fetch); a posting with <script>/onerror/javascript: renders inert.
    Automated parts run in the 'tests' section (vitest sanitizer, route contract, outbound scan).
 MANUAL
