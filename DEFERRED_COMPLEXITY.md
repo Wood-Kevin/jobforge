@@ -302,6 +302,35 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** pruning records of closed rejected jobs would change retention again; not needed at this size.
 - **Trigger:** a database over 2 GB.
 
+## Evaluation calibration 1: next evaluation work, gated on labels (2026-10-24)
+Not an open-ended deferral: this is the next change to E3-E6, waiting only on two actions by Kevin.
+- **What:** an audit of the 9 APPLY/STRETCH recommendations (the real data, prompt `m1-v1`, rules `v2`, Gemma
+  4 12B) found the model marks a match `direct` when the cited item is broader than what the requirement names:
+  7 of about 46 direct matches (cases D1-D7 in `docs/calibration/calibration_1_cases.json`: Azure Virtual
+  Desktop from Azure VMs, Entra ID and Conditional Access from Active Directory, SaaS license management from
+  Microsoft 365, JSON and stack traces from Linux, SCA/SBOM and NAC from certifications, named scripting
+  languages from "scheduled scripting"). None changed a recommendation on its own. The same audit found
+  requirement qualifiers dropped (Q1-Q2: "at a B2B SaaS company", "for a SaaS or developer-focused product"
+  counted as years alone) and the model's stored gap explanation contradicting the code-computed years
+  (Y1-Y2: "approximately 1.5 years" against `years_shown` 1.83; stored in `gap_size.detail` and returned
+  by the job route, not rendered by the window today). Controls C1-C3 are correct matches that must not change.
+- **Requirements (Kevin, 2026-10-24), binding on any proposed change:**
+  1. Keep a requirement's full meaning, including qualifiers (B2B SaaS, developer-focused products, specific
+     technologies, work environments). Years alone never satisfy a qualified requirement.
+  2. Use the code-computed experience duration in both decisions and every displayed or stored explanation.
+  3. Keep `MATCH_PROMPT_VERSION = m1-v1` and `VERDICT_RULE_VERSION = v2` as they are until golden labels exist.
+  4. The direct-versus-transferable issue is an explicit item of this calibration, with D1-D7 as regression
+     cases (and C1-C3 as controls against over-correction).
+  5. Never verify eligibility facts automatically or infer missing profile experience.
+- **Trigger:** Kevin confirms his eligibility facts and labels the sample jobs (the 9 audited; 0 golden labels
+  on 2026-10-24).
+- **Then:** produce a before/after comparison of each proposed rule or prompt change, measured on the golden
+  labels and on every case in the file (recommendation changes per job, match-type changes per case), and
+  stop for Kevin's approval. No implementation of a rule or prompt change before that approval.
+- **Candidate changes, not decided:** the E3 prompt stating when `direct` applies; an E4 check that a `direct`
+  citation names the requirement's technology; years from qualifying roles only; the years tolerance in
+  `verdict_rules` (a shortfall is minor if at most 2 years *or* at most 40%, so 1.83 of "3-5 years" is minor).
+
 ## Exact copies are analyzed once per copy (2026-10-24)
 - **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
   filter still gets its own E1-E3 model run. Live: Bridgeway's two identical "System Administrator" postings were
