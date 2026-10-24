@@ -803,6 +803,14 @@ only by the Rust host.**
   links or company names, one per line; P1.10, host timeout 150 s), `POST /v1/employers/import-watchlist {text}`,
   `POST /v1/employers/{id}/enable|disable`, `POST /v1/employers/built-in {watch}` (the built-in list switch). The
   window shows no JSON or regex; internal values are translated in `desktop/src/labels.ts`.
+- **Window design (UX redesign, v0.3.12-0.3.13):** the look comes from color and size tokens at the top of
+  `desktop/src/styles.css` (light and dark, following Windows); pages share `PageHeader`, `RecBadge`, `FitBar` and
+  `Toast` (`ui.tsx`) and the menu icons in `icons.tsx` (inline SVG, no icon library: the window loads nothing from the
+  network). Plain words: `labels.ts` for agent values, `facts.ts` for eligibility facts (never true/false). Window-only
+  state: `viewPrefs.ts` (the accuracy-tools switch, WebView2 storage, off by default; shows Your call, Technical
+  details and the measuring line on Status) and `draft.ts` (unsaved search edits until the window closes). Neither
+  reaches the agent or changes a recommendation. Rejected: an agent setting for the switch, which needs a migration
+  and a route for something that only hides parts of the window.
 - **Golden set (P1.9):** `POST /v1/jobs/{id}/golden-label` (`{recommendation, eligibility?, obvious?,
   misread_requirement_ids?, note?}`; requirement ids must belong to the job), `POST /v1/jobs/{id}/golden-label/withdraw`,
   `GET /v1/golden/report`; job detail carries `golden_label`. `keep_details: true` keeps the current label's

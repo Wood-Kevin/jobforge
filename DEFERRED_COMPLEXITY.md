@@ -519,15 +519,33 @@ it" as one stated action (item 4, below). Each claim was checked against the cod
 - **4. Split "I'd skip it" into Hide + separate feedback:** declined by Kevin 2026-10-24 ("Keep one action"), as in
   v0.3.5; skips stay a high-confidence preference signal. Only made quieter (item 3). Revisit if a skip ever needs to
   mean "hide" without "your call".
-- **5. Guided resume onboarding:** Setup says "All set" once companies, search and model are done, whatever the
-  experience step says; the resume path is upload -> suggest -> add -> confirm across sections. Wanted: one sequence
-  and a "profile ready for reliable matching" state apart from "search is running".
-- **6. "Needs your input" as a finishable task:** a job count in the navigation and progress after answering are
-  window-only; "I don't have this" / "Not sure" answers change matching and wait for Evaluation calibration 1.
+- **5. Guided resume onboarding:** PARTLY RESOLVED by the UX redesign (v0.3.13): Setup is a one-step guide and
+  Profile opens with a summary and Confirm all. Still open: Setup completes once companies, search and model are
+  done, whatever the experience step says; no "profile ready for reliable matching" state apart from "search is
+  running".
+- **6. "Needs your input" as a finishable task:** the menu count is RESOLVED (v0.3.12). Progress after answering is
+  window-only and still open; "I don't have this" / "Not sure" answers change matching and wait for Evaluation
+  calibration 1.
 - **7. Applications:** status filters, search, sort by last activity, inline status changes (the empty state now
-  links to Jobs).
-- **9. Keyboard and labels:** recommendation chips hide their checkbox with `display: none` (no keyboard access);
-  application rows are click-only `<tr>`; several fields have placeholders without persistent labels; no focus ring
-  style; saves are not announced.
-- **10. Visual hierarchy and narrow windows:** card headings 15px against 14px body; dense tables with no overflow or
-  stacked layout at narrow widths or zoom; dark mode's primary button is white on `#7aa2f7` (about 2.3:1 contrast).
+  links to Jobs). The job page's "Your progress" (v0.3.12) changes status in place there, not in the list.
+- **9. Keyboard and labels:** chips and file buttons reachable by keyboard and a focus outline everywhere are
+  RESOLVED (v0.3.12). Still open: application rows are click-only `<tr>`; saves are not announced to screen readers.
+- **10. Visual hierarchy and narrow windows:** type sizes and the dark-mode button contrast are RESOLVED (v0.3.12,
+  `styles.css` tokens). Still open: the evidence and Applications tables have no stacked layout for narrow windows
+  or zoom; job rows wrap but were only checked at 1280 px wide.
+
+## UX redesign 2026-10-24 (v0.3.12-0.3.13): parked
+Five steps from Kevin's UX review and mockup (SPEC change log, "UX redesign step 1" to "step 5"). Left out on purpose:
+- **Question wording on "Needs your input":** "Does your profile cover this? "..." Add an item if it does." is
+  written by the agent with the recommendation (decisive reasons), so changing it is an evaluation change: branch,
+  before/after on a copy of the real data, his approval. Trigger: the next evaluation round.
+- **Accuracy tools switch lives in the window** (`viewPrefs.ts`, WebView2 storage), off by default, so a fresh
+  install hides "Your call" and fewer golden labels may be recorded. "I'd skip it" still records SKIP labels. Trigger:
+  golden labels stop arriving, or a second person uses a shared copy and the switch needs to be per person.
+- **Pasting a list into a tag field** (one per line) was not tested live: the screenshot driver cannot paste.
+  Trigger: first paste that adds one long tag instead of several.
+- **"Turn down all" has no undo:** each guess is rejected through the same route as "Not right", and a turned-down
+  guess is not suggested again. Trigger: a request to bring guesses back.
+- **Search drafts end with the window:** `draft.ts` keeps unsaved search edits in the window's memory only. Closing
+  the window destroys it (the host frees WebView2 and rebuilds the window on demand), so unsaved edits are lost on
+  close, as before; moving between pages keeps them. Trigger: lost edits after closing the window.

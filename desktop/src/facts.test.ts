@@ -16,8 +16,8 @@ describe("factSummary", () => {
     expect(factSummary("clearance", { level: "top_secret", status: "expired", polygraph: "full_scope", last_active_year: 2019 }))
       .toBe("Top Secret clearance, expired (last active 2019) · full scope polygraph");
     expect(factSummary("clearance", { level: "none", status: "none" })).toBe("No clearance");
-    expect(factSummary("residency", { city: "Springfield", state: "Florida", country: "US", time_zone: "eastern", willing_to_relocate: false }))
-      .toBe("Springfield, Florida, US · Eastern time · not willing to relocate");
+    expect(factSummary("residency", { city: "Springfield", state: "Ohio", country: "US", time_zone: "central", willing_to_relocate: false }))
+      .toBe("Springfield, Ohio, US · Central time · not willing to relocate");
   });
   it("falls back to labelled answers for a type it doesn't know", () => {
     expect(factSummary("something_new", { type: "something_new", is_ok: true, size: 3 })).toBe("Is ok: yes · Size: 3");
