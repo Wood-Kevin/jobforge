@@ -1,11 +1,11 @@
 // The pieces of setup that Setup (first run) and Preferences (later) share: what you are looking
 // for, which companies to watch, and the AI model check. Plain fields only; no JSON, no patterns.
-import { useEffect, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { openUrl } from "./agent";
+import { getDraft, setDraft } from "./draft";
 import { api, type EmployerAdd, type SearchForm as Form } from "./api";
 import { Card, ConfirmButton, ErrorBox, age, useAction, useLive } from "./ui";
 
-const lines = (v: string[] | undefined) => (v ?? []).join("\n");
-const unlines = (s: string) => s.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
 
 async function readFile(e: ChangeEvent<HTMLInputElement>): Promise<string | null> {
   const f = e.target.files?.[0];
@@ -15,51 +15,105 @@ async function readFile(e: ChangeEvent<HTMLInputElement>): Promise<string | null
 
 // ----- what you are looking for -----
 
+// The 50 states and DC, for the home-state menu (it was a two-letter text box).
+const STATES: [string, string][] = [["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"], ["CA", "California"],
+  ["CO", "Colorado"], ["CT", "Connecticut"], ["DE", "Delaware"], ["DC", "District of Columbia"], ["FL", "Florida"], ["GA", "Georgia"],
+  ["HI", "Hawaii"], ["ID", "Idaho"], ["IL", "Illinois"], ["IN", "Indiana"], ["IA", "Iowa"], ["KS", "Kansas"], ["KY", "Kentucky"],
+  ["LA", "Louisiana"], ["ME", "Maine"], ["MD", "Maryland"], ["MA", "Massachusetts"], ["MI", "Michigan"], ["MN", "Minnesota"],
+  ["MS", "Mississippi"], ["MO", "Missouri"], ["MT", "Montana"], ["NE", "Nebraska"], ["NV", "Nevada"], ["NH", "New Hampshire"],
+  ["NJ", "New Jersey"], ["NM", "New Mexico"], ["NY", "New York"], ["NC", "North Carolina"], ["ND", "North Dakota"], ["OH", "Ohio"],
+  ["OK", "Oklahoma"], ["OR", "Oregon"], ["PA", "Pennsylvania"], ["RI", "Rhode Island"], ["SC", "South Carolina"], ["SD", "South Dakota"],
+  ["TN", "Tennessee"], ["TX", "Texas"], ["UT", "Utah"], ["VT", "Vermont"], ["VA", "Virginia"], ["WA", "Washington"],
+  ["WV", "West Virginia"], ["WI", "Wisconsin"], ["WY", "Wyoming"]];
+
+/** A list typed as tags (UX redesign step 5; was a "one per line" box): Enter adds, × or Backspace on an empty
+ * box removes, and a pasted list (one per line) adds every line. Commas stay part of a tag: a title can have one. */
+export function TagInput({ label, hint, values, onChange, upper = false, placeholder }: { label: string; hint?: string; values: string[];
+  onChange: (v: string[]) => void; upper?: boolean; placeholder?: string }) {
+  const [text, setText] = useState("");
+  const add = (raw: string) => {
+    const next = [...values];
+    for (const part of raw.split(/\r?\n/).map((x) => x.trim()).filter(Boolean).map((x) => (upper ? x.toUpperCase() : x)))
+      if (!next.some((v) => v.toLowerCase() === part.toLowerCase())) next.push(part);
+    onChange(next);
+    setText("");
+  };
+  return (
+    <div className="tag-field">
+      <span className="tag-label">{label}{hint && <span className="muted"> {hint}</span>}</span>
+      <div className="tags">
+        {values.map((v) => (
+          <span key={v} className="tag">{v}<button type="button" aria-label={`Remove ${v}`} onClick={() => onChange(values.filter((x) => x !== v))}>×</button></span>))}
+        <input aria-label={label} value={text} placeholder={values.length ? "Add another…" : placeholder ?? "Type and press Enter"}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); if (text.trim()) add(text); }
+            else if (e.key === "Backspace" && !text && values.length) onChange(values.slice(0, -1));
+          }}
+          onBlur={() => { if (text.trim()) add(text); }}
+          onPaste={(e) => { const t = e.clipboardData.getData("text"); if (/\n/.test(t)) { e.preventDefault(); add(t); } }} />
+      </div>
+    </div>
+  );
+}
+
+// Essentials first; the rest folded under "Fine-tune" (UX redesign step 5: thirteen fields at one level). Edits
+// are kept as a draft (draft.ts) until saved or undone, and a bar at the bottom says they aren't saved yet.
 export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
   const loaded = useLive(api.searchForm, [], ["search_profile_saved"]);
   const act = useAction();
-  const [f, setF] = useState<Form | null>(null);
+  const [f, setF] = useState<Form | null>(() => getDraft());
   const [saved, setSaved] = useState<string | null>(null);
-  useEffect(() => { if (loaded.data) setF(loaded.data); }, [loaded.data]);
+  // After a save the agent's answer becomes the form (it may tidy what was typed), not a new draft.
+  const adopt = useRef(false);
+  useEffect(() => {
+    if (loaded.data && (adopt.current || !getDraft())) { setF(loaded.data); adopt.current = false; }
+  }, [loaded.data]);
+  const dirty = f !== null && loaded.data !== null && JSON.stringify(f) !== JSON.stringify(loaded.data);
+  useEffect(() => { if (!adopt.current && loaded.data) setDraft(dirty ? f : null); }, [f, loaded.data, dirty]);
   if (!f) return <Card title="Your search"><ErrorBox error={loaded.error} /><p className="muted">Loading...</p></Card>;
-  const set = (patch: Partial<Form>) => setF({ ...f, ...patch });
+  const set = (patch: Partial<Form>) => { setSaved(null); setF({ ...f, ...patch }); };
   const save = () => act.run(async () => {
     const r = await api.saveSearchForm(f);
+    adopt.current = true;
+    setDraft(null);
     setSaved(`Saved. Every job found so far is being checked against it again (version ${r.version}).`);
+    loaded.reload();
     onSaved?.();
   });
+  const undo = () => { setDraft(null); setF(loaded.data); setSaved(null); };
   const importScanner = (e: ChangeEvent<HTMLInputElement>) => act.run(async () => {
     const text = await readFile(e);
     if (text === null) return;
     const r = await api.importScannerConfig(text);
+    adopt.current = true;
+    setDraft(null);
     setSaved(`Imported your job-scanner settings (version ${r.version}).`);
     loaded.reload();
     onSaved?.();
   });
   const mode = (m: string) => (
     <select value={f.work_modes[m] ?? ""} onChange={(e) => set({ work_modes: { ...f.work_modes, [m]: e.target.value } })}>
-      <option value="">no preference</option><option value="favorable">I'd like this</option>
-      <option value="neutral">fine</option><option value="unfavorable">I'd rather not</option>
+      <option value="">No preference</option><option value="favorable">I'd like this</option>
+      <option value="neutral">Fine</option><option value="unfavorable">I'd rather not</option>
     </select>);
   return (
     <Card title="Your search">
       <div className="form-grid">
-        <label className="wide">Job titles you want <span className="muted">(one per line, e.g. Help Desk, NOC Technician)</span>
-          <textarea rows={5} value={lines(f.titles)} onChange={(e) => set({ titles: unlines(e.target.value) })} /></label>
-        <label>Skip titles with these words <span className="muted">(seniority)</span>
-          <textarea rows={4} value={lines(f.skip_seniority)} onChange={(e) => set({ skip_seniority: unlines(e.target.value) })} /></label>
-        <label>Skip jobs in these fields
-          <textarea rows={4} value={lines(f.skip_fields)} onChange={(e) => set({ skip_fields: unlines(e.target.value) })} /></label>
-        {/* No placeholder: a grey "FL" in an empty box read as filled in, and an empty home state makes
-            "Jacksonville, FL" count as another state. */}
-        <label>State you live in <span className="muted">(two letters, e.g. FL)</span>
-          <input value={f.home_state} maxLength={2} onChange={(e) => set({ home_state: e.target.value.toUpperCase() })} />
+        <div className="wide"><TagInput label="Job titles you want" hint="(e.g. Help Desk, NOC Technician)" values={f.titles}
+          onChange={(v) => set({ titles: v })} /></div>
+        {/* No preselected state: an empty home state makes "Jacksonville, FL" count as another state. */}
+        <label>State you live in
+          <select value={f.home_state} onChange={(e) => set({ home_state: e.target.value })}>
+            <option value="">Choose your state…</option>
+            {STATES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
           {!f.home_state && <span className="warn">Not set: on-site jobs in your towns are skipped as out of state, and
             jobs that can't hire in your state aren't caught.</span>}</label>
-        <label>Other states your towns are in <span className="muted">(one per line, e.g. GA; leave empty if none)</span>
-          <textarea rows={2} value={lines(f.nearby_states)} onChange={(e) => set({ nearby_states: unlines(e.target.value.toUpperCase()) })} /></label>
-        <label>Towns you could commute to <span className="muted">(one per line; on-site jobs elsewhere are skipped)</span>
-          <textarea rows={3} value={lines(f.home_towns)} onChange={(e) => set({ home_towns: unlines(e.target.value) })} /></label>
+        <TagInput label="Towns you could commute to" hint="(on-site jobs elsewhere are skipped)" values={f.home_towns}
+          onChange={(v) => set({ home_towns: v })} />
+        <TagInput label="Other states your towns are in" hint="(two letters, e.g. GA; leave empty if none)" upper values={f.nearby_states}
+          onChange={(v) => set({ nearby_states: v })} />
         <label>Lowest yearly pay you'd accept
           <input type="number" value={f.salary_floor ?? ""} placeholder="e.g. 55000" onChange={(e) => set({ salary_floor: e.target.value ? Number(e.target.value) : null })} /></label>
         <label>Yearly pay you're aiming for
@@ -67,21 +121,28 @@ export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
         <label>Remote {mode("remote")}</label>
         <label>Hybrid {mode("hybrid")}</label>
         <label>On-site {mode("onsite")}</label>
-        <label>Ignore postings older than <span className="muted">(days; empty = no limit)</span>
-          <input type="number" value={f.max_age_days ?? ""} onChange={(e) => set({ max_age_days: e.target.value ? Number(e.target.value) : null })} /></label>
-        <label>Titles you'd especially like <span className="muted">(ranked higher)</span>
-          <textarea rows={3} value={lines(f.favorite_titles)} onChange={(e) => set({ favorite_titles: unlines(e.target.value) })} /></label>
-        <label>Levels you'd especially like <span className="muted">(e.g. tier 1, junior)</span>
-          <textarea rows={3} value={lines(f.favorite_levels)} onChange={(e) => set({ favorite_levels: unlines(e.target.value) })} /></label>
       </div>
-      {f.kept_patterns && Object.keys(f.kept_patterns).length > 0 && (
-        <details className="muted kept">
-          <summary>Also kept from your imported settings: {Object.values(f.kept_patterns).flat().length} advanced patterns (not shown above, never changed by this form)</summary>
-          <ul className="compact">{Object.entries(f.kept_patterns).flatMap(([k, ps]) => ps.map((p) => <li key={k + p}><code>{p}</code></li>))}</ul>
-        </details>)}
-      <div className="row">
-        <button className="primary" disabled={act.busy} onClick={save}>Save</button>
-        {saved && <span className="ok-text">{saved}</span>}
+      <details className="fine-tune">
+        <summary>Fine-tune your search <span className="muted">words and fields to skip, favorite titles and levels, posting age</span></summary>
+        <div className="form-grid">
+          <TagInput label="Skip titles with these words" hint="(seniority, e.g. senior)" values={f.skip_seniority} onChange={(v) => set({ skip_seniority: v })} />
+          <TagInput label="Skip jobs in these fields" hint="(e.g. sales)" values={f.skip_fields} onChange={(v) => set({ skip_fields: v })} />
+          <TagInput label="Titles you'd especially like" hint="(ranked higher)" values={f.favorite_titles} onChange={(v) => set({ favorite_titles: v })} />
+          <TagInput label="Levels you'd especially like" hint="(e.g. tier 1, junior)" values={f.favorite_levels} onChange={(v) => set({ favorite_levels: v })} />
+          <label>Ignore postings older than <span className="muted">(days; empty = no limit)</span>
+            <input type="number" value={f.max_age_days ?? ""} onChange={(e) => set({ max_age_days: e.target.value ? Number(e.target.value) : null })} /></label>
+        </div>
+        {f.kept_patterns && Object.keys(f.kept_patterns).length > 0 && (
+          <details className="muted kept">
+            <summary>Also kept from your imported settings: {Object.values(f.kept_patterns).flat().length} advanced patterns (not shown above, never changed by this form)</summary>
+            <ul className="compact">{Object.entries(f.kept_patterns).flatMap(([k, ps]) => ps.map((p) => <li key={k + p}><code>{p}</code></li>))}</ul>
+          </details>)}
+      </details>
+      <div className={dirty ? "row save-bar dirty" : "row save-bar"}>
+        {/* Saving unchanged defaults still counts on first run (setup waits for a saved search). */}
+        <button className="primary" disabled={act.busy || (!dirty && loaded.data?.has_profile !== false)} onClick={save}>Save</button>
+        {dirty && <><span>You have unsaved changes.</span><button className="quiet" disabled={act.busy} onClick={undo}>Undo changes</button></>}
+        {!dirty && saved && <span className="ok-text">{saved}</span>}
         <span className="spacer" />
         <label className="file-button">Use my job-scanner settings instead
           <input className="visually-hidden" type="file" accept=".yaml,.yml" onChange={importScanner} /></label>
@@ -179,6 +240,17 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
     <Card title="AI model">
       <p className="muted">JobForge reads each posting with a model running on this PC in LM Studio ({c.model_id}). Nothing is sent
         anywhere else.</p>
+      {/* Setting up LM Studio, step by step (UX redesign step 5): open until the model works, then folded away. */}
+      <details className="checklist" open={!c.enabled}>
+        <summary>How to set up LM Studio</summary>
+        <ol>
+          <li>Install LM Studio from <a href="https://lmstudio.ai" onClick={(e) => { e.preventDefault(); act.run(() => openUrl("https://lmstudio.ai")); }}>lmstudio.ai</a> and open it.</li>
+          <li>In its search (the magnifier on the left), find and download <strong>{c.model_id}</strong>.</li>
+          <li>Load the model with a context length of at least 16,000.</li>
+          <li>Open the Developer tab and start the local server.</li>
+          <li>Come back here and press {c.enabled ? "Check again" : "Check and turn on"}.</li>
+        </ol>
+      </details>
       <p>{c.enabled ? <span className="ok-text">Turned on{c.tested_at_ms ? `, last checked ${age(Math.round((Date.now() - c.tested_at_ms) / 1000))} ago` : ""}.</span>
         : <span className="warn">Not turned on yet.</span>}</p>
       <div className="row"><button className="primary" disabled={act.busy} onClick={check}>{c.enabled ? "Check again" : "Check and turn on"}</button>

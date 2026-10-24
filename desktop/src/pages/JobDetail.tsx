@@ -5,7 +5,8 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { openUrl } from "../agent";
 import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
-import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_SHORT, OPPORTUNITY_TEXT, VERDICT_TITLE, evidenceSentence, factorText, fitSegments, fmtSalary, matchNote, plain } from "../labels";
+import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_SHORT, OPPORTUNITY_TEXT, VERDICT_TITLE, evidenceSentence, factorText, fitLabel, fitSegments, fmtSalary, matchNote, plain } from "../labels";
+import { useAccuracyTools } from "../viewPrefs";
 import { sanitizePosting } from "../sanitize";
 import { Answer } from "./Answer";
 import { Badge, Card, ConfirmButton, ErrorBox, FitBar, RecBadge, since, tone, useAction, useLive } from "../ui";
@@ -52,6 +53,8 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
     ?? missing.find((r) => r.match!.match_type === "gap") ?? missing.find((r) => r.match!.match_type === "unknown");
   const good = rec !== null && rec !== undefined && ["APPLY", "STRETCH"].includes(rec.recommendation);
   const openNote = open?.match ? matchNote(open.match) : null;
+  // Your call and the technical details are tools for checking JobForge's accuracy (Preferences switch).
+  const accuracyTools = useAccuracyTools();
 
   return (
     <>
@@ -110,7 +113,7 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
             </div>)}
           <div className="tiles">
             <Tile value={rec.eligibility} title={plain(rec.eligibility)} text={ELIGIBILITY_TEXT[rec.eligibility]} />
-            <Tile value={rec.fit} title={plain(rec.fit)} text={FIT_TEXT[rec.fit]} />
+            <Tile value={rec.fit} title={fitLabel(rec.fit)} text={FIT_TEXT[rec.fit]} />
             <Tile value={rec.opportunity} title={OPPORTUNITY_SHORT[rec.opportunity] ?? plain(rec.opportunity)} text={OPPORTUNITY_TEXT[rec.opportunity]} />
           </div>
         </section>
@@ -162,8 +165,8 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
           })}</ul>
         </Section>)}
       <Section title="The full job posting"><Posting d={d} /></Section>
-      <YourCall d={d} reload={reload} />
-      {ev && (
+      {accuracyTools && <YourCall d={d} reload={reload} />}
+      {accuracyTools && ev && (
         <Section title="Technical details">
           <p className="muted">Rules {rec?.verdict_rule_version ?? "-"} · model {ev.evaluation.model_id_reported ?? "not called"} · prompt {ev.evaluation.match_prompt_version}
             {" "}· profile version {ev.evaluation.profile_snapshot_id}{rec && ` · ${rec.fit_counts.rule}`}</p>

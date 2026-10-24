@@ -12,6 +12,7 @@
 // reading fix (cases E1-E2) is approved.
 import { useState } from "react";
 import { api, type Item, type Schema } from "../api";
+import { factSummary } from "../facts";
 import { plain } from "../labels";
 import { ErrorBox, useAction } from "../ui";
 import { FactForm, ItemForm } from "./Profile";
@@ -54,7 +55,7 @@ export function Answer({ q, schema, items }: { q: Question; schema: Schema | nul
       <ErrorBox error={act.error} /></div>);
   // A declared but unconfirmed fact only needs your confirmation.
   if (fact && fact.status !== "verified" && !open) return (
-    <div className="answer"><span className="muted">You declared: {fact.statement}.</span>{" "}
+    <div className="answer"><span className="muted">You said: {factSummary(fact.attributes.type as string, fact.attributes)}.</span>{" "}
       <button className="small primary" disabled={act.busy} onClick={() => confirm(fact.id)}>Confirm it</button>{" "}
       <button className="small" onClick={() => setOpen(true)}>Change it</button><ErrorBox error={act.error} /></div>);
   if (!open) return <button className="small" onClick={() => setOpen(true)}>Answer here</button>;
@@ -91,7 +92,7 @@ function Misread({ q, schema, items }: { q: Question; schema: Schema | null; ite
       <select value={type} onChange={(e) => { setType(e.target.value); setOpen(false); }}>
         {Object.keys(schema?.eligibility ?? { [type]: {} }).map((t) => <option key={t} value={t}>{plain(t)}</option>)}</select>{" "}
       {!open && <button className="small" onClick={() => setOpen(true)}>{fact ? "Update it" : "Add it"}</button>}
-      {fact && !open && <span className="muted"> You have: {fact.statement}{fact.status !== "verified" && " (not confirmed)"}</span>}
+      {fact && !open && <span className="muted"> You said: {factSummary(type, fact.attributes)}{fact.status !== "verified" && " (not confirmed)"}</span>}
       {open && fields && <div className="form"><FactForm key={type} type={type} fields={fields} item={fact}
         onSaved={setSaved} onCancel={() => setOpen(false)} /></div>}
       <div className="muted">{later}</div>

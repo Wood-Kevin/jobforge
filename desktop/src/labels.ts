@@ -13,7 +13,7 @@ export const PLAIN: Record<string, string> = {
   // match
   direct: "You have this", transferable: "Related experience", gap: "Missing", unknown: "Not in your profile",
   // requirement class
-  hard: "Must-have", negotiable: "Required", preferred: "Nice to have", context: "About the company", negated: "Not required",
+  hard: "Must-have", negotiable: "Asked for", preferred: "Nice to have", context: "About the company", negated: "Not required",
   // reading of the posting
   confirmed: "Clear", conflict: "Unclear wording", unverifiable: "Not found in posting",
   // profile
@@ -35,6 +35,12 @@ export const PLAIN: Record<string, string> = {
   // employer status
   active: "Watching", dead: "Board not found", blocked: "Board refused access",
 };
+
+/** A fit value: STRETCH is also a recommendation, and "Stretch" in both places read as one thing (UX redesign
+ * step 3). */
+export function fitLabel(v: string | null | undefined): string {
+  return v === "STRETCH" ? "One or two gaps" : plain(v);
+}
 
 export function plain(v: string | null | undefined): string {
   if (!v) return "";

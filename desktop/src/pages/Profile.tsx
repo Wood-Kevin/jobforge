@@ -4,6 +4,7 @@
 import { useState, type ChangeEvent } from "react";
 import { api, type Claim, type Item, type Schema } from "../api";
 import { Badge, Card, ConfirmButton, ErrorBox, PageHeader, since, useAction, useLive } from "../ui";
+import { factSummary, fieldLabel, generatedStatement, optionLabel, ownWords, typeTitle } from "../facts";
 import { icons } from "../icons";
 
 const KIND_ORDER = ["role", "achievement", "skill", "cert", "education"];
@@ -16,16 +17,61 @@ export default function Profile() {
   return (
     <div className="page">
       <PageHeader title="Your profile" sub="Your resume, your experience and the facts JobForge checks jobs against. Only what you confirm settles a job." />
-      {/* Resumes first and the profile-file import last (usability pass 2026-10-24): the file is an
-          advanced, mostly one-time step; Setup tucks it away the same way. */}
+      {/* A summary of what's left to do first, then Resumes with their suggestions right under them (UX redesign
+          step 4: the suggestions to check sat at the bottom of a long page); the profile-file import stays last
+          (usability pass 2026-10-24): the file is an advanced, mostly one-time step; Setup tucks it away the same way. */}
+      {items.data && <Summary items={list} reload={items.reload} />}
       <Resumes />
+      <Claims fromResumeOnly />
       {schema.data && <Facts schema={schema.data} items={list.filter((i) => i.kind === "eligibility")} reload={items.reload} />}
       <Completeness c={comp.data} reload={comp.reload} />
       {KIND_ORDER.map((k) => <Kind key={k} kind={k} items={list.filter((i) => i.kind === k)} reload={items.reload} />)}
-      <Claims />
+      <Claims guessesOnly />
       <details className="advanced"><summary>Advanced: load a profile file</summary><Import existing={list} onDone={items.reload} /></details>
       <ErrorBox error={items.error ?? schema.error} />
     </div>
+  );
+}
+
+// ----- summary -----
+
+// What's in the profile and what's left to do. "Confirm all" covers experience items only, after a second
+// click: they are statements you added yourself. Facts keep their own Confirm, one at a time, because a
+// confirmed fact settles jobs outright (BLOCKED, ELIGIBLE). Confirming is still your click (SPEC D2): the button
+// calls the same verify route as each item's Confirm.
+function Summary({ items, reload }: { items: Item[]; reload: () => void }) {
+  const claims = useLive(() => api.claims("open"), [], ["evaluation_done", "profile_changed"]);
+  const act = useAction();
+  const [asking, setAsking] = useState(false);
+  const experience = items.filter((i) => i.kind !== "eligibility");
+  const facts = items.filter((i) => i.kind === "eligibility");
+  const open = experience.filter((i) => i.status !== "verified");
+  const factsOpen = facts.filter((i) => i.status !== "verified").length;
+  const suggestions = claims.data?.length;
+  const confirmAll = () => act.run(async () => {
+    setAsking(false);
+    try {
+      for (const i of open) await api.verifyItem(i.id, null);
+    } finally {
+      reload(); // after a failure too: the ones already confirmed show as confirmed
+    }
+  });
+  return (
+    <section className="card summary-strip">
+      <div className="stats">
+        <div className="stat"><strong>{experience.length}</strong><span className="muted">experience items</span></div>
+        <div className="stat"><strong>{open.length}</strong><span className="muted">not confirmed yet</span></div>
+        <div className="stat"><strong>{facts.length}</strong><span className="muted">facts{factsOpen ? `, ${factsOpen} not confirmed` : ""}</span></div>
+        <div className="stat"><strong>{suggestions ?? "-"}</strong><span className="muted">suggestions to check</span></div>
+      </div>
+      {open.length > 0 && (asking
+        ? <div className="row"><span>Mark all {open.length} experience items as accurate?</span>
+            <button className="small primary" disabled={act.busy} onClick={confirmAll}>Yes, confirm all {open.length}</button>
+            <button className="small" onClick={() => setAsking(false)}>Cancel</button></div>
+        : <div className="row"><button className="primary" disabled={act.busy} onClick={() => setAsking(true)}>Confirm all {open.length} experience items</button>
+            <span className="muted">Only what you confirm settles a job. Facts are confirmed one by one below.</span></div>)}
+      <ErrorBox error={act.error ?? claims.error} />
+    </section>
   );
 }
 
@@ -98,9 +144,9 @@ export function ItemForm({ kind, item, onSaved, onCancel, placeholder }: { kind:
 
 function Facts({ schema, items, reload }: { schema: Schema; items: Item[]; reload: () => void }) {
   return (
-    <Card title="Eligibility facts">
+    <Card title="Facts about you">
       <p className="muted">Things like citizenship, where you live and clearance. JobForge checks job requirements against these
-        itself (not the AI). A fact only settles a job once you confirm it.</p>
+        itself, not the AI. A fact only settles a job once you confirm it.</p>
       <table className="facts"><tbody>
         {Object.entries(schema.eligibility).map(([type, fields]) => {
           const existing = items.filter((i) => i.attributes.type === type);
@@ -117,27 +163,28 @@ function FactRow({ type, fields, item, reload }: { type: string; fields: Schema[
   const [editing, setEditing] = useState(false);
   if (!editing) return (
     <tr>
-      <th>{title(type)}</th>
-      <td>{item ? <><Badge value={item.status} /> {item.statement} <span className="muted">{fmtAttrs(item.attributes)}</span></> : <span className="muted">not declared</span>}</td>
+      <th>{typeTitle(type)}</th>
+      <td>{item ? <FactText type={type} item={item} /> : <span className="muted">Not answered yet</span>}</td>
       <td className="actions">
         {item && item.status !== "verified" && <button className="small primary" disabled={act.busy} onClick={() => act.run(async () => { await api.verifyItem(item.id, null); reload(); })}>Confirm</button>}
         {item && item.status === "verified" && <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.unverifyItem(item.id); reload(); })}>Undo confirm</button>}
-        <button className="small" onClick={() => setEditing(true)}>{item ? "Edit" : "Declare"}</button>
+        <button className="small" onClick={() => setEditing(true)}>{item ? "Edit" : "Add"}</button>
         <ErrorBox error={act.error} />
       </td>
     </tr>);
   return (
     <tr>
-      <th>{title(type)}</th>
+      <th>{typeTitle(type)}</th>
       <td colSpan={2}><FactForm type={type} fields={fields} item={item} onSaved={() => { setEditing(false); reload(); }} onCancel={() => setEditing(false)} /></td>
     </tr>);
 }
 
-// Field names that read wrong as plain words (the rest show their name with spaces).
-const FIELD_LABEL: Record<string, string> = {
-  on_call: "on-call", other_time_zone_hours: "work hours set in another time zone", night_shifts: "night shifts",
-  rotating_shifts: "rotating shifts",
-};
+// A fact's answers in plain words, its confirmation, and the person's own words when they wrote some (a
+// statement generated from the answers is not shown twice; UX redesign step 3).
+function FactText({ type, item }: { type: string; item: Item }) {
+  const own = ownWords(item.statement, type, item.attributes);
+  return <><Badge value={item.status} /> {factSummary(type, item.attributes)}{own && <div className="muted">In your words: {own}</div>}</>;
+}
 
 // One eligibility fact's typed form; also used on the job page (Answer.tsx). `onSaved` gets the item id.
 export function FactForm({ type, fields, item, onSaved, onCancel }: { type: string; fields: Schema["eligibility"][string]; item?: Item;
@@ -148,7 +195,7 @@ export function FactForm({ type, fields, item, onSaved, onCancel }: { type: stri
   const save = () => act.run(async () => {
     const attributes: Record<string, unknown> = { type };
     for (const f of Object.keys(fields)) if (vals[f] !== undefined && vals[f] !== "") attributes[f] = vals[f];
-    const st = statement.trim() || describe(type, attributes);
+    const st = statement.trim() || generatedStatement(type, attributes);
     if (item) { await api.updateItem(item.id, { statement: st, attributes }); onSaved(item.id); }
     else onSaved((await api.createItem({ kind: "eligibility", statement: st, attributes, source: "user" })).id);
   });
@@ -156,8 +203,8 @@ export function FactForm({ type, fields, item, onSaved, onCancel }: { type: stri
     <>
       <div className="fact-form">
         {Object.entries(fields).map(([f, spec]) => (
-          <label key={f}>{FIELD_LABEL[f] ?? f.replace(/_/g, " ")}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
-        <label>description<input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="optional; generated if empty" /></label>
+          <label key={f}>{fieldLabel(f)}{spec.required && " *"}<FieldInput spec={spec.type} value={vals[f]} onChange={(v) => setVals({ ...vals, [f]: v })} /></label>))}
+        <label>In your own words (optional)<input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="Leave empty to use the answers" /></label>
       </div>
       <div className="row"><button className="primary" disabled={act.busy} onClick={save}>Save</button><button onClick={onCancel}>Cancel</button></div>
       <ErrorBox error={act.error} />
@@ -167,10 +214,10 @@ export function FactForm({ type, fields, item, onSaved, onCancel }: { type: stri
 function FieldInput({ spec, value, onChange }: { spec: string; value: unknown; onChange: (v: unknown) => void }) {
   if (spec === "bool") return (
     <select value={value === undefined ? "" : String(value)} onChange={(e) => onChange(e.target.value === "" ? undefined : e.target.value === "true")}>
-      <option value="">-</option><option value="true">yes</option><option value="false">no</option></select>);
+      <option value="">Choose…</option><option value="true">Yes</option><option value="false">No</option></select>);
   if (spec.includes(" | ")) return (
     <select value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value || undefined)}>
-      <option value="">-</option>{spec.split(" | ").map((o) => <option key={o} value={o}>{o.replace(/_/g, " ")}</option>)}</select>);
+      <option value="">Choose…</option>{spec.split(" | ").map((o) => <option key={o} value={o}>{optionLabel(o)}</option>)}</select>);
   if (spec.startsWith("number")) return <input type="number" value={value === undefined ? "" : String(value)} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))} />;
   return <input value={(value as string) ?? ""} onChange={(e) => onChange(e.target.value || undefined)} />;
 }
@@ -184,9 +231,11 @@ function Completeness({ c, reload }: { c: { cert_list_complete: boolean; eligibi
   return (
     <Card title="Is your profile complete?">
       <label className="check"><input type="checkbox" checked={c.cert_list_complete} onChange={() => toggle("cert_list_complete")} disabled={act.busy} />
-        My certification list is complete <span className="muted">(a cert not listed counts as a gap instead of unknown)</span></label>
+        I've listed all my certifications <div className="muted">If a job asks for one you didn't list, JobForge counts it as one you don't have
+        instead of asking you.</div></label>
       <label className="check"><input type="checkbox" checked={c.eligibility_facts_complete} onChange={() => toggle("eligibility_facts_complete")} disabled={act.busy} />
-        My eligibility facts are complete <span className="muted">(no clearance, license or program fact = I have none)</span></label>
+        I've answered every fact that applies to me <div className="muted">No clearance, license or program listed means you don't have
+        one.</div></label>
       <ErrorBox error={act.error} />
     </Card>
   );
@@ -262,11 +311,13 @@ export function Import({ existing, onDone }: { existing: Item[]; onDone: () => v
 
 // ----- inferred claims inbox -----
 
-export function Claims({ fromResumeOnly = false }: { fromResumeOnly?: boolean }) {
+// `fromResumeOnly`: the resume's suggestions (Setup, and under Resumes in Profile); `guessesOnly`: the model's
+// guesses about experience you didn't state (lower on Profile).
+export function Claims({ fromResumeOnly = false, guessesOnly = false }: { fromResumeOnly?: boolean; guessesOnly?: boolean }) {
   const claims = useLive(() => api.claims("open"), [], ["evaluation_done", "profile_changed"]);
   const act = useAction();
   const all = claims.data ?? [];
-  const fromResume = all.filter((c) => c.proposed_by_resume_id !== null);
+  const fromResume = guessesOnly ? [] : all.filter((c) => c.proposed_by_resume_id !== null);
   const guesses = fromResumeOnly ? [] : all.filter((c) => c.proposed_by_resume_id === null);
   const row = (c: Claim) => {
     const f = c.proposed_fields;
@@ -288,6 +339,21 @@ export function Claims({ fromResumeOnly = false }: { fromResumeOnly?: boolean })
       claims.reload(); // after a failure too: the ones already added leave the list
     }
   });
+  // Long lists show 20 at a time (UX redesign step 5: 250 suggestions on one page).
+  const [showAll, setShowAll] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const cap = (list: Claim[]) => (showAll ? list : list.slice(0, 20));
+  const more = (list: Claim[]) => list.length > 20 && !showAll && <button className="small" onClick={() => setShowAll(true)}>Show all {list.length}</button>;
+  // Turning down every guess records each as "not right" (reject route), as its own button does; a guess turned
+  // down is not suggested again.
+  const rejectAll = () => act.run(async () => {
+    setAsking(false);
+    try {
+      for (const c of guesses) await api.rejectClaim(c.id);
+    } finally {
+      claims.reload();
+    }
+  });
   if (fromResumeOnly && fromResume.length === 0) return null;
   return (
     <>
@@ -296,14 +362,17 @@ export function Claims({ fromResumeOnly = false }: { fromResumeOnly?: boolean })
           actions={<button className="primary" disabled={act.busy} onClick={addAll}>Add all {fromResume.length}</button>}>
           <p className="muted">The AI listed these from your resume; each one's wording was checked against the resume. Remove any
             that are wrong, then add the rest. Added items still show as not confirmed until you confirm them.</p>
-          <ul className="items">{fromResume.map(row)}</ul>
+          <ul className="items">{cap(fromResume).map(row)}</ul>{more(fromResume)}
           <ErrorBox error={act.error ?? claims.error} />
         </Card>)}
       {!fromResumeOnly && (
-        <Card title={`Experience the AI thinks you may have (${guesses.length})`}>
+        <Card title={`Experience the AI thinks you may have (${guesses.length})`} actions={guesses.length > 0 && (asking
+          ? <><span>Mark all {guesses.length} as not right?</span><button className="small danger" disabled={act.busy} onClick={rejectAll}>Yes, turn down all {guesses.length}</button>
+              <button className="small" onClick={() => setAsking(false)}>Cancel</button></>
+          : <button className="small" disabled={act.busy} onClick={() => setAsking(true)}>Turn down all</button>)}>
           <p className="muted">The model's guesses about experience you probably have but did not state. They never count until you
             add one, and an added one still needs your confirmation.</p>
-          {guesses.length === 0 ? <p className="muted">Nothing suggested.</p> : <ul className="items">{guesses.map(row)}</ul>}
+          {guesses.length === 0 ? <p className="muted">Nothing suggested.</p> : <><ul className="items">{cap(guesses).map(row)}</ul>{more(guesses)}</>}
           {fromResume.length === 0 && <ErrorBox error={act.error ?? claims.error} />}
         </Card>)}
     </>
@@ -340,7 +409,7 @@ export function Resumes() {
         education in a resume for you to check; nothing is added until you add it.</p>
       {(list.data ?? []).length === 0 ? <p className="muted">No resumes uploaded.</p> : (
         <table><tbody>{list.data!.map((r) => (
-          <tr key={r.id}><td>{r.original_filename}</td><td className="muted">{Math.round(r.bytes / 1024)} KB · {r.text_chars ? `${r.text_chars} chars of text` : "no text extracted"}</td>
+          <tr key={r.id}><td>{r.original_filename}</td><td className="muted">{r.text_chars ? "Text read" : "No text found: try a PDF with selectable text, or a Word file"}</td>
             <td className="muted">{since(r.uploaded_at_ms)}</td>
             <td><button className="small primary" disabled={act.busy || !r.text_chars} onClick={() => suggestFrom(r.id)}>Suggest items</button>{" "}
               <ConfirmButton label="Delete" disabled={act.busy} onConfirm={() => act.run(async () => { await api.deleteResume(r.id); list.reload(); })} /></td></tr>))}</tbody></table>)}
@@ -355,10 +424,3 @@ function title(s: string): string {
   return t[s] ?? s.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
 
-function fmtAttrs(a: Record<string, unknown>): string {
-  return Object.entries(a).filter(([k]) => k !== "type" && k !== "verify_note").map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join(", ");
-}
-
-function describe(type: string, a: Record<string, unknown>): string {
-  return `${title(type)}: ${fmtAttrs(a)}`;
-}

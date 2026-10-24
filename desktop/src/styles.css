@@ -344,3 +344,39 @@ ul.checks > li { display: flex; gap: 11px; align-items: flex-start; }
 ul.checks > li > .mark { margin-top: 1px; }
 ul.checks.quiet > li { color: var(--muted); font-size: 14.5px; }
 .progress .notes { flex: 1; min-width: 220px; }
+
+/* ----- UX redesign step 4: the setup guide's steps and Profile's summary ----- */
+.wizard { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+.wizard-step { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 8px 14px; text-align: left;
+  border: 1.5px solid var(--border); border-radius: 12px; background: var(--surface); }
+.wizard-step > span:last-child { display: flex; flex-direction: column; }
+.wizard-step strong { font-size: 14.5px; }
+.wizard-step.current { border-color: var(--btn); background: var(--info-bg); }
+.step-num svg { width: 15px; height: 15px; stroke-width: 3; }
+.wizard-foot { margin-top: 4px; }
+.wizard-foot button { display: inline-flex; align-items: center; gap: 6px; }
+.summary-strip { display: flex; flex-direction: column; gap: 6px; }
+.summary-strip .stats { margin: 0; }
+
+/* ----- UX redesign step 5: tag lists, the search form's save bar, the LM Studio checklist ----- */
+.tag-field { display: flex; flex-direction: column; gap: 5px; font-size: 14px; }
+.tag-label { font-weight: 600; }
+.tag-label .muted { font-weight: 400; }
+.tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 42px; padding: 5px 6px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--bg); cursor: text; }
+.tags:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.tag { display: inline-flex; align-items: center; gap: 2px; padding: 2px 4px 2px 10px; border-radius: 99px; background: var(--raised); font-size: 14px; }
+.tag button { min-height: 0; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--muted);
+  font-size: 16px; line-height: 1; }
+.tag button:hover { background: var(--border); color: var(--text); }
+.tags input { flex: 1; min-width: 140px; min-height: 30px; border: 0; padding: 2px 6px; background: transparent; }
+.tags input:focus-visible { outline: none; }
+details.fine-tune { margin: 4px 0 8px; border-top: 1px solid var(--border); padding-top: 12px; }
+details.fine-tune > summary { cursor: pointer; font-weight: 600; margin-bottom: 10px; }
+details.fine-tune > summary .muted { font-weight: 400; margin-left: 6px; }
+.save-bar { position: sticky; bottom: 12px; z-index: 5; padding: 10px 12px; margin: 10px -12px 0; border-radius: 12px; }
+.save-bar.dirty { background: var(--surface); box-shadow: 0 0 0 1.5px var(--btn), 0 8px 24px rgba(0, 0, 0, 0.25); }
+details.checklist { margin: 4px 0 10px; }
+details.checklist > summary { cursor: pointer; font-weight: 600; }
+details.checklist ol { margin: 8px 0 0; padding-left: 22px; line-height: 1.7; }
+.nav .unsaved { width: 9px; height: 9px; border-radius: 50%; background: var(--stretch); flex-shrink: 0; }

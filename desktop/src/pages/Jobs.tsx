@@ -13,7 +13,7 @@ import { useCallback, useState, type MouseEvent } from "react";
 import { api, type Category, type JobRow } from "../api";
 import { FOUND_WITHIN, NO_FILTERS, filterJobs, isFiltered, type Filters } from "../filterJobs";
 import { icons } from "../icons";
-import { OPPORTUNITY_SHORT, fmtSalary, opportunityLabel, plain, whyLine } from "../labels";
+import { OPPORTUNITY_SHORT, fitLabel, fmtSalary, opportunityLabel, plain, whyLine } from "../labels";
 import { sortJobs, type Sort } from "../sortJobs";
 import { Badge, Card, ErrorBox, FitBar, PageHeader, RecBadge, Toast, ago, useAction, useLive } from "../ui";
 
@@ -95,7 +95,7 @@ export default function Jobs({ onOpen }: { onOpen: (id: number) => void }) {
         </div>)}
       <div className="row filters">
         {view === "rejected" ? pick("Why filtered out:", filters.reason, reasons.map((r) => [r, r]), (v) => set({ reason: v })) : <>
-          {pick("Fit:", filters.fit, FITS.map((v) => [v, plain(v)]), (v) => set({ fit: v }))}
+          {pick("Fit:", filters.fit, FITS.map((v) => [v, fitLabel(v)]), (v) => set({ fit: v }))}
           {pick("Pay, place, level:", filters.opportunity, OPPORTUNITIES.map((v) => [v, opportunityLabel(v) ?? plain(v)]),
             (v) => set({ opportunity: v }))}</>}
         {pick("Found:", filters.foundWithinDays === null ? "" : String(filters.foundWithinDays), FOUND_WITHIN.map(([d, t]) => [String(d), t]),

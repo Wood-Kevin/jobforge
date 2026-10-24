@@ -13,6 +13,7 @@ import Restore from "./pages/Restore";
 import Setup from "./pages/Setup";
 import { api } from "./api";
 import { icons, Logo } from "./icons";
+import { useHasDraft } from "./draft";
 import { byJob } from "./reviewGroups";
 import { useLive } from "./ui";
 
@@ -71,17 +72,19 @@ export default function App() {
     jobs: recs.data?.jobs.filter((j) => j.recommendation && ["APPLY", "STRETCH"].includes(j.recommendation.recommendation)).length,
     review: questions.data ? byJob(questions.data).jobs.length : undefined,
   };
+  const unsaved = useHasDraft();
   const item = ([p, label]: [Page, string]) => (
     <button key={p} className={page === p && job === null ? "nav active" : "nav"} aria-current={page === p && job === null ? "page" : undefined} onClick={() => go(p)}>
       {icons[p as keyof typeof icons]}<span>{label}</span>
       {counts[p] !== undefined && counts[p]! > 0 && <span className={p === "review" ? "count attention" : "count"}>{counts[p]}</span>}
+      {p === "preferences" && unsaved && <span className="unsaved" title="Unsaved changes"><span className="visually-hidden">Unsaved changes</span></span>}
     </button>);
 
   return (
     <div className="shell">
       <nav aria-label="Main">
         <div className="brand"><Logo />JobForge</div>
-        {(!setupDone || page === "setup") && item(["setup", "Finish setting up"])}
+        {(!setupDone || page === "setup") && item(["setup", setupDone ? "Setup guide" : "Finish setting up"])}
         <div className="group">Find work</div>
         {FIND.map(item)}
         <div className="group">About you</div>

@@ -60,16 +60,15 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
 // JobForge read them differently, or only JobForge's scan found them, and that never decides a job either
 // way (ARCHITECTURE 6.4). Nothing to add, so no "Answer here": the call is yours (Kevin, 2026-10-24).
 const OUTCOME: Record<string, string> = {
-  fails: "your confirmed fact doesn't meet it", met: "your confirmed fact meets it",
-  unanswered: "JobForge can't compare it with your confirmed fact (it can't place this wording)",
+  fails: "doesn't fit what you confirmed", met: "fits what you confirmed",
+  unanswered: "JobForge couldn't compare this wording with what you confirmed",
 };
 
 function UnsettledCard({ jobs, link }: { jobs: Unsettled[]; link: (id: number, title: string) => ReactNode }) {
   return (
-    <Card title={`JobForge couldn't settle these (${jobs.length} job${jobs.length === 1 ? "" : "s"})`}>
-      <p className="muted">Your confirmed facts were already checked against these lines, but JobForge and the AI read each one
-        differently (or only JobForge found it), so it doesn't decide the job either way. There's nothing to add: decide
-        yourself, or leave the job as it is.</p>
+    <Card title={`Couldn't tell if these rule you out (${jobs.length} job${jobs.length === 1 ? "" : "s"})`}>
+      <p className="muted">JobForge checked these lines against your facts but couldn't read them clearly enough to decide.
+        There's nothing to answer: look them over and decide yourself, or leave the job as it is.</p>
       <ul className="items">{jobs.map((j) => <UnsettledJob key={j.job_id} j={j} link={link} />)}</ul>
     </Card>);
 }

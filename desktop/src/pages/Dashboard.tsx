@@ -4,6 +4,8 @@
 import { type Supervisor } from "../agent";
 import { api } from "../api";
 import { Badge, Card, ErrorBox, PageHeader, age, useAction, useLive } from "../ui";
+import { byJob } from "../reviewGroups";
+import { useAccuracyTools } from "../viewPrefs";
 
 export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; onSetup?: () => void }) {
   const health = useLive(api.health, [], [], 15_000);
@@ -12,7 +14,13 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const evaluation = useLive(api.evaluationStatus, [], ["evaluation_done", "evaluation_failed", "evaluations_queued"], 15_000);
   const recs = useLive(() => api.jobs("recommended", "", 500), [], ["recommendation_computed"]);
   const gold = useLive(api.goldenReport, [], ["golden_labeled", "recommendation_computed"]);
+  // "Needs your input" counts two kinds of job (UX redesign step 3: Status said 9 while the page said 8): those
+  // with a question for you, and those whose only open lines JobForge couldn't settle (no answer helps).
+  const questions = useLive(api.reviewQuestions, [], ["recommendation_computed", "profile_changed", "golden_labeled"]);
+  const split = questions.data ? byJob(questions.data) : null;
+  const unsettledOnly = split ? split.unsettled.filter((u) => !split.jobs.some((j) => j.job_id === u.job_id)).length : 0;
   const act = useAction();
+  const accuracyTools = useAccuracyTools();
 
   const h = health.data;
   const d = disc.data;
@@ -58,15 +66,16 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
         <p className="lead">
           {!d && !disc.error ? <span className="muted">Checking status...</span>
             : watched === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>
-            : <>Watching <strong>{watched}</strong> companies{isFinite(lastCheck) ? <>, last check {age(lastCheck)} ago</> : ""}.
+            : <>Watching <strong>{watched.toLocaleString()}</strong> companies{isFinite(lastCheck) ? <>, last check {age(lastCheck)} ago</> : ""}.
               {" "}{waitingAi > 0 ? <>{waitingAi} postings are waiting to be read by the AI model.</> : "Every posting found so far has been read."}</>}
         </p>
         <div className="stats">
           {(["APPLY", "STRETCH", "REVIEW", "SKIP"] as const).map((c) => (
-            <div key={c} className="stat"><Badge value={c} /><strong>{recs.data ? counts[c] ?? 0 : "-"}</strong></div>))}
-          <div className="stat"><span className="muted">open jobs found</span><strong>{d?.jobs_open ?? "-"}</strong></div>
+            <div key={c} className="stat"><Badge value={c} /><strong>{recs.data ? counts[c] ?? 0 : "-"}</strong>
+              {c === "REVIEW" && split && unsettledOnly > 0 && <span className="muted">{split.jobs.length} need an answer, {unsettledOnly} JobForge couldn't settle</span>}</div>))}
+          <div className="stat"><span className="muted">Open jobs found</span><strong>{d?.jobs_open?.toLocaleString() ?? "-"}</strong></div>
         </div>
-        {gold.data && (
+        {accuracyTools && gold.data && (
           <p className="muted">Your calls on jobs: {gold.data.labels} of the {gold.data.target[0]}-{gold.data.target[1]} needed to measure
             JobForge ("Your call" on a job).{gold.data.versions[0] && <> So far: {gold.data.versions[0].false_skip.length} jobs you'd apply to
             were marked Skip, {gold.data.versions[0].false_apply.length} you'd skip were marked Apply or Stretch.</>}</p>)}
