@@ -84,6 +84,20 @@
      "observed": {"match_type": "transferable", "citations": [14, 42]},
      "expected": {"match_type": "transferable", "why": "already correctly transferable; must stay so"}}
   ],
+  "noise_baseline": {
+    "recorded": "2026-10-24",
+    "what": "E3 match types on requirements untouched by a profile edit (cite the edited item in neither run), compared between profile snapshots on the same 17 jobs",
+    "measurements": [
+      {"from_snapshot": 111, "to_snapshot": 115, "change": "skill item 55 added, then reworded and confirmed", "compared": 212, "changed": 24},
+      {"from_snapshot": 113, "to_snapshot": 115, "change": "item 55 reworded and confirmed", "compared": 190, "changed": 27},
+      {"from_snapshot": 114, "to_snapshot": 115, "change": "item 55 confirmed only (identical request)", "compared": 212, "changed": 0,
+       "note": "answers were reused (reused_from, no model call), so this does not measure determinism; a re-sent identical request is not yet measured"}
+    ],
+    "examples": [{"job": "Livekit", "note": "scripting requirement direct, transferable, direct across 111, 113, 115"},
+                 {"job": "Runlayer", "requirement_ids": [1523, 1530], "note": "direct to transferable"},
+                 {"job": "Jobgether", "requirement_ids": [1689, 1690, 1693], "note": "gap to unknown"}],
+    "rule": "report this flip rate next to every before/after result; a case counts as fixed only if it holds across at least two unrelated-context variations"
+  },
   "borderline_not_a_case": [
     {"job_id": 29171, "evaluation_id": 23, "requirement_id": 346,
      "quote": "Understanding of advanced engineering systems and processes to help debug and route requests based on severity",

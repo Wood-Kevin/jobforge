@@ -349,6 +349,20 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
     no profile item does, and the resume suggester proposed none (all 179 open inbox suggestions come from
     evaluations, none from the resume). Not a matcher change: the matcher reads snapshot items only (D2) and
     requirement 5 forbids inferring them. Measured as resume-suggestion recall (`RESUME_PROMPT_VERSION`).
+- **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
+  unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
+  reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212
+  (11%) changed match type between snapshots 111 and 115 and 27 of 190 (14%) between 113 and 115 (e.g. LiveKit's
+  scripting line direct, transferable, direct; Runlayer 1523 and 1530 direct to transferable; gaps to unknown on
+  Jobgether 1689, 1690, 1693). Between 114 and 115, where only the item's confirmation changed, 0 of 212 changed,
+  but that is answer reuse, not a determinism result: the confirmation does not change the E3 request, so those
+  answers were reused (`reused_from`, no model call). Whether an identical request re-sent to the model gives the
+  same answer is not measured; the comparison needs that too (re-run a sample with reuse bypassed), to separate
+  sampling noise from sensitivity to the profile context. Consequence: a prompt or profile change that moves a match is not shown to
+  have caused it unless the move exceeds this baseline. The comparison must (a) state the baseline flip rate on
+  untouched requirements alongside every result, measured between two runs that differ only in unrelated profile
+  text, and (b) count a case (D1-D7, Q1-Q3, T1, F1, C1-C3) as fixed only if it holds across at least two such
+  context variations. Measured with a read-only script against the live database; no evaluation was re-run for it.
   - Not a defect: the work-mode factor is `unknown` on all 112 recommendations because the active profile has no
     work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
     (50 of 112 state one).
