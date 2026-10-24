@@ -38,3 +38,6 @@ desktop/app-icon.png
 build.log
 desktop/src-tauri/gen/
 *.tsbuildinfo
+
+# Session handoff notes: local working notes for the next session, not project documentation
+docs/HANDOFF.md
