@@ -17,6 +17,7 @@ import uvicorn
 
 from jobforge_agent import PROTOCOL_VERSION, __version__, applications, ipc, logs, setup, views, winutil
 from jobforge_agent.analysis import store as analysis_store
+from jobforge_agent.analysis.versions import EXTRACTION_PROMPT_VERSION, INTERPRETER_VERSION
 from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db import backup, migrate, recovery
 from jobforge_agent.db.connect import AgentConnection, open_connection
@@ -103,6 +104,7 @@ class AgentRuntime:
         self.reader = open_connection(self.paths.db, "readonly", readonly=True)
         report = recovery.recover(self.lifecycle, now_ms())
         self.sync_directory()
+        self.requeue_for_current_versions()
         self.run_id = self.lifecycle.execute(
             "INSERT INTO agent_runs (pid, version, elevated, started_at_ms, heartbeat_at_ms) VALUES (?, ?, ?, ?, ?) RETURNING id",
             (os.getpid(), __version__, int(self.elevated), self.started_ms, self.started_ms)).fetchone()[0]
@@ -111,6 +113,22 @@ class AgentRuntime:
                       interrupted_fetches=len(report.interrupted_fetches),
                       reset_analyses=report.reset_analyses, reset_evaluations=report.reset_evaluations)
         return StartupResult(result.from_version, result.to_version, str(result.backup) if result.backup else None, report)
+
+    def requeue_for_current_versions(self) -> int:
+        """Startup: passing jobs analyzed under an older E1/segmenter/E2 version get a current one
+        (filter_pipeline.queue_current_analyses). Logs the count; a failure is logged, not fatal."""
+        conn = self.discovery_conn
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            n = filter_pipeline.queue_current_analyses(conn, now_ms())
+            conn.execute("COMMIT")
+        except Exception as exc:
+            conn.execute("ROLLBACK")
+            self.log.error("analyses_requeue_failed", error=f"{type(exc).__name__}: {exc}")
+            return 0
+        if n:
+            self.log.info("analyses_requeued", count=n, extraction=EXTRACTION_PROMPT_VERSION, interpreter=INTERPRETER_VERSION)
+        return n
 
     def finish(self) -> None:
         if self.lifecycle is not None and self.run_id is not None:

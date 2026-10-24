@@ -74,6 +74,23 @@ def claim(conn: sqlite3.Connection, model_config_id: int, now: int, lease_ms: in
     return _tx(conn, go)
 
 
+def stored_extraction(conn: sqlite3.Connection, analysis_id: int) -> tuple[int, dict, str | None] | None:
+    """A finished analysis of the same posting by the same model config, E1 prompt and segmenter, whose E1
+    answer can be read again: (its id, raw_response, model reported). E1's output depends only on those and
+    the posting text, so an interpreter-only change (interp-v3) re-runs E2 on it without a model call.
+    Rejected: re-running E1 on every posting for an E2 change (one model call per job, and E1's own drift)."""
+    row = conn.execute(
+        "SELECT o.id, o.raw_response, o.model_id_reported FROM posting_analyses a JOIN posting_analyses o "
+        "ON o.raw_posting_id = a.raw_posting_id AND o.model_config_id = a.model_config_id "
+        "AND o.extraction_prompt_version = a.extraction_prompt_version AND o.segmenter_version = a.segmenter_version "
+        "WHERE a.id = ? AND o.id <> a.id AND o.status = 'done' AND o.raw_response IS NOT NULL ORDER BY o.id DESC LIMIT 1",
+        (analysis_id,)).fetchone()
+    if row is None:
+        return None
+    raw = json.loads(row[1])
+    return (row[0], raw, row[2]) if raw.get("attempts") else None
+
+
 def _event(conn, type_: str, job_id: int, ref: dict, now: int) -> None:
     conn.execute("INSERT INTO change_events (type, job_id, ref, created_at_ms) VALUES (?, ?, ?, ?)",
                  (type_, job_id, json.dumps(ref), now))

@@ -447,3 +447,38 @@ def test_prompt_changes_require_a_version_bump():
     digest = hashlib.sha256((extract.SYSTEM + json.dumps(extract.SCHEMA, sort_keys=True)
                              + extract.user_message("T", "X")).encode()).hexdigest()[:16]
     assert (EXTRACTION_PROMPT_VERSION, digest) == ("e1-v1", "4fb42bf9ca058f7e")
+
+
+# ----- an interpreter-only version change reuses the stored E1 answer (interp-v3, 2026-10-24) -----
+
+def test_a_new_interpreter_version_rereads_the_stored_e1_answer_without_a_model_call(env, caplog, capsys):
+    db, ids, make = env
+    first = queue(db, ids)
+    server = FakeServer(("ok", GOOD))
+    assert asyncio.run(make(server).run_once()) == "done"
+    calls = server.chat_calls
+    # The same posting, model, E1 prompt and segmenter under another interpreter version.
+    again = db.execute(
+        "INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
+        "interpreter_version, created_at_ms) VALUES (?, ?, ?, ?, ?, 'interp-next', ?) RETURNING id",
+        (ids["raw7"], ids["job7"], ids["model"], EXTRACTION_PROMPT_VERSION, SEGMENTER_VERSION, NOW)).fetchone()[0]
+    assert asyncio.run(make(server).run_once()) == "done"
+    assert server.chat_calls == calls  # no model call: the server has no answer left to give
+    a = row(db, again)
+    assert a["status"] == "done" and json.loads(a["raw_response"])["reused_from_analysis"] == first
+    assert [(r["jd_quote"], r["eligibility_type"], r["final_class"]) for r in reqs(db, again)] == \
+        [(r["jd_quote"], r["eligibility_type"], r["final_class"]) for r in reqs(db, first)]
+    assert "reused_from_analysis" in logged(caplog, capsys)
+
+
+def test_a_new_e1_prompt_version_does_not_reuse_the_old_answer(env):
+    db, ids, make = env
+    queue(db, ids)
+    server = FakeServer(("ok", GOOD), ("ok", GOOD))
+    assert asyncio.run(make(server).run_once()) == "done"
+    db.execute(
+        "INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
+        "interpreter_version, created_at_ms) VALUES (?, ?, ?, 'e1-next', ?, ?, ?)",
+        (ids["raw7"], ids["job7"], ids["model"], SEGMENTER_VERSION, INTERPRETER_VERSION, NOW))
+    assert asyncio.run(make(server).run_once()) == "done"
+    assert server.chat_calls == 2  # a different E1 prompt is a different question: asked again

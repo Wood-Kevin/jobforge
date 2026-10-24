@@ -409,3 +409,9 @@
   quote: "Remote in Eastern US (required)"
   facts: {residency: {country: US, state: FL}}
   expect: {outcome: unanswered, reason: state_partly_in_time_zone, question_contains: "Add your time zone"}
+
+- name: on-call is an availability question, met when you said yes
+  type: availability
+  quote: "Participate in an on-call rotation as needed."
+  facts: {availability: {on_call: true}}
+  expect: {outcome: met}

@@ -58,8 +58,15 @@ questions added across jobs: 13; most common:
   2 x Can you work this schedule? "Comfort operating in a SOC 2 / HIPAA-regulated environment, executing access reviews and producing audit evidence, and w"
   1 x Where do you live, and would you relocate? The posting says: "This role requires candidates to be local to the El Dorado Hills area". Add a residency 
   1 x Where do you live, and would you relocate? The posting says: "work on-site a minimum of 3 days per week". Add a residency fact.
-  1 x Can you work this schedule? "US Time (Eastern): Friday - Tuesday, 8A - 5P" Add your hours and availability fact.
-  1 x Which time zone do you live in? The posting asks for eastern time: "candidates must be located in the US in Eastern timezone". Add your time zone to y
   1 x Which time zone do you live in? The posting asks for eastern time: "Located in US, eastern timezone (remote)". Add your time zone to your residency fa
+  1 x Which time zone do you live in? The posting asks for eastern time: "candidates must be located in the US in Eastern timezone". Add your time zone to y
+  1 x Can you work this schedule? "US Time (Eastern): Friday - Tuesday, 8A - 5P" Add your hours and availability fact.
 
 model-matched lines with no stored E3 answer in the after run (counted unknown; a real rollout re-asks the model): 0
+
+----- rollout dry run (scripts/rollout_dry_run.py, a second copy, branch code, model server counting chat calls) -----
+startup sweep queued 18 analyses (17 re-readable jobs + job 128056)
+17 done from the stored E1 answer, 0 model calls; worker requirements equal the before/after above for all 17 jobs
+job 128056: no stored E1 answer (its interp-v2 analysis failed: budget_exhausted at max_tokens=4000), so it needs E1 under any version; 3 attempts hit the dry-run server and failed as expected
+evaluations queued 17: stored E3 answer reused 12 (no call), model call needed 5 (jobs whose requirement set changed)
+live database: 0 interp-v3 analyses (untouched)

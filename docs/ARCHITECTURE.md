@@ -617,9 +617,15 @@ split below is kept as documentation for any future server port (A13).
   | program_status | active_duty, veteran, student (at least one) |
   | availability | on_call, weekends, holidays, night_shifts, rotating_shifts, other_time_zone_hours (bool, at least one) |
 
-  `availability` (2026-10-24) is stored but not matched yet: it is in `items.AWAITING_CUES`, the E2
-  lexicon assigns no line that type, and `facts.py` has no check for it, until the reading fix in
-  Evaluation calibration 1 (cases E1-E2) is approved. The E1 schema's type list is the lexicon's, so
+  `availability` (2026-10-24) is matched from interp-v3 / rules v3 (branch `calibration/eligibility-routing`,
+  pending Kevin's approval): E2 types hours, shifts, weekends, on-call and zone-hours lines `availability`
+  (not in the recall scan), and `facts._availability` checks them against the fact, hours in the person's
+  own time zone needing nothing more. On-call is an availability fact, never a negative job attribute:
+  opportunity value does not read duties. Residency reads the person's `time_zone` when a state spans zones.
+  The E1 schema's type list is fixed with e1-v1 (`extract.E1_ELIGIBILITY_TYPES`). A new interpreter version
+  re-reads each posting's stored E1 answer (`analysis/store.stored_extraction`, no model call), and startup
+  queues current-version analyses for passing jobs (`pipeline.queue_current_analyses`). Before merging, on main,
+  `availability` was stored but not matched (`items.AWAITING_CUES`). The E1 schema's type list is the lexicon's, so
   it is unchanged. Two tests hold that state (`test_eligibility_types_match_the_profile_fact_types`,
   `test_fact_types_cover_every_e2_eligibility_type`).
 

@@ -165,6 +165,9 @@ class AnalysisWorker:
         attempts: list[dict] = []
         try:
             seg = segment(c.text)
+            stored = store.stored_extraction(self.conn, c.analysis_id)
+            if stored is not None:
+                return self._reuse(c, seg, *stored, t0)
             msgs = extract.messages(c.title, c.text, cfg.structured_output_mode)
             fmt = extract.response_format(cfg.structured_output_mode)
             items = None
@@ -207,6 +210,20 @@ class AnalysisWorker:
             return self._fail(c, "internal_error", f"{type(exc).__name__}: {exc}", attempts or None)
         self.log.info("analysis_done", analysis_id=c.analysis_id, job_id=c.job_id, seconds=round(time.perf_counter() - t0, 1),
                       model_calls=len(attempts), **counts)
+        self.on_events()
+        return "done"
+
+    def _reuse(self, c: store.Claim, seg, source_id: int, raw: dict, model_reported: str | None, t0: float) -> str:
+        """E2 again on the posting's stored E1 answer (store.stored_extraction): no model call. A stored answer
+        that no longer parses is a failure here, not a silent new model call."""
+        try:
+            items = extract.parse(raw["attempts"][-1]["content"])
+        except extract.InvalidOutput as exc:
+            return self._fail(c, "invalid_output", f"stored E1 answer of analysis {source_id}: {exc}", None)
+        counts = store.persist_done(self.conn, c, seg, interpret(seg, items), {**raw, "reused_from_analysis": source_id},
+                                    model_reported, self.now_ms())
+        self.log.info("analysis_done", analysis_id=c.analysis_id, job_id=c.job_id, seconds=round(time.perf_counter() - t0, 1),
+                      model_calls=0, reused_from_analysis=source_id, **counts)
         self.on_events()
         return "done"
 

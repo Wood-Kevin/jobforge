@@ -650,3 +650,24 @@ def test_recommendation_routes(paths):
         assert (await client.get("/v1/jobs/999/recommendation", headers=AUTH)).status_code == 404
 
     _run_with_fake(paths, server, check)
+
+
+def test_startup_queues_current_version_analyses_for_passing_jobs_only(env):
+    """interp-v3, 2026-10-24: a new E2 version reached only re-filtered jobs; at startup every open job that
+    passes (or has an override) and keeps its text gets an analysis at the current versions, once."""
+    from jobforge_agent.analysis.versions import INTERPRETER_VERSION
+    from jobforge_agent.filtering import pipeline
+    env.db.execute("UPDATE posting_analyses SET interpreter_version = 'interp-old'")
+    rejected, _ = add_job(env.db, env.ids, 31, "Sales Director", desc="Sell things.")
+    disc = open_connection(env.paths.db, "discovery")  # the agent's startup runs it on this connection (authorizer)
+    disc.execute("BEGIN IMMEDIATE")
+    assert pipeline.queue_current_analyses(disc, NOW) == 1  # the seeded passing job; the unfiltered one is not queued
+    disc.execute("COMMIT")
+    assert env.db.execute("SELECT count(*) FROM posting_analyses WHERE job_id = ? AND interpreter_version = ? AND status = 'pending'",
+                          (env.ids["job"], INTERPRETER_VERSION)).fetchone()[0] == 1
+    assert env.db.execute("SELECT count(*) FROM posting_analyses WHERE job_id = ?", (rejected,)).fetchone()[0] == 0
+    disc.execute("BEGIN IMMEDIATE")
+    assert pipeline.queue_current_analyses(disc, NOW) == 0  # idempotent
+    disc.execute("COMMIT")
+    disc.close()
+

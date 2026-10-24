@@ -384,8 +384,13 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   zone and schedule. Two earlier drafts were rejected by this comparison (round 1: benefit holidays and team prose
   "on-call" raised questions, 3 APPLY -> REVIEW; "Pacific Time Zone business hours" read as residency, a false fail).
   Not measured: golden labels (1 so far), E3 drift on rollout (11-14% baseline), jobs whose text was dropped.
-  Rollout if approved: merge; reuse each posting's stored E1 answer for the interp-v3 analysis (to write: today a new
-  interpreter version re-runs E1); E3 re-runs where the request changes; Kevin declares time zone and availability.
+  Rollout pieces now written on the branch: the analysis worker re-reads a posting's stored E1 answer when only the
+  interpreter changed (no model call), and agent startup queues a current-version analysis for open passing jobs
+  (before, a new version reached only re-filtered jobs). Final run on fresh data and a rollout dry run (branch
+  code, a model server counting calls): 17 analyses from stored answers with 0 model calls, requirements equal to
+  the before/after for all 17; E3: 12 stored answers reused, 5 jobs need the model; 1 job (128056) needs E1 under
+  any version (its first analysis failed). On-call: an availability fact only; opportunity value never reads a
+  posting's duties (test). Waits for Kevin's approval to merge and deploy.
 - **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
   unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
   reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212

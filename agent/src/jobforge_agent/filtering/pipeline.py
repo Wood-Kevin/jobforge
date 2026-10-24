@@ -108,6 +108,26 @@ def queue_analysis(conn: sqlite3.Connection, job_id: int, raw_id: int, model_con
     return True
 
 
+def queue_current_analyses(conn: sqlite3.Connection, now: int) -> int:
+    """Queue an analysis at the current E1/segmenter/E2 versions for every open job that passes the active
+    profile (or has an override), keeps its text, and has none for its current posting. Run at startup, so
+    a new version reaches jobs already filtered, not only re-filtered ones (interp-v3, 2026-10-24); with
+    analysis/store.stored_extraction an interpreter-only change needs no model call. Caller holds the
+    transaction. Returns how many were queued."""
+    profile = active_profile(conn)
+    model_id = default_model_config_id(conn)
+    if profile is None or model_id is None:
+        return 0
+    rows = conn.execute(
+        f"SELECT j.id, j.current_raw_posting_id FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id "
+        f"{textpack.JOIN} WHERE j.closed_at_ms IS NULL AND {textpack.KEPT} "
+        "AND (EXISTS (SELECT 1 FROM filter_results fr WHERE fr.raw_posting_id = j.current_raw_posting_id "
+        "             AND fr.search_profile_id = ? AND fr.ruleset_version = ? AND fr.verdict = 'pass') "
+        "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = j.id)) ORDER BY j.id",
+        (profile.id, rules.RULESET_VERSION)).fetchall()
+    return sum(queue_analysis(conn, job_id, raw_id, model_id, now) for job_id, raw_id in rows)
+
+
 @dataclass
 class FilterStats:
     filtered: int = 0

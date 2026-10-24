@@ -293,3 +293,13 @@ def test_skip_only_from_positive_evidence(version):
             if rule == 5:
                 assert a.opportunity == "LOW"
     assert seen["SKIP"] > 50  # the generator actually reaches SKIP
+
+
+def test_on_call_never_lowers_opportunity_value():
+    """Kevin, 2026-10-24: on-call participation is an availability fact, not a negative job attribute; pay and
+    working conditions are separate. Opportunity value reads only the title, posting date and the filter's
+    reading of location, work mode and salary, never a posting's duties, so an on-call line cannot move it."""
+    import dataclasses
+    from jobforge_agent.evaluation.assess import JobFacts
+    assert {f.name for f in dataclasses.fields(JobFacts)} == {"title", "posted_at", "outcome"}
+
