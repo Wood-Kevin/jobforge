@@ -390,7 +390,7 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   code, a model server counting calls): 17 analyses from stored answers with 0 model calls, requirements equal to
   the before/after for all 17; E3: 12 stored answers reused, 5 jobs need the model; 1 job (128056) needs E1 under
   any version (its first analysis failed). On-call: an availability fact only; opportunity value never reads a
-  posting's duties (test). Waits for Kevin's approval to merge and deploy.
+  posting's duties (test). Approved by Kevin ("proceed") and merged 2026-10-24, v0.3.9.
 - **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
   unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
   reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212

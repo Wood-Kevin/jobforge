@@ -228,6 +228,18 @@ if run analysis; then
           WHERE last_error LIKE '%budget_exhausted%' OR last_error LIKE '%context_overflow%' GROUP BY 1,2,3"
   probe "Enabled model configs never tested (expect zero rows; CHECK constraint)" \
     sql "SELECT id, name FROM model_configs WHERE enabled = 1 AND tested_at_ms IS NULL"
+  probe "Analyses by interpreter version and status; reused = E2 re-run on a stored E1 answer, no model call (interp-v3)" \
+    sql "SELECT interpreter_version, status, sum(raw_response LIKE '%reused_from_analysis%') AS reused, count(*) FROM posting_analyses
+          GROUP BY 1, 2 ORDER BY 1, 2"
+  probe "Eligibility lines the model typed but E2 did not, in current analyses (calibration E1-E2; went to the matcher)" \
+    sql "SELECT r.model_eligibility_type, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND r.model_eligibility_type NOT IN ('none') AND r.eligibility_type IS NULL GROUP BY 1"
+  probe "Requirement lines typed availability in current analyses, by class (interp-v3)" \
+    sql "SELECT r.final_class, r.interpretation_status, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE r.eligibility_type = 'availability' AND pa.raw_posting_id = j.current_raw_posting_id
+          AND j.closed_at_ms IS NULL GROUP BY 1, 2"
 fi
 
 if run evaluation; then
