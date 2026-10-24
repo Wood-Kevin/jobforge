@@ -27,6 +27,19 @@ def test_restricted_dir_has_exactly_the_user_ace(tmp_path):
     assert len(entries) == 1 and entries[0].endswith("(OI)(CI)(F)"), entries
 
 
+def test_restricted_dir_drops_explicit_aces(tmp_path):
+    """An explicit ACE (here Administrators, read) must not survive; /inheritance:r alone kept it."""
+    import subprocess
+    d = tmp_path / "run"
+    d.mkdir()
+    subprocess.run(["icacls", str(d), "/grant", "*S-1-5-32-544:(OI)(CI)R"], check=True, capture_output=True)
+    assert any("Administrators" in e and "(I)" not in e for e in winutil.dir_acl_entries(d))
+    sid = winutil.restrict_dir_to_user(d)
+    entries = winutil.dir_acl_entries(d)
+    assert len(entries) == 1 and entries[0].endswith("(OI)(CI)(F)"), entries
+    assert sid == winutil.current_user_sid()
+
+
 def test_default_data_root_is_identifier_not_install_dir(monkeypatch):
     monkeypatch.delenv("JOBFORGE_DATA_DIR", raising=False)
     p = resolve_paths()

@@ -499,7 +499,7 @@ restart.
 | Resumes | Inside the database (BLOB) | One file to back up and restore. |
 | Logs | `<data root>\logs\agent.jsonl`, `host.log`, `agent-console.log` | Rotated 10 MB x 5. Redacted (8). `agent-console.log` captures the agent's stdout/stderr, where bootloader failures land (7.1). |
 | Backups | `<data root>\backups\` | Daily, keep 7; pre-migration, keep 5. User-visible "Open backups folder" in settings. |
-| Runtime | `<data root>\run\agent.lock`, `ipc.json` | `ipc.json` holds port + token; recreated each agent start. `run\` DACL set to the user's SID only (tested: `icacls` showed only `KEVINSPC\kevin`). |
+| Runtime | `<data root>\run\agent.lock`, `ipc.json` | `ipc.json` holds port + token; recreated each agent start. `run\` DACL reset, then set to the user's SID only, so explicit ACEs are dropped as well as inherited ones (since 2026-10-24: `/inheritance:r` alone kept explicit ACEs; `test_lock_and_winutil.py`). |
 
 Paths come from `SHGetKnownFolderPath(FOLDERID_LocalAppData)`, not from
 environment strings, and are overridable with `JOBFORGE_DATA_DIR` for tests.

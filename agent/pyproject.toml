@@ -28,6 +28,7 @@ testpaths = ["tests"]
 addopts = "-rs"
 markers = [
   "integration: starts real agent processes (unelevated through explorer.exe when the test shell is elevated)",
+  "private_config: needs the owner's private job-scanner config.yaml (JOBFORGE_SCANNER_CONFIG); not run in public CI",
 ]
 
 [dependency-groups]

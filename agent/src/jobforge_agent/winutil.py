@@ -95,18 +95,20 @@ def current_user_sid() -> str:
 
 
 def restrict_dir_to_user(path: Path) -> str:
-    """Drop inherited ACEs and grant full control to the current user's SID only.
+    """Leave the current user's SID as the directory's only ACE, with full control.
 
     Returns the SID. Raises if icacls fails, because the IPC token file must never sit in a
     directory other accounts can read (ARCHITECTURE 5).
+
+    `/reset` first: `/inheritance:r` drops only inherited ACEs, so an explicit one (a folder created
+    elsewhere, or with Python's mkdir(mode=0o700) ACL) used to survive. Found by public CI on a hosted
+    runner, 2026-10-24; test_restricted_dir_drops_explicit_aces pins it.
     """
     sid = current_user_sid()
-    r = subprocess.run(
-        ["icacls", str(path), "/inheritance:r", "/grant:r", f"*{sid}:(OI)(CI)F"],
-        capture_output=True, text=True, creationflags=CREATE_NO_WINDOW,
-    )
-    if r.returncode != 0:
-        raise OSError(f"icacls failed ({r.returncode}): {r.stdout.strip()} {r.stderr.strip()}")
+    for args in (["/reset"], ["/inheritance:r", "/grant:r", f"*{sid}:(OI)(CI)F"]):
+        r = subprocess.run(["icacls", str(path), *args], capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+        if r.returncode != 0:
+            raise OSError(f"icacls {args[0]} failed ({r.returncode}): {r.stdout.strip()} {r.stderr.strip()}")
     return sid
 
 
