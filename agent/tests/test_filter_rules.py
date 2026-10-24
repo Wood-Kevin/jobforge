@@ -106,7 +106,9 @@ def test_description_country_words_do_not_restrict(cfg):
     assert location(job(location="Remote - US", description="We have offices in London and Austin. Join us!"), cfg)[0]
 
 
-@pytest.mark.parametrize("loc", ["Jacksonville, FL", "Ponte Vedra Beach, Florida", "Orange Park, FL", "Live Oak, FL"])
+# The home area comes from a private scanner config (outside the repo); the towns named here are the metro's,
+# not his own (his were taken out of the public history, 2026-10-24).
+@pytest.mark.parametrize("loc", ["Jacksonville, FL", "Ponte Vedra Beach, Florida", "Orange Park, FL"])
 def test_home_metro_onsite_kept(cfg, loc):
     kept, _, _, elig = location(job(location=loc, workplace="ONSITE"), cfg)
     assert kept and elig == "HOME_OK"
@@ -269,12 +271,10 @@ def test_stale_posting_rejected_when_enabled(cfg):
 @pytest.mark.parametrize("loc, local", [
     ("Jacksonville, FL", True), ("Jacksonville", True), ("Jacksonville, 5201 Gate Parkway", True),
     ("St Johns, FL", True), ("Blount Island, FL", True), ("Naval Station Mayport", True),
-    ("Lake City, Florida", True), ("Nocatee, FL", True), ("Kings Bay, GA", True),
-    ("Thomasville, Georgia", True), ("Valdosta, GA", True),
+    ("Nocatee, FL", True), ("Kings Bay, GA", True),
     ("Newark; Charlotte; Jacksonville; United States of America", True),
-    ("Jacksonville, NC", False), ("Jacksonville, North Carolina", False), ("Monticello, OH", False),
-    ("Nassau County, NY", False), ("Jasper, NC", False), ("Valdosta, TX", False),
-    ("Thomasville, PA", False), ("Austin, TX", False),
+    ("Jacksonville, NC", False), ("Jacksonville, North Carolina", False),
+    ("Nassau County, NY", False), ("Austin, TX", False),
 ])
 def test_home_area(cfg, loc, local):
     assert rules.in_home_metro(loc, cfg) is local, loc
