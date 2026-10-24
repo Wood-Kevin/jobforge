@@ -68,6 +68,51 @@ function years(n: unknown): string {
 }
 
 /** A plain sentence for what code found about one requirement match (no flag names). */
+// "Pay, location and level" (E6 opportunity factors). A factor's value "unknown" is not the match
+// type "unknown" ("Not in your profile"): it is either the posting not saying (salary, work mode,
+// where it hires, date) or you not having set a preference. The agent's `detail` says which; these
+// exact strings are pinned to evaluation/assess.py by agent/tests/test_views.py.
+// Opportunity value UNKNOWN shares its key with eligibility UNKNOWN ("Check eligibility").
+export const opportunityLabel = (v: string | null | undefined) => (v === "UNKNOWN" ? "Not enough info" : undefined);
+
+export type Factor = { factor: string; value: string; detail: string };
+const NOT_STATED: Record<string, string> = {
+  "no salary in the posting": "The posting doesn't give a salary.",
+  "work mode not stated": "The posting doesn't say remote, hybrid or on-site.",
+  "no posting date": "The posting has no date.",
+  UNKNOWN: "The posting doesn't say where it can hire.",
+};
+const NO_PREFERENCE: Record<string, string> = {
+  "no work-mode preferences in the search profile": "You haven't said how you'd like to work (Remote / Hybrid / On-site in your search).",
+  "no seniority preferences in the search profile": "You haven't listed levels to like or skip in your search.",
+  "no role_family preferences in the search profile": "You haven't listed titles you'd especially like in your search.",
+};
+const LOCATION: Record<string, string> = {
+  HOME_OK: "Open where you live.", US_WIDE: "Open anywhere in the US.",
+  LOCATION_NOT_ELIGIBLE: "On-site, too far from your towns.", REMOTE_EXCLUDES_HOME: "Remote, but not open where you live.",
+  REMOTE_ANCHORED: "Tied to an office elsewhere.",
+};
+const TITLE: Record<string, Record<string, string>> = {
+  seniority: { favorable: "The title shows a level you'd especially like.", unfavorable: "The title shows a level you skip.",
+    neutral: "The title shows no level you listed to like or skip." },
+  role_family: { favorable: "The title is one you'd especially like.", unfavorable: "The title is one you'd rather not have.",
+    neutral: "The title isn't one of your \"titles you'd especially like\"." },
+};
+
+export function factorText(f: Factor): { label: string; note: string } {
+  if (f.value === "unknown") {
+    if (NOT_STATED[f.detail]) return { label: "Not stated", note: NOT_STATED[f.detail] };
+    if (NO_PREFERENCE[f.detail]) return { label: "No preference set", note: NO_PREFERENCE[f.detail] };
+    return { label: "Unknown", note: f.detail };
+  }
+  const label = plain(f.value);
+  if (f.factor === "location") return { label, note: LOCATION[f.detail.split(":")[0]] ?? f.detail };
+  if (f.factor === "work_mode") return { label, note: plain(f.detail === "onsite" ? "On-site" : f.detail) };
+  if (f.factor === "age") return { label, note: `Posted ${f.detail} ago.` };
+  if (TITLE[f.factor]?.[f.value]) return { label, note: TITLE[f.factor][f.value] };
+  return { label, note: f.detail };
+}
+
 export function matchNote(m: { match_type: string; gap_size: Record<string, unknown> | null; flags: { flag: string; [k: string]: unknown }[] }): string | null {
   const g = m.gap_size ?? {};
   if ("years_needed" in g) return `Needs ${years(g.years_needed)}; your profile shows ${years(g.years_shown ?? 0)}.`;

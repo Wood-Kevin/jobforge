@@ -64,6 +64,8 @@ th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--bord
 th { color: var(--muted); font-weight: 600; font-size: 12px; }
 th .sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }
 th .sort:hover { color: var(--text); }
+.filters { flex-wrap: wrap; gap: 12px; margin: 6px 0; }
+.filters .filter { font-size: 12.5px; color: var(--muted); }
 tr.clickable { cursor: pointer; }
 tr.clickable:hover td { background: var(--bg); }
 ul.compact { margin: 4px 0; padding-left: 18px; }

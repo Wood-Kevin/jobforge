@@ -5,7 +5,7 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { openUrl } from "../agent";
 import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
-import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, matchNote, plain } from "../labels";
+import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_TEXT, factorText, matchNote, opportunityLabel, plain } from "../labels";
 import { sanitizePosting } from "../sanitize";
 import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
 
@@ -67,7 +67,7 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
           <div className="summary">
             <div><Badge value={rec.eligibility} /> <span>{ELIGIBILITY_TEXT[rec.eligibility]}</span></div>
             <div><Badge value={rec.fit} /> <span>{FIT_TEXT[rec.fit]}</span></div>
-            <div><Badge value={rec.opportunity} /> <span>{OPPORTUNITY_TEXT[rec.opportunity]}</span></div>
+            <div><Badge value={rec.opportunity} text={opportunityLabel(rec.opportunity)} /> <span>{OPPORTUNITY_TEXT[rec.opportunity]}</span></div>
           </div>
           {questions.length > 0 && (
             <div className="reason"><strong>JobForge needs your answer:</strong>
@@ -99,8 +99,11 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
         </Section>)}
       {rec && (
         <Section title="Pay, location and level">
-          <ul className="items">{rec.opportunity_factors.map((f) => (
-            <li key={f.factor}><div className="item-line"><Badge value={f.value} /><span className="statement">{plain(f.factor)}</span><span className="muted">{f.detail}</span></div></li>))}</ul>
+          <ul className="items">{rec.opportunity_factors.map((f) => {
+            const t = factorText(f);
+            return <li key={f.factor}><div className="item-line"><Badge value={f.value} text={t.label} /><span className="statement">{plain(f.factor)}</span>
+              <span className="muted">{t.note}</span></div></li>;
+          })}</ul>
         </Section>)}
       <Section title="Job posting"><Posting d={d} /></Section>
       {ev && (

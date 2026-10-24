@@ -732,7 +732,7 @@ only by the Rust host.**
   `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
   action and the stream is relayed by the host.
 - **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Filtered out and
-  Skipped by you views; search; column headers sort the loaded rows, `desktop/src/sortJobs.ts`; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
+  Skipped by you views; search; column headers sort and a filter row (fit, pay/place/level or filter reason, found within) narrows the loaded rows, `desktop/src/sortJobs.ts` and `filterJobs.ts`; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
   REVIEW questions grouped across jobs, Profile (items by kind, typed eligibility-fact forms built from
   `GET /v1/profile/schema`, verify/unverify, completeness, resumes, inferred claims, import of a reviewed JSON file, all
@@ -1123,6 +1123,10 @@ upgrade or break ties):
 unknown (pay vs floor and target, work mode, location, seniority, role family,
 age). LOW if 2+ unfavorable; HIGH if 3+ favorable and 0 unfavorable; UNKNOWN
 if 4+ unknown; else MEDIUM. Factor list is stored and shown, not just the label.
+An unknown factor has two causes, kept apart on screen: the posting does not state it (salary,
+work mode, where it hires, date: "Not stated") or the search has no preference for it ("No
+preference set"). The factor's `detail` carries the cause; `desktop/src/labels.ts` `factorText`
+words it, and a test pins those strings to `assess.py`.
 
 **Recommendation** (first matching rule wins; each recorded as the decisive reason):
 1. Eligibility BLOCKED -> SKIP ("blocker: <quote>").

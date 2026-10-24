@@ -192,6 +192,23 @@ def test_outbound_http_only_in_discovery_and_inference():
         assert not re.search(r"\bfetch\(|XMLHttpRequest|WebSocket\(|navigator\.sendBeacon|\bEventSource\(", text), p.name
 
 
+def test_the_window_words_every_opportunity_factor_detail():
+    """desktop/src/labels.ts factorText maps the agent's `detail` strings to plain words; an "unknown"
+    factor says whether the posting didn't state it or you set no preference. A detail renamed in
+    assess.py would fall back to raw text, so every fixed detail string must appear in labels.ts."""
+    assess = (ROOT / "agent" / "src" / "jobforge_agent" / "evaluation" / "assess.py").read_text(encoding="utf-8")
+    body = assess[assess.index("def _title_factor"):assess.index("    values = [f[\"value\"] for f in factors]")]
+    fixed = set(re.findall(r'"value": "unknown", "detail": "([^"{}]+)"', body))  # the ones worded by detail
+    names = re.findall(r'_title_factor\("(\w+)"', body)
+    fixed |= {f"no {n} preferences in the search profile" for n in names}
+    labels = (ROOT / "desktop" / "src" / "labels.ts").read_text(encoding="utf-8")
+    assert len(fixed) >= 6 and sorted(d for d in fixed if f'"{d}"' not in labels) == []
+    # Location details are the filter's eligibility values and failure codes, worded by their prefix.
+    rules = (ROOT / "agent" / "src" / "jobforge_agent" / "filtering" / "rules.py").read_text(encoding="utf-8")
+    for code in ("HOME_OK", "US_WIDE", "UNKNOWN", "LOCATION_NOT_ELIGIBLE", "REMOTE_EXCLUDES_HOME", "REMOTE_ANCHORED"):
+        assert f'"{code}' in rules and f"{code}:" in labels, code
+
+
 def test_every_route_the_window_calls_exists():
     """SPEC D14 asked for UI types generated from OpenAPI; the routes return plain dicts, so there is
     nothing to generate (corrected in P1.8). This keeps the part that matters: a renamed or removed

@@ -95,9 +95,10 @@ const TONE: Record<string, string> = {
   saved: "info", applied: "ok", interviewing: "ok", offer: "ok", rejected: "bad", withdrawn: "muted",
 };
 
-export function Badge({ value, title }: { value: string | null | undefined; title?: string }) {
+// `text` replaces the plain wording where one value means different things (opportunity factors).
+export function Badge({ value, title, text }: { value: string | null | undefined; title?: string; text?: string }) {
   if (!value) return null;
-  return <span className={`badge ${TONE[value] ?? "muted"}`} title={title}>{plain(value)}</span>;
+  return <span className={`badge ${TONE[value] ?? "muted"}`} title={title}>{text ?? plain(value)}</span>;
 }
 
 export function ago(ms: number | null | undefined): string {
