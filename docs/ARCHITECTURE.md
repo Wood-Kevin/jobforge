@@ -140,7 +140,7 @@ job-search-app/                     (rename to jobforge/ is Q1-dependent)
       nsis/hooks.nsh                # stop running agent before files are replaced
   scripts/
     build.ps1                       # pyinstaller -> copy agent dist into src-tauri resources -> tauri build
-  spikes/p1_0/                      # measurement scripts and results (Appendix A)
+  spikes/p1_0/                      # measurement scripts and results (Appendix A; in git history only since 2026-10-24)
 ```
 
 The Rust layer is deliberately thin: tray, window, start/attach/restart the
@@ -1633,7 +1633,7 @@ postings, DB encryption, retention pruning.
 
 ## Appendix A. P1.0 spike results (2026-10-21)
 
-Raw outputs: `spikes/p1_0/results/`. Scripts: `spikes/p1_0/*.py`.
+Raw outputs: `spikes/p1_0/results/`. Scripts: `spikes/p1_0/*.py`. Spike code left the repository's tree on 2026-10-24 (measurement code, not app code); it is in the git history before that date.
 
 **(a) Container -> LM Studio (rev 3 question, now moot).** Docker Desktop
 29.7.2 (WSL2). `curl` from a container to `host.docker.internal:1234/v1/models`
@@ -1781,7 +1781,7 @@ Kevin (DEFERRED_COMPLEXITY.md).
 
 ## Appendix B. P1.0d packaging spike results (2026-10-21)
 
-Code: `spikes/p1_0d_packaging/` (minimal agent: FastAPI/uvicorn, file lock,
+Code (git history; see Appendix A): `spikes/p1_0d_packaging/` (minimal agent: FastAPI/uvicorn, file lock,
 SQLite WAL, migration with backup and refuse-newer, token IPC; minimal Tauri
 host: tray, close-to-tray, attach-or-spawn, watchdog, autostart,
 single-instance; NSIS per-user installer with stop-agent hooks). Raw output:

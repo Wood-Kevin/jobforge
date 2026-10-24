@@ -7,7 +7,7 @@ Source of truth (read before changing anything):
 - `docs/ARCHITECTURE.md` — reasoning, schema detail, rules, spike evidence (Appendices A, B).
 - `DEFERRED_COMPLEXITY.md` — parked work with triggers.
 
-Layout: `agent/` (Python agent, all business logic), `desktop/` (Tauri host + React UI, added in P1.2), `spikes/` (measurement code, not app code).
+Layout: `agent/` (Python agent, all business logic), `desktop/` (Tauri host + React UI, added in P1.2), `spikes/` (local measurement code, not app code; out of the repo since 2026-10-24, findings in ARCHITECTURE Appendices A and B).
 
 Desktop commands (from `desktop/`; cargo and Tauri via PowerShell): `npm run build` (type-check + bundle), `npx vitest run` (sanitizer tests), `cargo test` in `src-tauri`, `npx tauri build --no-bundle` (host exe; run against a data copy with `JOBFORGE_DATA_DIR`, `JOBFORGE_AGENT_EXE`=agent venv python, `JOBFORGE_AGENT_ARGS=-m jobforge_agent`, started unelevated).
 

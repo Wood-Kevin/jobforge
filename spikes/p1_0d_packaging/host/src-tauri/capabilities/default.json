@@ -1,7 +1,0 @@
-{
-  "$schema": "../gen/schemas/desktop-schema.json",
-  "identifier": "default",
-  "description": "Spike window: core only; the app's own agent_call command is the only bridge to the agent.",
-  "windows": ["main"],
-  "permissions": ["core:default"]
-}

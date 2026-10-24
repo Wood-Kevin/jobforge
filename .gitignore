@@ -23,12 +23,9 @@ agent-dist-*/
 installers/
 *.exe
 
-# Spike build output (large, reproducible from spikes/*/build.ps1)
-spikes/p1_0d_packaging/host/src-tauri/gen/
-spikes/p1_0d_packaging/build_*.log
+# Spikes: measurement code, not app code; kept locally, out of the repo since 2026-10-24
+spikes/
 
-# The spike host keeps its hand-written frontend in dist/
-!spikes/p1_0d_packaging/host/dist/
 
 # Release build output
 dist-installers/

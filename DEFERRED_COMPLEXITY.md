@@ -94,7 +94,7 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 ### LM Studio runtime update for qwen3.5 models
 - **What:** `qwen3.5-9b-tuned` fails to load ("qwen35.rope.dimension_sections has wrong array length; expected 4, got 3"), so it could not be evaluated.
 - **Why deferred:** Updating LM Studio's runtime is Kevin's call and outside JobForge.
-- **Trigger:** Kevin updates LM Studio, or wants that model measured; rerun `spikes/p1_0/eval_spike.py qwen3.5-9b-tuned:fast`.
+- **Trigger:** Kevin updates LM Studio, or wants that model measured; rerun `spikes/p1_0/eval_spike.py qwen3.5-9b-tuned:fast` (spike code is in the git history before 2026-10-24, and in Kevin's local `spikes/` folder).
 
 ### Variance and larger-sample model evaluation
 - **What:** The spike ran each configuration once on 6 postings and 22 snippets against Claude-authored labels; differences of 1-3 probes between models are not meaningful.

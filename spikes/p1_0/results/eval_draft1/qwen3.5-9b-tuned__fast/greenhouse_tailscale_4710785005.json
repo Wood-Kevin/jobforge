@@ -1,1 +1,0 @@
-HTTP 400: {"error": {"message": "Failed to load model \"qwen3.5-9b-tuned\". Error: Failed to load model.", "type": "invalid_request_error", "param": "model", "code": null}}
