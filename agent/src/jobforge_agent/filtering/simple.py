@@ -95,7 +95,9 @@ def to_form(rules: dict | None) -> dict:
         **{k: plain for k, (plain, _) in shown.items()},
         # Patterns with regex logic (e.g. from job-scanner's config.yaml): kept on save, shown read-only.
         "kept_patterns": {k: kept for k, (_, kept) in shown.items() if kept},
-        "home_state": codes[0] if codes else "",
+        # The first code is where you live; the rest are other states your towns are in.
+        "home_state": codes[0] if codes and loc.get("home_markers") else "",
+        "nearby_states": list(codes[1:] if codes and loc.get("home_markers") else codes),
         "home_towns": list(loc.get("home_metro") or []),
         "salary_floor": (r.get("salary") or {}).get("floor_annual") or None,
         "pay_target": opp.get("pay_target_annual"),
@@ -128,21 +130,27 @@ def from_form(form: dict, base: dict | None) -> dict:
     state = str(form.get("home_state") or "").strip().upper()
     if state and state not in STATE_NAMES:
         raise ProfileError("Home state must be a two-letter US state code, like FL")
+    # Other states the home towns are in (Live Oak's area reaches Valdosta, GA). They only keep "Valdosta, GA"
+    # from reading as another state; residence ("Remote - Florida", "cannot hire in Florida") stays the home
+    # state alone. Rejected: one list of home states, which would make "Remote - Georgia" count as home.
+    nearby = [s.upper() for s in _clean_list(form.get("nearby_states"), "Other states your towns are in")]
+    if any(s not in STATE_NAMES for s in nearby):
+        raise ProfileError("Other states your towns are in must be two-letter US state codes, like GA")
+    codes = list(dict.fromkeys(([state] if state else []) + nearby))
     towns = _clean_list(form.get("home_towns"), "Home towns")
     for k in ("us_markers", "us_state_markers", "non_us_location_markers", "description_restricted_markers", "residency_markers"):
         loc.setdefault(k, list(d[k]))
     loc["home_metro"] = towns
+    loc["home_state_codes"] = codes
+    loc["home_state_names"] = [STATE_NAMES[c] for c in codes]
     if state:
         name = STATE_NAMES[state]
-        loc["home_state_codes"] = [state]
-        loc["home_state_names"] = [name]
         loc["home_markers"] = [re.escape(name), state.lower()]
         loc["home_excluded_markers"] = [
             r"(excluding|except|not (able to )?hire in|cannot hire in|unable to hire in|not available (to residents of|in))"
             rf"[^.]{{0,80}}{re.escape(name)}"]
     else:
-        for k in ("home_state_codes", "home_state_names", "home_markers", "home_excluded_markers"):
-            loc[k] = []
+        loc["home_markers"], loc["home_excluded_markers"] = [], []
 
     floor = form.get("salary_floor")
     rules["salary"] = {"floor_annual": float(floor) if floor not in (None, "") else 0.0}

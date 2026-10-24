@@ -29,7 +29,7 @@ export type RecSummary = { recommendation: Category; eligibility: string; fit: s
   current: boolean; newer_evaluation_pending: boolean };
 export type JobRow = { id: number; title: string; company: string; location: string | null; work_mode: string | null; posted_at: string | null;
   first_seen_at_ms: number; filter_verdict: "pass" | "reject" | null; filter_primary: string | null; override: boolean;
-  application_status: string | null; recommendation: RecSummary | null };
+  application_status: string | null; recommendation: RecSummary | null; copies: number };
 export type JobList = { view: string; total: number; jobs: JobRow[]; search_profile: { id: number; version: number } | null };
 
 export type Match = { matched_by: string; match_type: string; basis: string; citations: number[]; bridge: string | null;
@@ -50,7 +50,7 @@ export type JobDetail = { id: number; title: string; company: string; location: 
   closed_at_ms: number | null; posting_versions: number; listing_url: string | null; apply_url: string | null; employer: string; source: string;
   description_html: string | null; description_text: string | null; filter: { verdict: string; reasons: { primary: string | null; failed: { rule: string; category: string; detail: string | null }[] } } | null;
   override: boolean; analysis: { id: number; status: string; last_error: string | null } | null; evaluation: Evaluation | null; application: Application | null;
-  golden_label: GoldenLabel | null };
+  golden_label: GoldenLabel | null; copies: { id: number; url: string | null; first_seen_at_ms: number }[] };
 export type GoldenLabel = { id: number; recommendation: Category; eligibility: string | null; obvious: boolean; misread_requirement_ids: number[];
   note: string | null; labeled_by: string; shown_recommendation_id: number | null; created_at_ms: number };
 export type GoldenVersion = { model: string; extraction_prompt: string; interpreter: string; match_prompt: string; rules: string;
@@ -76,7 +76,7 @@ export type SetupStatus = {
   employers: { done: boolean; enabled: number }; search_profile: { done: boolean; version: number | null };
   model: { done: boolean; name: string | null; model_id: string | null; base_url: string | null; tested: boolean };
   profile: { done: boolean; items: number; facts: number; facts_verified: number }; complete: boolean };
-export type SearchForm = { titles: string[]; skip_seniority: string[]; skip_fields: string[]; home_state: string; home_towns: string[];
+export type SearchForm = { titles: string[]; skip_seniority: string[]; skip_fields: string[]; home_state: string; nearby_states: string[]; home_towns: string[];
   salary_floor: number | null; pay_target: number | null; work_modes: Record<string, string>; favorite_titles: string[];
   favorite_levels: string[]; max_age_days: number | null; has_profile?: boolean; kept_patterns?: Record<string, string[]> };
 export type EmployerAdd = { added: number; existing: number; watched_again: number; skipped_unsupported: string[]; not_understood?: string[];

@@ -40,6 +40,28 @@ def test_job_lists_by_view(env):
         views.list_jobs(env.ev, "everything", None, 50, 0)
 
 
+def test_exact_copies_show_as_one_row_and_different_jobs_do_not(env):
+    """Bridgeway posted one job under two ids (2026-10-24): one row, the detail links the other. Voxel's
+    Tier 2 and Tier 3 share an intro but not their text, and a same-title job with other text stays apart."""
+    a, _ = add_job(env.db, env.ids, 41, "System Administrator", desc="Same text.")
+    b, _ = add_job(env.db, env.ids, 42, "System Administrator", desc="Same text.")
+    other, _ = add_job(env.db, env.ids, 43, "System Administrator", desc="A different team.")
+    elsewhere, _ = add_job(env.db, env.ids, 44, "System Administrator", location="Austin, TX", desc="Same text.")
+
+    def rows():
+        return {j["id"]: j["copies"] for j in views.list_jobs(env.ev, "all", "system administrator", 50, 0)["jobs"]}
+    assert rows() == {a: 2, other: 1, elsewhere: 1}
+    assert views.list_jobs(env.ev, "all", "system administrator", 50, 0)["total"] == 3
+    assert [c["id"] for c in views.job_detail(env.ev, a)["copies"]] == [b]
+    assert views.job_detail(env.ev, other)["copies"] == []
+    # The copy with an application is the one shown, so its status stays in the list.
+    env.user_tx(applications.set_for_job, b, {"status": "applied"}, NOW)
+    assert rows() == {b: 2, other: 1, elsewhere: 1}
+    # A closed copy drops out of the group; the open one remains.
+    env.db.execute("UPDATE jobs SET closed_at_ms = ? WHERE id = ?", (NOW, b))
+    assert rows() == {a: 1, other: 1, elsewhere: 1} and views.job_detail(env.ev, a)["copies"] == []
+
+
 def _ruleset():
     from jobforge_agent.filtering.rules import RULESET_VERSION
     return RULESET_VERSION

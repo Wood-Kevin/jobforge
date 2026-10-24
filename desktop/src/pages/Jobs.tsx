@@ -52,6 +52,7 @@ function Row({ j, view, onOpen }: { j: JobRow; view: View; onOpen: (id: number) 
   return (
     <tr className="clickable" onClick={() => onOpen(j.id)}>
       <td><strong>{j.title}</strong><div className="muted">{j.company}{j.location ? ` · ${j.location}` : ""}
+        {j.copies > 1 && ` · posted ${j.copies} times`}
         {j.application_status && <> · <Badge value={j.application_status} /></>}</div></td>
       <td>{view === "rejected" ? <span className="muted">{filterReason(j.filter_primary)}{j.override ? " (assessing anyway)" : ""}</span>
         : r ? <><Badge value={r.recommendation} />{!r.current && <span className="muted" title="based on your profile before your latest edit"> (updating)</span>}</>

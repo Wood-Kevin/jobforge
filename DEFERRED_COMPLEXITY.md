@@ -302,7 +302,29 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** pruning records of closed rejected jobs would change retention again; not needed at this size.
 - **Trigger:** a database over 2 GB.
 
-## Re-filter waits for a full fetch (P1.10)
+## Exact copies are analyzed once per copy (2026-10-24)
+- **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
+  filter still gets its own E1-E3 model run. Live: Bridgeway's two identical "System Administrator" postings were
+  both analyzed.
+- **Why deferred:** reusing an analysis across postings crosses the E1/E3 reuse rules (pinned prompt versions,
+  a stored E3 answer reused only for a byte-identical request), so it needs its own design and tests; copies are
+  rare among passes (1 of 48 on 2026-10-24).
+- **Trigger:** the analysis queue backs up, or copies are a visible share of passes; then reuse a done analysis
+  when the description text is byte-identical within one employer.
+
+## Grouping makes the "All" tab slower (2026-10-24)
+- **What:** collapsing copies groups every open job, so the "All" view of Kevin's 59,500 open jobs takes about
+  260 ms per load instead of about 68 ms (Recommended about 5 ms and Rejected about 60 ms, unchanged). Measured:
+  the bare grouping sort is about 160 ms of that, and it runs on the agent's event loop.
+- **Why deferred:** "All" is not the default view, and a grouping key column or cache would add a schema change.
+- **Trigger:** the window feels slow on "All", or polls visibly stall while it is open; then store a copy-group
+  key per job (computed on ingest) with an index.
+
+## Re-filter waits for a full fetch (P1.10) — RESOLVED 2026-10-24
+- **Resolved:** `pipeline.request_full_fetch` now also makes those boards due at once. The reason given below for
+  deferring was wrong: `claim_due` enforces each source's hourly budget whatever is due, so pulling boards forward
+  cannot exceed it; it delays other polls on that source while the backlog drains (after a profile edit, roughly
+  3 h for Greenhouse and 6 h for Ashby at Kevin's 2026-10-24 board counts), once. Polling early adds no requests.
 - **What:** a job whose text was dropped (rejected, or polled before any search profile existed) is filtered under a
   new profile only when its board's next full fetch brings the text back (the ETag is cleared at once). For the
   built-in list that is up to 24 h after a profile change; live: 3,530 of 5,382 jobs were still waiting 15 min after

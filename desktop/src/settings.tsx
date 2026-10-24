@@ -50,8 +50,14 @@ export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
           <textarea rows={4} value={lines(f.skip_seniority)} onChange={(e) => set({ skip_seniority: unlines(e.target.value) })} /></label>
         <label>Skip jobs in these fields
           <textarea rows={4} value={lines(f.skip_fields)} onChange={(e) => set({ skip_fields: unlines(e.target.value) })} /></label>
-        <label>Home state <span className="muted">(two letters)</span>
-          <input value={f.home_state} maxLength={2} placeholder="FL" onChange={(e) => set({ home_state: e.target.value.toUpperCase() })} /></label>
+        {/* No placeholder: a grey "FL" in an empty box read as filled in, and an empty home state makes
+            "Jacksonville, FL" count as another state. */}
+        <label>State you live in <span className="muted">(two letters, e.g. FL)</span>
+          <input value={f.home_state} maxLength={2} onChange={(e) => set({ home_state: e.target.value.toUpperCase() })} />
+          {!f.home_state && <span className="warn">Not set: on-site jobs in your towns are skipped as out of state, and
+            jobs that can't hire in your state aren't caught.</span>}</label>
+        <label>Other states your towns are in <span className="muted">(one per line, e.g. GA; leave empty if none)</span>
+          <textarea rows={2} value={lines(f.nearby_states)} onChange={(e) => set({ nearby_states: unlines(e.target.value.toUpperCase()) })} /></label>
         <label>Towns you could commute to <span className="muted">(one per line; on-site jobs elsewhere are skipped)</span>
           <textarea rows={3} value={lines(f.home_towns)} onChange={(e) => set({ home_towns: unlines(e.target.value) })} /></label>
         <label>Lowest yearly pay you'd accept

@@ -7,7 +7,7 @@ from conftest import NOW
 from jobforge_agent import setup
 from jobforge_agent.filtering import rules as filter_rules
 from jobforge_agent.filtering import simple
-from jobforge_agent.filtering.profile import ProfileError, compile_profile
+from jobforge_agent.filtering.profile import ProfileError, compile_profile, from_scanner_config
 from jobforge_agent.db.connect import open_connection
 from test_analysis import FakeServer, _run_with_fake
 from test_ipc import AUTH
@@ -76,7 +76,32 @@ def test_form_edit_keeps_tuned_patterns():
     assert r"service\s+desk" in again["title"]["include"]
 
 
+def test_towns_across_a_state_line_without_moving_home():
+    """Live Oak's area reaches Valdosta, GA. The other state only stops "Valdosta, GA" reading as out of
+    state; residence stays Florida, so "Remote - Georgia" is not home and Florida exclusions still bite."""
+    rules = simple.from_form({**FORM, "nearby_states": ["ga"], "home_towns": ["Live Oak", "Valdosta"]}, None)
+    p = compile_profile(rules)
+    assert filter_rules.evaluate(_job("NOC Technician", location="Valdosta, GA"), p).remote_eligibility == "HOME_OK"
+    assert filter_rules.evaluate(_job("NOC Technician", location="Live Oak, FL"), p).passed
+    assert filter_rules.evaluate(_job("NOC Technician", location="Remote - Georgia"), p).remote_eligibility != "HOME_OK"
+    assert not filter_rules.evaluate(_job("NOC Technician", desc="We cannot hire in Florida."), p).passed
+    alone = compile_profile(simple.from_form({**FORM, "home_towns": ["Live Oak", "Valdosta"]}, None))
+    assert not filter_rules.evaluate(_job("NOC Technician", location="Valdosta, GA"), alone).passed
+    form = simple.to_form(rules)
+    assert (form["home_state"], form["nearby_states"]) == ("FL", ["GA"])
+    # job-scanner's import has Florida and Georgia; the form shows Florida as home, Georgia as nearby.
+    imported = simple.to_form(from_scanner_config({"location": {"florida_markers": ["florida"]}}))
+    assert (imported["home_state"], imported["nearby_states"]) == ("FL", ["GA"])
+
+
+def test_an_empty_home_state_keeps_nearby_states_and_no_residence():
+    rules = simple.from_form({**FORM, "home_state": "", "nearby_states": ["GA"]}, None)
+    assert rules["location"]["home_state_codes"] == ["GA"] and rules["location"]["home_markers"] == []
+    assert (simple.to_form(rules)["home_state"], simple.to_form(rules)["nearby_states"]) == ("", ["GA"])
+
+
 @pytest.mark.parametrize("bad,msg", [({"titles": []}, "at least one job title"), ({"home_state": "Florida"}, "two-letter"),
+                                     ({"nearby_states": ["Georgia"]}, "two-letter US state codes"),
                                      ({"work_modes": {"remote": "love it"}}, "liked, fine or disliked")])
 def test_form_errors_read_like_sentences(bad, msg):
     with pytest.raises(ProfileError, match=msg):

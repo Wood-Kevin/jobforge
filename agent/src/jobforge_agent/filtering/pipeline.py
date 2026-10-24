@@ -63,15 +63,19 @@ WANTS_TEXT = (
     " AND fr.search_profile_id = (SELECT id FROM search_profiles ORDER BY version DESC LIMIT 1)))")
 
 
-def request_full_fetch(conn: sqlite3.Connection, job_id: int | None = None) -> int:
+def request_full_fetch(conn: sqlite3.Connection, now_ms: int, job_id: int | None = None) -> int:
     """Forget the ETag of every board (or the one board of `job_id`) with an open job whose text is
-    wanted again, so its next poll is a full fetch that brings the text back. Returns boards changed."""
+    wanted again, and make it due now, so its next poll comes soon and is a full fetch that brings the
+    text back. Returns boards changed. Due now is safe in bulk: claim_due still drains them within each
+    source's hourly budget and concurrency. Rejected: leaving them on schedule (up to 24 h of jobs with
+    no verdict after a profile edit, DEFERRED_COMPLEXITY "Re-filter waits for a full fetch")."""
     only = "AND j.id = ? " if job_id is not None else ""
     return conn.execute(
-        "UPDATE employer_poll_state SET etag = NULL, last_modified = NULL WHERE employer_id IN ("
+        "UPDATE employer_poll_state SET etag = NULL, last_modified = NULL, next_poll_at_ms = min(next_poll_at_ms, ?) "
+        "WHERE employer_id IN ("
         f"SELECT DISTINCT j.employer_id FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id {textpack.JOIN} "
         f"WHERE j.closed_at_ms IS NULL {only}AND {WANTS_TEXT})",
-        ((job_id,) if job_id is not None else ()) + (rules.RULESET_VERSION,)).rowcount
+        (now_ms,) + ((job_id,) if job_id is not None else ()) + (rules.RULESET_VERSION,)).rowcount
 
 
 def job_view(conn: sqlite3.Connection, job_id: int) -> tuple[rules.JobView, int, bool, bool] | None:

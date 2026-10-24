@@ -30,7 +30,8 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
   const act = useAction();
   const ev = d.evaluation;
   const rec = ev?.recommendation;
-  const link = d.apply_url || d.listing_url;
+  // The post itself; Lever's and Ashby's apply_url is the application form (.../apply, .../application).
+  const link = d.listing_url || d.apply_url;
   const rows = ev?.evidence.filter((r) => r.class !== "context" && r.class !== "negated") ?? [];
   const have = rows.filter((r) => r.match && ["direct", "transferable"].includes(r.match.match_type) && r.class !== "preferred");
   const missing = rows.filter((r) => r.match && (r.match.match_type === "gap" || r.match.match_type === "unknown") && r.class !== "preferred");
@@ -41,6 +42,9 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
       <Card title={d.title} actions={link && <button onClick={() => act.run(() => openUrl(link))}>Open job posting</button>}>
         <p className="muted">{d.company} · {d.location ?? "location not stated"}{d.salary && ` · ${fmtSalary(d.salary)}`}
           {` · found ${ago(d.first_seen_at_ms)} ago`}{d.closed_at_ms && " · no longer listed"}</p>
+        {d.copies.length > 0 && (
+          <p className="muted">The company also posted this exact job {d.copies.length === 1 ? "once more" : `${d.copies.length} more times`}:{" "}
+            {d.copies.map((c, i) => c.url && <button key={c.id} onClick={() => act.run(() => openUrl(c.url!))}>Copy {i + 2}</button>)}</p>)}
         <Application d={d} reload={reload} />
         {d.filter?.verdict === "reject" && (
           <p className="warn">This job doesn't match your search ({plainFilterReason(d.filter.reasons.primary)}).

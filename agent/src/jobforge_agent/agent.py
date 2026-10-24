@@ -279,10 +279,10 @@ class AgentRuntime:
                     raise
                 await asyncio.sleep(0)  # let polls and IPC run between chunks
             # Jobs whose text was dropped under an earlier profile are filtered when their board's next
-            # full fetch brings the text back (pipeline.WANTS_TEXT); make sure it is not a 304.
+            # full fetch brings the text back (pipeline.WANTS_TEXT); make it due now and not a 304.
             conn.execute("BEGIN IMMEDIATE")
             try:
-                full_fetch_boards = filter_pipeline.request_full_fetch(conn)
+                full_fetch_boards = filter_pipeline.request_full_fetch(conn, now_ms())
                 conn.execute("COMMIT")
             except Exception:
                 conn.execute("ROLLBACK")
@@ -316,9 +316,7 @@ class AgentRuntime:
             if waiting_for_text:
                 # The text was dropped when the job was rejected (0010): fetch the board now, in full;
                 # the poll stores the text and queues the analysis (the override makes it wanted).
-                filter_pipeline.request_full_fetch(self.user, job_id)
-                self.user.execute("UPDATE employer_poll_state SET next_poll_at_ms = min(next_poll_at_ms, ?) "
-                                  "WHERE employer_id = (SELECT employer_id FROM jobs WHERE id = ?)", (now_ms(), job_id))
+                filter_pipeline.request_full_fetch(self.user, now_ms(), job_id)
             self.user.execute("INSERT INTO change_events (type, job_id, created_at_ms) VALUES ('evaluate_anyway', ?, ?)", (job_id, now_ms()))
             self.user.execute("COMMIT")
         except Exception:

@@ -342,6 +342,12 @@ long inference outage cannot grow the queue beyond the number of qualifying jobs
   Florida/Georgia -> `home_state_codes` / `home_state_names`, `florida_*_markers` ->
   `home_*_markers`. Reason names follow: `REMOTE_EXCLUDES_FL` -> `REMOTE_EXCLUDES_HOME`,
   `FL_OK` -> `HOME_OK`. Work modes are lower case.
+- The search form (`filtering/simple.py`) writes two kinds of state. "State you live in" sets
+  `home_markers` and `home_excluded_markers` ("Remote - Florida" is home, "cannot hire in
+  Florida" excludes) and is the first of `home_state_codes`. "Other states your towns are in"
+  only joins `home_state_codes` / `home_state_names`, which `_names_other_state` uses so a home
+  town across a state line ("Valdosta, GA") is not read as another state. One list of home
+  states was rejected: it would make "Remote - Georgia" count as home for a Florida resident.
 - One evaluation returns the deciding reason (title, then location, then staleness, then
   salary, as the scanner's pass1/pass2 order) **and every other rule the posting fails**, so
   the rejected view can show "also below the salary floor" without re-running anything.
@@ -514,7 +520,9 @@ while wanted. New `raw_postings` rows carry no description and `payload` JSON `n
 still drives change detection). The poll stores the text, the filter (same transaction) drops it on a reject without
 an override, and supersedes that job's pending analysis; with no search profile everything is dropped. A job whose
 text is gone is never re-filtered (the rules read the description; a verdict on missing text would stick): the
-re-filter clears the ETag of its board (`pipeline.request_full_fetch`), and the next full fetch stores the text again
+re-filter clears the ETag of its board and makes it due now (`pipeline.request_full_fetch`; `claim_due` still drains
+due boards within each source's hourly budget and concurrency, and polling a board early adds no requests, it only
+moves that board's daily slot), and the next full fetch stores the text again
 when `pipeline.WANTS_TEXT` holds (profile exists and no reject verdict under it, or an override) and filters it.
 "Evaluate anyway" on such a job does the same for its board at once. E5/E6 and the analysis claim never run on a
 job without text (`evaluation/store.py` `_TEXT_KEPT`; a pending analysis without text is marked failed, not run).
@@ -1129,6 +1137,13 @@ LOW opportunity should also demote APPLY is Q15.
 
 Noise control: the list view defaults to APPLY + STRETCH, ranked by
 opportunity value; REVIEW appears as grouped questions, not as a job list.
+Exact copies (one employer posting the same job under several ids) show as one row,
+"posted N times", and the job's detail links each open copy (`views.py` `_COPY_KEY`: employer,
+title, location, and the description where it is kept; rejected postings keep no text and group on
+title and location). The shown copy is the one with an application, else the oldest. Nothing is
+merged in the database: each posting keeps its own link, closure and analysis. Rejected: merging at
+ingestion (loses a real posting's link and closure) and matching similar text (Voxel's "Tier 2" and
+"Tier 3 Support Engineer" share an intro but are different jobs).
 The golden-set report (6.7) tracks REVIEW share; if it exceeds the target
 (Q16), thresholds get tuned in a new rule version, measured against labels,
 not intuition.

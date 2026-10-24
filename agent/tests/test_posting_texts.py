@@ -85,9 +85,10 @@ def test_a_job_without_text_is_never_filtered_on_missing_text(ctx):
     assert stats.waiting_for_text == 1 and _verdicts(db) == [(REJECT_TITLE, 1, "reject")]
     # Re-filter clears the board's ETag so the next poll is a full fetch, which restores and filters.
     disc.execute("BEGIN IMMEDIATE")
-    assert pipeline.request_full_fetch(disc) == 1
+    assert pipeline.request_full_fetch(disc, NOW) == 1
     disc.execute("COMMIT")
-    assert db.execute("SELECT etag FROM employer_poll_state").fetchone()[0] is None
+    # ...and makes it due now instead of at its next scheduled poll (fixture: NOW + 10**9).
+    assert tuple(db.execute("SELECT etag, next_poll_at_ms FROM employer_poll_state").fetchone()) == (None, NOW)
     counts, stats = poll([_raw("1", REJECT_TITLE)])
     assert counts.text_restored == 1 and stats.passed == 1
     assert _verdicts(db) == [(REJECT_TITLE, 1, "reject"), (REJECT_TITLE, 2, "pass")] and _kept(db) == {REJECT_TITLE: True}
@@ -100,9 +101,9 @@ def test_a_rejected_job_stays_without_text_and_its_board_keeps_its_etag(ctx):
     counts, stats = poll([_raw("1", REJECT_TITLE)])
     assert counts.text_restored == 0 and counts.touched == [] and _kept(db) == {REJECT_TITLE: False}
     disc.execute("BEGIN IMMEDIATE")
-    assert pipeline.request_full_fetch(disc) == 0
+    assert pipeline.request_full_fetch(disc, NOW) == 0
     disc.execute("COMMIT")
-    assert db.execute("SELECT etag FROM employer_poll_state").fetchone()[0] == 'W/"e1"'
+    assert tuple(db.execute("SELECT etag, next_poll_at_ms FROM employer_poll_state").fetchone()) == ('W/"e1"', NOW + 10**9)
 
 
 def test_a_later_reject_drops_the_text_and_supersedes_pending_analysis(ctx):
