@@ -108,6 +108,12 @@ if run ipc; then
       curl -sS -o /dev/null -w 'HTTP %{http_code}\n' --max-time 10 "http://127.0.0.1:$PORT/v1/health"
     probe "Foreign Host header with the token (expect 400)" \
       curl -sS -o /dev/null -w 'HTTP %{http_code}\n' --max-time 10 -H "Authorization: Bearer $TOKEN" -H 'Host: evil.example' "http://127.0.0.1:$PORT/v1/health"
+    probe "Non-ASCII Authorization header (expect 401; it was 500 before the 2026-10-24 audit)" \
+      curl -sS -o /dev/null -w 'HTTP %{http_code}\n' --max-time 10 -H $'Authorization: Bearer \xe9' "http://127.0.0.1:$PORT/v1/health"
+    probe "Malformed JSON body with the token (expect 400 'not valid JSON'; nothing is saved)" \
+      curl -sS -w '\nHTTP %{http_code}\n' --max-time 10 -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{nope' "http://127.0.0.1:$PORT/v1/search-profile"
+    probe "Background tasks that died before a stop (health task_errors; expect {})" \
+      bash -c "curl -sS --max-time 10 -H 'Authorization: Bearer $TOKEN' http://127.0.0.1:$PORT/v1/health | '$PY' -c 'import json,sys; print(json.load(sys.stdin).get(\"task_errors\"))'"
     AGENT_PID="$(api /v1/health | "$PY" -c 'import json,sys; print(json.load(sys.stdin)["pid"])' 2>/dev/null)"
     probe "Listening sockets of agent pid $AGENT_PID (expect only 127.0.0.1:$PORT)" \
       ps1 "Get-NetTCPConnection -OwningProcess $AGENT_PID -State Listen -ErrorAction SilentlyContinue | Format-Table LocalAddress,LocalPort -AutoSize | Out-String"
@@ -195,6 +201,14 @@ if run discovery; then
     sql "SELECT key, value FROM settings WHERE key = 'directory_watch'"
   probe "Shipped list (directory.json) and the last startup syncs (agent log)" \
     bash -c "'$PY' -c 'import sys; sys.path.insert(0, sys.argv[1]); from jobforge_agent.discovery import directory as d; doc = d.load(); print(\"version\", doc[\"version\"], \"crawls\", doc[\"crawls\"], \"entries\", len(doc[\"entries\"]), \"failed index queries\", doc[\"index_queries_failed\"])' '$ROOT/agent/src'; grep -h 'directory_sync' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -3"
+  probe "robots.txt cache per host (an unreadable robots.txt is status 599 or 5xx and expires within 15 minutes, not 24 h)" \
+    sql "SELECT host, http_status, (expires_at_ms - fetched_at_ms) / 60000 AS ttl_min, (expires_at_ms - strftime('%s','now') * 1000) / 60000 AS min_left FROM robots_cache ORDER BY host"
+  probe "Unfinished fetch rows older than the 5-minute lease (each blocks its employer until restart; expect zero rows)" \
+    sql "SELECT f.id, f.employer_id, e.slug, (strftime('%s','now') * 1000 - f.started_at_ms) / 60000 AS age_min FROM source_fetches f JOIN employers e ON e.id = f.employer_id WHERE f.finished_at_ms IS NULL AND f.started_at_ms < strftime('%s','now') * 1000 - 300000"
+  probe "Polls that hit a code error (internal:) or a refused answer (redirect off host, body too large), last 7 days" \
+    sql "SELECT e.slug, f.outcome, substr(f.error, 1, 120) AS error, count(*) AS n FROM source_fetches f JOIN employers e ON e.id = f.employer_id WHERE (f.error LIKE 'internal:%' OR f.error LIKE '%ResponseRejected%') AND f.started_at_ms > (strftime('%s','now') - 7 * 86400) * 1000 GROUP BY 1, 2, 3 ORDER BY n DESC LIMIT 20"
+  probe "Open jobs of dead boards (a dead board closes its jobs since the audit fix; rows from before it stay until then)" \
+    sql "SELECT e.slug, count(j.id) AS open_jobs FROM employers e JOIN jobs j ON j.employer_id = e.id AND j.closed_at_ms IS NULL WHERE e.status = 'dead' GROUP BY e.id"
   probe "Requests per board host in the last hour vs its budget (the list shares it with your companies)" \
     sql "SELECT s.kind, s.max_requests_per_hour, count(f.id) AS fetches_last_hour FROM sources s LEFT JOIN employers e ON e.source_id = s.id LEFT JOIN source_fetches f ON f.employer_id = e.id AND f.started_at_ms > (strftime('%s','now') - 3600) * 1000 GROUP BY s.id"
 fi
@@ -278,7 +292,9 @@ if run window; then
   probe "One application per job; one event per status change" \
     sql "SELECT a.job_id, a.status, count(e.id) AS events FROM applications a LEFT JOIN application_events e ON e.application_id = a.id GROUP BY a.id ORDER BY a.id DESC LIMIT 20"
   probe "Host event cursor and stream lines (event_stream_connected after=N, first event id)" \
-    bash -c "echo cursor: \$(cat '$DATA/host/event_cursor' 2>/dev/null || echo none); grep -hE 'event_stream_(connected|first_event)' '$DATA/logs/host.log' | tail -6"
+    bash -c "echo cursor: \$(cat '$DATA/host/event_cursor' 2>/dev/null || echo none); grep -hE 'event_stream_(connected|first_event|connect_failed)|event_emit_failed' '$DATA/logs/host.log' | tail -6"
+  probe "Newest change_events id (the agent resets a host cursor above it: a restored backup or an emptied log)" \
+    sql "SELECT coalesce(max(id), 0) AS newest_event_id, count(*) AS rows FROM change_events"
   cat <<'MANUAL'
 
 ── Manual rows (screenshots): a new posting appears at the top of Jobs > Filtered out (most new postings) or For you without a
@@ -322,6 +338,8 @@ fi
 # ─── LOGS: recent reality ───────────────────────────────────────────────────
 if run logs; then
   section "LOGS — last 50 lines of the agent and host logs"
+  probe "Errors the 2026-10-24 audit made visible (background_task_died, ipc_unhandled_error, poll_internal_error, stored_answer_unreadable)" \
+    bash -c "grep -hE 'background_task_died|ipc_unhandled_error|poll_internal_error|stored_answer_unreadable' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -20"
   probe "agent.jsonl" tail -50 "$DATA/logs/agent.jsonl"
   probe "host.log" tail -50 "$DATA/logs/host.log"
 fi

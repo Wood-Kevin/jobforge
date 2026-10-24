@@ -24,6 +24,7 @@ import sys
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from jobforge_agent import __version__, ipc, logs, winutil
@@ -110,7 +111,7 @@ def cmd_run(paths: Paths) -> int:
 def cmd_shutdown(paths: Paths, reason: str) -> int:
     info = ipc.read_ipc_file(paths.ipc)
     try:
-        _request(paths, "POST", f"/v1/shutdown?reason={reason}")
+        _request(paths, "POST", f"/v1/shutdown?reason={urllib.parse.quote(reason, safe='')}")
     except (OSError, urllib.error.URLError, ConnectionError) as exc:
         print(f"shutdown request not delivered: {exc}", file=sys.stderr)
     lock = InstanceLock(paths.lock)

@@ -62,9 +62,17 @@ class Claim:
 
 
 def requests_last_hour(conn: sqlite3.Connection, source_id: int, now_ms: int) -> int:
+    """Requests made in the last hour, plus one for each claimed poll not finished yet: requests_made
+    is written only at finish, and claims queue behind the host limiter, so counting finished work
+    alone let a burst of due employers (a full fetch) claim past the budget (audit 2026-10-24)."""
     return conn.execute(
-        "SELECT coalesce(sum(f.requests_made), 0) FROM source_fetches f JOIN employers e ON e.id = f.employer_id "
+        "SELECT coalesce(sum(CASE WHEN f.finished_at_ms IS NULL THEN 1 ELSE f.requests_made END), 0) "
+        "FROM source_fetches f JOIN employers e ON e.id = f.employer_id "
         "WHERE e.source_id = ? AND f.started_at_ms > ?", (source_id, now_ms - HOUR_MS)).fetchone()[0]
+
+
+def employer_status(conn: sqlite3.Connection, employer_id: int) -> str:
+    return conn.execute("SELECT status FROM employers WHERE id = ?", (employer_id,)).fetchone()[0]
 
 
 def discovery_paused(conn: sqlite3.Connection) -> bool:
@@ -82,9 +90,10 @@ def claim_due(conn: sqlite3.Connection, now_ms: int, batch: int = CLAIM_BATCH) -
         sources = conn.execute(
             "SELECT id, max_requests_per_hour FROM sources WHERE enabled = 1 AND (backoff_until_ms IS NULL OR backoff_until_ms < ?)",
             (now_ms,)).fetchall()
-        allowed, over_budget = [], []
+        allowed, over_budget, remaining = [], [], {}
         for sid, budget in sources:
-            (over_budget if requests_last_hour(conn, sid, now_ms) >= budget else allowed).append(sid)
+            remaining[sid] = budget - requests_last_hour(conn, sid, now_ms)
+            (over_budget if remaining[sid] <= 0 else allowed).append(sid)
         if not allowed:
             conn.execute("COMMIT")
             return [], over_budget
@@ -104,6 +113,9 @@ def claim_due(conn: sqlite3.Connection, now_ms: int, batch: int = CLAIM_BATCH) -
                 LIMIT ?""", (*allowed, now_ms, now_ms, batch)).fetchall()
         claims = []
         for r in rows:
+            if remaining[r[4]] <= 0:  # one batch never claims past a source's remaining budget
+                continue
+            remaining[r[4]] -= 1
             conn.execute("UPDATE employer_poll_state SET lease_until_ms = ?, last_attempt_at_ms = ? WHERE employer_id = ?",
                          (now_ms + LEASE_MS, now_ms, r[0]))
             fetch_id = conn.execute("INSERT INTO source_fetches (employer_id, started_at_ms) VALUES (?, ?) RETURNING id",
@@ -161,6 +173,7 @@ class FetchRecord:
     etag: str | None = None
     last_modified: str | None = None
     next_poll_override_ms: int | None = None  # e.g. robots cache expiry
+    clear_validators: bool = False  # forget the stored ETag/Last-Modified (a poll that failed after a 200)
 
 
 def finish(conn: sqlite3.Connection, claim: Claim, rec: FetchRecord, now_ms: int, rng: random.Random) -> int:
@@ -202,6 +215,8 @@ def finish(conn: sqlite3.Connection, claim: Claim, rec: FetchRecord, now_ms: int
     conn.execute(
         "UPDATE employer_poll_state SET next_poll_at_ms = ?, lease_until_ms = NULL, last_outcome = ?, last_error = ?, "
         "consecutive_failures = ?, last_success_at_ms = CASE WHEN ? THEN ? ELSE last_success_at_ms END, "
-        "etag = coalesce(?, etag), last_modified = coalesce(?, last_modified) WHERE employer_id = ?",
-        (next_at, rec.outcome, rec.error, failures, int(success), now_ms, rec.etag, rec.last_modified, claim.employer_id))
+        "etag = CASE WHEN ? THEN NULL ELSE coalesce(?, etag) END, "
+        "last_modified = CASE WHEN ? THEN NULL ELSE coalesce(?, last_modified) END WHERE employer_id = ?",
+        (next_at, rec.outcome, rec.error, failures, int(success), now_ms, int(rec.clear_validators), rec.etag,
+         int(rec.clear_validators), rec.last_modified, claim.employer_id))
     return next_at

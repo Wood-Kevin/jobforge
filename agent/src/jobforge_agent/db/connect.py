@@ -17,6 +17,12 @@ from pathlib import Path
 
 from jobforge_agent.db import textpack
 
+
+def readonly_uri(path: Path) -> str:
+    """A read-only SQLite URI for a path. Path.as_uri() percent-encodes; an f-string "file:{path}"
+    opened the wrong file when the data root holds '#', '?' or '%' (a user name with '#')."""
+    return Path(path).resolve().as_uri() + "?mode=ro"
+
 ALL_COLUMNS = None  # marker for "any column" in an update grant
 
 
@@ -190,7 +196,7 @@ def open_connection(db_path: Path, component: str, *, readonly: bool = False) ->
     if component != "migration" and component not in GRANTS:
         raise ValueError(f"unknown component {component!r}")
     if readonly:
-        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True, isolation_level=None, timeout=5, factory=AgentConnection)
+        conn = sqlite3.connect(readonly_uri(db_path), uri=True, isolation_level=None, timeout=5, factory=AgentConnection)
     else:
         db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(db_path, isolation_level=None, timeout=5, factory=AgentConnection)

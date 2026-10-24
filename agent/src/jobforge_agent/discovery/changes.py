@@ -6,8 +6,10 @@ Called inside the poll's write transaction, so a poll's changes land together or
   referenced them stay (append-only history).
 - payload_sha256 covers the verbatim item; a change that is not material only updates
   jobs.last_payload_sha256 (no new row, no GPU work).
-- A job closes only after 2 consecutive successful complete listings without it; failed,
-  partial and 304 polls never close jobs. Reappearance reopens it.
+- A job closes only after 2 consecutive successful complete listings without it; failed and
+  partial polls never close jobs. A 304 repeats the last complete listing, so it counts as one
+  more listing without a job already missing from it. A dead board closes all its jobs.
+  Reappearance reopens it.
 """
 from __future__ import annotations
 
@@ -188,6 +190,30 @@ def apply_listing(conn: sqlite3.Connection, employer: Employer, raws: list[RawJo
 
 
 def touch_unchanged_board(conn: sqlite3.Connection, employer_id: int, now: int) -> int:
-    """A 304 means the board is unchanged: its open jobs were seen now. Never closes anything."""
-    return conn.execute("UPDATE jobs SET last_seen_at_ms = ? WHERE employer_id = ? AND closed_at_ms IS NULL",
-                        (now, employer_id)).rowcount
+    """A 304 means the board still serves the last complete listing (validators are stored only
+    for complete 200s): the jobs it listed were seen now, and a job already missing from it is
+    missing again. Without that, a job removed from a board that then stops changing stayed open
+    for good (audit 2026-10-24). Returns how many jobs closed."""
+    conn.execute("UPDATE jobs SET last_seen_at_ms = ? WHERE employer_id = ? AND closed_at_ms IS NULL AND missing_polls = 0",
+                 (now, employer_id))
+    closed = 0
+    for job_id, missing in conn.execute(
+            "SELECT id, missing_polls FROM jobs WHERE employer_id = ? AND closed_at_ms IS NULL AND missing_polls > 0",
+            (employer_id,)).fetchall():
+        missing += 1
+        if missing >= CLOSE_AFTER_MISSING:
+            conn.execute("UPDATE jobs SET missing_polls = ?, closed_at_ms = ? WHERE id = ?", (missing, now, job_id))
+            _event(conn, "job_closed", job_id, employer_id, now)
+            closed += 1
+        else:
+            conn.execute("UPDATE jobs SET missing_polls = ? WHERE id = ?", (missing, job_id))
+    return closed
+
+
+def close_open_jobs(conn: sqlite3.Connection, employer_id: int, now: int) -> int:
+    """Close every open job of an employer whose board is gone (status 'dead'). Returns how many."""
+    ids = [r[0] for r in conn.execute("SELECT id FROM jobs WHERE employer_id = ? AND closed_at_ms IS NULL", (employer_id,))]
+    for job_id in ids:
+        conn.execute("UPDATE jobs SET closed_at_ms = ? WHERE id = ?", (now, job_id))
+        _event(conn, "job_closed", job_id, employer_id, now)
+    return len(ids)

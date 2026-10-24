@@ -117,6 +117,8 @@ async def probe(http: HttpClient, sources: list[tuple], name: str) -> tuple[list
                 return [], [f"{kind}: answer was not JSON"]
             if (kind == "lever" and isinstance(data, list)) or (kind != "lever" and isinstance(data, dict) and "jobs" in data):
                 return [{"source": kind, "slug": slug, "name": name.strip()}], []
+            # A 200 we cannot read is a failed check, never "not found" (ARCHITECTURE 3.3).
+            return [], [f"{kind}: unexpected answer"]
         return [], []
     results = await asyncio.gather(*(one(*s) for s in sources))
     return [f for r in results for f in r[0]], [p for r in results for p in r[1]]

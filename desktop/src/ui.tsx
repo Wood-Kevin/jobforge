@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AgentError, onAgentEvent, onSupervisorChange, type ChangeEvent } from "./agent";
 import { plain } from "./labels";
+import { latestGate } from "./latest";
 
 /** Loads data, and loads it again when an agent event of one of `types` arrives (live refresh,
  * ARCHITECTURE 5: the host relays the agent's events; nothing polls the database). `types` empty =
@@ -11,14 +12,19 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[], types: strin
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const timer = useRef<number | null>(null);
+  const gate = useRef(latestGate()).current; // an older, slower answer never replaces a newer one
   const run = useCallback(async () => {
+    const ticket = gate.begin();
     try {
-      setData(await load());
+      const value = await load();
+      if (!gate.isCurrent(ticket)) return;
+      setData(value);
       setError(null);
     } catch (e) {
+      if (!gate.isCurrent(ticket)) return;
       setError(e instanceof AgentError ? e.message : String(e));
     } finally {
-      setLoading(false);
+      if (gate.isCurrent(ticket)) setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);

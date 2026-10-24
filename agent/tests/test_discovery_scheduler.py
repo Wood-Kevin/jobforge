@@ -35,7 +35,10 @@ class Board:
     async def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if request.url.path == "/robots.txt":
-            status, body = self.robots.get(request.url.host, self.robots["default"])
+            entry = self.robots.get(request.url.host, self.robots["default"])
+            if callable(entry):
+                return await entry(request)
+            status, body = entry
             return httpx.Response(status, text=body)
         slug = request.url.path.rstrip("/").split("/")[-2 if "boards" in request.url.path else -1]
         queue = self.routes.get(slug) or [(200, GH_BODY, {"ETag": 'W/"v1"'})]

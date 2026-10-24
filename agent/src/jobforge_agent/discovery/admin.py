@@ -5,12 +5,16 @@ summarized as counts, so the window's 15 s refresh stays small (P1.10)."""
 from __future__ import annotations
 
 import random
+import re
 import sqlite3
 
 from jobforge_agent.discovery import directory
 from jobforge_agent.discovery.scheduler import HOUR_MS, effective_interval_s, respread_at, requests_last_hour
 
 SUPPORTED = ("greenhouse", "lever", "ashby")
+# Board slugs are a path segment of a fixed API URL: letters, digits, '.', '_', '-' (every
+# built-in list slug fits). Anything else ('/', '?', a tab) would change the path or fail the URL.
+_SLUG = re.compile(r"[A-Za-z0-9._-]{1,100}")
 
 
 def status(conn: sqlite3.Connection, now_ms: int) -> dict:
@@ -68,13 +72,20 @@ def import_employers(conn: sqlite3.Connection, entries: list[dict], now_ms: int,
             kind = str(entry.get("source") or entry.get("ats") or "").lower()
             slug = str(entry.get("slug") or "").strip()
             name = str(entry.get("name") or slug).strip()
-            if kind not in sources or not slug:
+            if kind not in sources or not _SLUG.fullmatch(slug) or ".." in slug:
                 unsupported.append(f"{kind or '?'}:{slug or '?'}")
                 continue
             source_id, default, minimum = sources[kind]
-            row = conn.execute("SELECT id, enabled, origin FROM employers WHERE source_id = ? AND slug = ?", (source_id, slug)).fetchone()
+            row = conn.execute("SELECT id, enabled, origin, status FROM employers WHERE source_id = ? AND slug = ?",
+                               (source_id, slug)).fetchone()
             if row:
-                if not row[1]:
+                if row[3] != "active":
+                    # A blocked or dead board the person names again gets another try; without this
+                    # it reported "watched again" and was never polled (claim_due takes active only).
+                    conn.execute("UPDATE employers SET status = 'active' WHERE id = ?", (row[0],))
+                    conn.execute("UPDATE employer_poll_state SET next_poll_at_ms = min(next_poll_at_ms, ?) WHERE employer_id = ?",
+                                 (respread_at(now_ms, effective_interval_s(None, default, minimum), rng), row[0]))
+                if not row[1] or row[3] != "active":
                     rewatched.append(row[0])
                     conn.execute("INSERT INTO change_events (type, employer_id, created_at_ms) VALUES ('employer_enabled', ?, ?)",
                                  (row[0], now_ms))

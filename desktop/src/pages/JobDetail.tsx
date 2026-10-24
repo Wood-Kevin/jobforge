@@ -87,6 +87,7 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
                 <li key={k}>{q.question} <Answer q={{ ...q, unrecognized: ev!.evidence.find((r) => r.requirement_id === q.requirement_id)?.unrecognized_eligibility }}
                   schema={schema.data ?? null} items={items.data ?? []} /></li>))}</ul>
               {questions.length > 6 && <p className="muted">and {questions.length - 6} more in "Needs your input".</p>}
+              <ErrorBox error={schema.error ?? items.error} />
             </div>)}
           <div className="two">
             <div><h3>What you have ({have.length})</h3>

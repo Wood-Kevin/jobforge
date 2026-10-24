@@ -56,11 +56,16 @@ class DiscoveryService:
             result = await poller.poll(self.conn, self.http, claim, self.clock.now_ms, self.rng)
         except asyncio.CancelledError:
             raise
-        except Exception as exc:  # a bug in one poll must not stop discovery; it is logged and the lease expires
+        except Exception as exc:
+            # poll() records its own failures; reaching here means _close itself failed (e.g. database
+            # busy). The fetch row stays unfinished and blocks this employer until the startup recovery
+            # sweep: the lease expiring does not free it (scheduler.claim_due).
             self.log.error("poll_crashed", employer_id=claim.employer_id, error=f"{type(exc).__name__}: {exc}")
             return
         self.polls_done += 1
         rec = result.record
+        if rec.error and rec.error.startswith("internal:"):  # a bug, not a board problem: the error log, not just Status
+            self.log.error("poll_internal_error", employer_id=claim.employer_id, error=rec.error)
         self.log.info("poll", employer_id=claim.employer_id, host=claim.host, outcome=rec.outcome, http_status=rec.http_status,
                       requests=rec.requests_made, bytes=rec.bytes_received, new=rec.new_count, changed=rec.changed_count,
                       closed=rec.closed_count, error=rec.error)

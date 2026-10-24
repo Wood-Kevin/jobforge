@@ -25,13 +25,20 @@ pub enum Decision {
     Refuse(&'static str),
 }
 
-/// Pure decision, unit-tested; the Win32 lookups feed it.
-pub fn decide(elevated: bool, own_sid: Option<&str>, shell_sid: Option<&str>) -> Decision {
+/// Pure decision, unit-tested; the Win32 lookups feed it. `shell_elevated` is whether Explorer's
+/// own token is elevated: with UAC turned off it is, so a relaunch through Explorer starts elevated
+/// again and relaunches again, forever, before the single-instance guard exists (audit 2026-10-24).
+/// A relaunch happens only when Explorer is known to run unelevated.
+pub fn decide(elevated: bool, own_sid: Option<&str>, shell_sid: Option<&str>, shell_elevated: Option<bool>) -> Decision {
     if !elevated {
         return Decision::Proceed;
     }
     match (own_sid, shell_sid) {
-        (Some(own), Some(shell)) if own == shell => Decision::Relaunch,
+        (Some(own), Some(shell)) if own == shell => match shell_elevated {
+            Some(false) => Decision::Relaunch,
+            Some(true) => Decision::Refuse("the desktop shell itself runs elevated (UAC off), so a relaunch would be elevated too"),
+            None => Decision::Refuse("cannot tell whether the desktop shell runs elevated"),
+        },
         (Some(_), Some(_)) => Decision::Refuse("elevated as a different user than the signed-in shell user"),
         _ => Decision::Refuse("cannot identify the signed-in shell user to compare with"),
     }
@@ -58,13 +65,17 @@ fn open_token(process: HANDLE) -> Option<Token> {
 }
 
 pub fn is_elevated() -> bool {
-    let Some(t) = open_token(unsafe { GetCurrentProcess() }) else { return false };
+    open_token(unsafe { GetCurrentProcess() }).and_then(|t| token_elevated(&t)).unwrap_or(false)
+}
+
+/// None when the query fails: never read a failure as "not elevated".
+fn token_elevated(t: &Token) -> Option<bool> {
     let mut e = TOKEN_ELEVATION { TokenIsElevated: 0 };
     let mut len = 0u32;
     let ok = unsafe {
         GetTokenInformation(t.0, TokenElevation, &mut e as *mut _ as *mut c_void, std::mem::size_of::<TOKEN_ELEVATION>() as u32, &mut len)
     };
-    ok != 0 && e.TokenIsElevated != 0
+    (ok != 0).then_some(e.TokenIsElevated != 0)
 }
 
 fn token_user_sid(t: &Token) -> Option<String> {
@@ -95,6 +106,15 @@ pub fn current_user_sid() -> Option<String> {
 
 /// Owner of the desktop shell (explorer.exe): the signed-in user.
 pub fn shell_user_sid() -> Option<String> {
+    shell_token().and_then(|t| token_user_sid(&t))
+}
+
+/// Whether the desktop shell's token is elevated (true when UAC is off).
+pub fn shell_is_elevated() -> Option<bool> {
+    shell_token().and_then(|t| token_elevated(&t))
+}
+
+fn shell_token() -> Option<Token> {
     unsafe {
         let hwnd = GetShellWindow();
         if hwnd.is_null() {
@@ -109,9 +129,9 @@ pub fn shell_user_sid() -> Option<String> {
         if process.is_null() {
             return None;
         }
-        let sid = open_token(process).and_then(|t| token_user_sid(&t));
+        let token = open_token(process);
         CloseHandle(process);
-        sid
+        token
     }
 }
 
@@ -136,22 +156,29 @@ mod tests {
 
     #[test]
     fn not_elevated_proceeds() {
-        assert_eq!(decide(false, None, None), Decision::Proceed);
+        assert_eq!(decide(false, None, None, None), Decision::Proceed);
     }
 
     #[test]
     fn elevated_same_user_relaunches() {
-        assert_eq!(decide(true, Some("S-1-5-21-1"), Some("S-1-5-21-1")), Decision::Relaunch);
+        assert_eq!(decide(true, Some("S-1-5-21-1"), Some("S-1-5-21-1"), Some(false)), Decision::Relaunch);
     }
 
     #[test]
     fn elevated_other_user_refuses() {
-        assert!(matches!(decide(true, Some("S-1-5-21-2"), Some("S-1-5-21-1")), Decision::Refuse(_)));
+        assert!(matches!(decide(true, Some("S-1-5-21-2"), Some("S-1-5-21-1"), Some(false)), Decision::Refuse(_)));
     }
 
     #[test]
     fn elevated_without_shell_refuses() {
-        assert!(matches!(decide(true, Some("S-1-5-21-1"), None), Decision::Refuse(_)));
+        assert!(matches!(decide(true, Some("S-1-5-21-1"), None, None), Decision::Refuse(_)));
+    }
+
+    #[test]
+    fn elevated_shell_refuses_instead_of_relaunching_forever() {
+        // UAC off: Explorer is elevated, so every relaunch would be elevated again.
+        assert!(matches!(decide(true, Some("S-1-5-21-1"), Some("S-1-5-21-1"), Some(true)), Decision::Refuse(_)));
+        assert!(matches!(decide(true, Some("S-1-5-21-1"), Some("S-1-5-21-1"), None), Decision::Refuse(_)));
     }
 
     #[test]

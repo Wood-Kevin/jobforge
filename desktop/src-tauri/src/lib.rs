@@ -109,6 +109,15 @@ fn window_path_allowed(path: &str) -> Result<(), String> {
     if !path.starts_with("/v1/") {
         return Err("path must start with /v1/".into());
     }
+    // The URL parser collapses dot segments, so "/v1/../v1/shutdown" reached the refused routes
+    // below (audit 2026-10-24). The route part must be plain: no dot segments, no percent escapes
+    // (an escaped '.' or '/'), no backslashes, no empty segments. The query may hold escapes.
+    let route = path.split(['?', '#']).next().unwrap_or("");
+    if route.contains('%') || route.contains('\\') || route.contains("//")
+        || route.split('/').any(|seg| seg == "." || seg == "..")
+    {
+        return Err(format!("{path} is not a plain route"));
+    }
     // Stopping the agent is a host action (tray Exit); the event stream is relayed by the host.
     if path.starts_with("/v1/shutdown") || path.starts_with("/v1/events") {
         return Err(format!("{path} is not available to the window"));
@@ -148,7 +157,8 @@ fn status_text(s: &Status) -> String {
 
 pub fn run() {
     // SPEC D16, before any window, tray, or agent exists.
-    match elevation::decide(elevation::is_elevated(), elevation::current_user_sid().as_deref(), elevation::shell_user_sid().as_deref()) {
+    match elevation::decide(elevation::is_elevated(), elevation::current_user_sid().as_deref(), elevation::shell_user_sid().as_deref(),
+                            elevation::shell_is_elevated()) {
         elevation::Decision::Proceed => {}
         elevation::Decision::Relaunch => {
             match elevation::relaunch_unelevated() {
@@ -295,4 +305,19 @@ pub fn run() {
                 }
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::window_path_allowed;
+
+    #[test]
+    fn window_routes_cannot_reach_host_only_routes_by_dot_segments() {
+        assert!(window_path_allowed("/v1/jobs?view=recommended&q=a%20b").is_ok());
+        assert!(window_path_allowed("/v1/resumes?filename=my%20cv.pdf").is_ok());
+        for bad in ["/v1/shutdown", "/v1/events", "/v1/../v1/shutdown", "/v1/%2e%2e/v1/shutdown", "/v1/%2E%2E/v1/events",
+                    "/v1/./shutdown", "/v1//shutdown", "/v1/jobs/..", r"/v1\..\shutdown", "/v2/x", "v1/jobs"] {
+            assert!(window_path_allowed(bad).is_err(), "{bad} was allowed");
+        }
+    }
 }

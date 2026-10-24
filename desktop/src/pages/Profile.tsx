@@ -221,7 +221,7 @@ export function Import({ existing, onDone }: { existing: Item[]; onDone: () => v
       setPlan({ name: f.name, items: fresh, dupes: parsed.items.length - fresh.length, completeness: parsed.completeness });
     } catch (err) {
       setPlan(null);
-      setReport(["This does not look like a profile file."]);
+      setReport(["This does not look like a profile file.", err instanceof Error ? err.message : String(err)]);
     }
   };
   const run = () => act.run(async () => {
@@ -232,7 +232,12 @@ export function Import({ existing, onDone }: { existing: Item[]; onDone: () => v
       try { await api.createItem({ source: "import", ...fields }); ok += 1; }
       catch (e) { out.push(`${raw.kind}: "${raw.statement.slice(0, 60)}" - ${e instanceof Error ? e.message : String(e)}`); }
     }
-    if (plan!.completeness && Object.keys(plan!.completeness).length) await api.setCompleteness(plan!.completeness);
+    // A failure here must not leave the plan (and its Import button) in place: the items above are
+    // already created, and a second click created every one of them again.
+    if (plan!.completeness && Object.keys(plan!.completeness).length) {
+      try { await api.setCompleteness(plan!.completeness); }
+      catch (e) { out.push(`Completeness flags not saved - ${e instanceof Error ? e.message : String(e)}`); }
+    }
     setReport([`Added ${ok} of ${plan!.items.length} (not confirmed yet).`, ...out]);
     setPlan(null);
     onDone();
@@ -275,8 +280,11 @@ export function Claims({ fromResumeOnly = false }: { fromResumeOnly?: boolean })
         {c.evidence.quote ? <div className="muted">Your resume: "{c.evidence.quote}"</div> : c.rationale && <div className="muted">{c.rationale}</div>}</li>);
   };
   const addAll = () => act.run(async () => {
-    for (const c of fromResume) await api.acceptClaim(c.id, {});
-    claims.reload();
+    try {
+      for (const c of fromResume) await api.acceptClaim(c.id, {});
+    } finally {
+      claims.reload(); // after a failure too: the ones already added leave the list
+    }
   });
   if (fromResumeOnly && fromResume.length === 0) return null;
   return (

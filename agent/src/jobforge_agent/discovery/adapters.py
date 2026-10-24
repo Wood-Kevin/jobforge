@@ -116,7 +116,10 @@ def _lever_salary(r: dict | None) -> Salary | None:
     lo, hi = r.get("min"), r.get("max")
     if lo is None and hi is None:
         return None
-    period = _LEVER_INTERVAL.get(str(r.get("interval") or ""), "YEAR")
+    interval = str(r.get("interval") or "")
+    if interval and interval not in _LEVER_INTERVAL:
+        return None  # e.g. per-day-wage: reading $650/day as a year rejected the job below the floor
+    period = _LEVER_INTERVAL.get(interval, "YEAR")
     text = " - ".join(f"${v:,}" for v in (lo, hi) if v is not None) + f" ({r.get('interval')})"
     return Salary(lo, hi, period, text)
 
@@ -146,5 +149,8 @@ def _ashby_salary(comp: dict) -> Salary | None:
     if not salaries:
         return None
     c = salaries[0]
-    return Salary(c.get("minValue"), c.get("maxValue"), _ASHBY_INTERVAL.get(c.get("interval") or "", "YEAR"),
+    interval = c.get("interval") or ""
+    if interval and interval not in _ASHBY_INTERVAL:
+        return None  # an interval we cannot convert ("1 DAY") is "salary unknown", never a year
+    return Salary(c.get("minValue"), c.get("maxValue"), _ASHBY_INTERVAL.get(interval, "YEAR"),
                   comp.get("scrapeableCompensationSalarySummary") or c.get("summary") or "")

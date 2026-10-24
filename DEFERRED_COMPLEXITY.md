@@ -302,7 +302,7 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Why deferred:** pruning records of closed rejected jobs would change retention again; not needed at this size.
 - **Trigger:** a database over 2 GB.
 
-## Evaluation calibration 1: next evaluation work, gated on labels (2026-10-24)
+## Evaluation calibration 1: next evaluation work (2026-10-24; before/after + Kevin's approval, labels optional)
 Not an open-ended deferral: this is the next change to E3-E6, waiting only on two actions by Kevin.
 - **What:** an audit of the 9 APPLY/STRETCH recommendations (the real data, prompt `m1-v1`, rules `v2`, Gemma
   4 12B) found the model marks a match `direct` when the cited item is broader than what the requirement names:
@@ -458,7 +458,8 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 ## Re-filter waits for a full fetch (P1.10) — RESOLVED 2026-10-24
 - **Resolved:** `pipeline.request_full_fetch` now also makes those boards due at once. The reason given below for
   deferring was wrong: `claim_due` enforces each source's hourly budget whatever is due, so pulling boards forward
-  cannot exceed it; it delays other polls on that source while the backlog drains (after a profile edit, roughly
+  cannot exceed it (correction, audit 2026-10-24: that held only once claimed-but-unfinished polls were counted, fixed
+  on branch `audit-fixes`; before it a full fetch overshot the hour about 2x); it delays other polls on that source while the backlog drains (after a profile edit, roughly
   3 h for Greenhouse and 6 h for Ashby at Kevin's 2026-10-24 board counts), once. Polling early adds no requests.
 - **What:** a job whose text was dropped (rejected, or polled before any search profile existed) is filtered under a
   new profile only when its board's next full fetch brings the text back (the ETag is cleared at once). For the
@@ -468,3 +469,41 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   ruleset); pulling all boards' next poll forward would exceed the per-host budgets.
 - **Trigger:** Kevin finds the delay after a profile change too long; then consider re-polling boards with
   waiting jobs in budget order, or keeping title-only filtering for a first pass.
+
+## Audit 2026-10-24: found, not fixed on branch `audit-fixes`
+The deep-dive audit's findings that need a design decision, a model-call rollout, or are hardening with no live
+failure. Everything else it found is fixed on the branch with a regression test (SPEC change log, 2026-10-24).
+- **Recommendation behavior (gated: before/after + Kevin's approval, like the reading fix):**
+  - E3 prompt escaping: the stored `jd_quote` is the model's raw string (matched to the posting only after `norm()`),
+    and the job title goes in raw, so injected newlines can look like prompt structure. Citations stay real (FK) and
+    years are computed, but E4 cannot tell a relevant citation. Fix: JSON-encode each requirement line. Needs a
+    `MATCH_PROMPT_VERSION` bump, so every passing job re-asks the model.
+  - "US citizen required; green card holders not eligible" reads as `authorized_to_work_us` (a false met).
+  - Years branches: "5 with a degree or 7 without" keeps the model's 7 when the text names both.
+  - `golden --suite interpretation` reports a `finish_reason=length` answer only as invalid output.
+  - Version pins: the E3 hash covers one item without attributes; the attributes branch, `messages()`,
+    `response_format`, `store.split` and `validate.py` changes need a manual bump. `cues.py`, `interpret.py` and
+    `segment.py` have no pin at all.
+  - Resume suggestions: any single resume word passes as the quote (human review in the inbox contains it).
+- **Discovery:** blocked boards keep their open jobs (a 403 may lift; a host-wide WAF hour would block every board
+  polled in it, permanently); a 429 without Retry-After does not pause the host; an agent stop counts as a failure
+  (INTERRUPTED backs off); `source_fetches` is never pruned; add-by-name probes ignore robots, backoff and budget;
+  Ashby slug case: a pasted `jobs.ashbyhq.com/Acme` beside the list's `acme` makes two employers for one board
+  (case-insensitivity inferred, not confirmed); a failure inside `poller._close` itself (database busy) still leaves
+  the fetch row unfinished until restart.
+- **Event loop blocking:** filtering runs inside the poll's write transaction (about 1.15 ms per job, so a 2,000-job
+  first fetch holds the lock for seconds, near the user connection's 5 s busy timeout); the daily backup and resume
+  parsing (pypdf/docx, inside BEGIN IMMEDIATE) run on the loop thread. Trigger: tray "agent not responding" during a
+  backup or upload. `zipfile.read` of a .docx has no decompressed-size cap (your own file).
+- **Agent/CLI:** `--shutdown` may kill a stale `ipc.json` pid after 30 s; `winutil.dir_acl_entries` reads only the
+  English icacls line (non-English Windows refuses to start); deleting a missing resume still commits an event;
+  `before-restore-*.db` files are never pruned; `golden` or a backup with the agent stopped leaves `-wal`/`-shm` beside
+  the live database; `/v1/jobs?view=recommended` binds one SQL variable per recommendation (limit 32,766).
+- **Database hardening:** `INSERT OR REPLACE` on an append-only table deletes without firing BEFORE DELETE triggers
+  (recursive_triggers off) and without an authorizer DELETE callback; no code uses REPLACE today. requirements,
+  requirement_matches, recommendations, filter_results and filter_overrides are insert-only by authorizer alone.
+- **Host/window:** `JOBFORGE_AGENT_EXE`/`_ARGS`/`_DATA_DIR` work in release builds (same-user only); `restore_backup`
+  has no timeout; resume upload sends a JSON number array (about 4x memory); capability `core:default` is broader than
+  the UI needs; if the sanitizer ever failed, `open_url` and top-level navigation would be an exfiltration path CSP
+  does not cover. The Profile import retry fix has no automated test: the window has no React component test setup
+  (vitest covers pure modules only). Trigger for that: the next window bug in a component.

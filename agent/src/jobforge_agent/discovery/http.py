@@ -24,8 +24,19 @@ import httpx
 from jobforge_agent import __version__
 
 USER_AGENT = f"JobForge/{__version__} (personal job search; self-hosted; reads public job board APIs)"
-REQUEST_TIMEOUT_S = 60.0
+REQUEST_TIMEOUT_S = 60.0  # per step (connect, each read)
+# Whole request, redirects and body included: a server trickling bytes would otherwise hold the
+# host's only slot forever (per-step timeouts never fire).
+REQUEST_TOTAL_TIMEOUT_S = 300.0
+# Decoded body cap. The largest boards with content=true are tens of MB; a gzip bomb is not.
+MAX_BODY_BYTES = 128 * 1024 * 1024
+MAX_REDIRECTS = 5
 MAX_RETRY_AFTER_S = 6 * 3600
+
+
+class ResponseRejected(httpx.HTTPError):
+    """An answer the client refuses to take (too large, a redirect off the board's host). An
+    HTTPError, so the poll records it as a network failure with the reason."""
 
 
 @dataclass
@@ -109,8 +120,11 @@ class HostLimiter:
 
 class HttpClient:
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None, limiter: HostLimiter | None = None):
+        # Redirects are followed by hand (below), only on the same host over https: the board APIs
+        # are fixed hosts, and a redirect elsewhere (including 127.0.0.1, the agent's own IPC port)
+        # is never something a poll should fetch.
         self._client = httpx.AsyncClient(headers={"User-Agent": USER_AGENT, "Accept-Encoding": "gzip"},
-                                         timeout=REQUEST_TIMEOUT_S, follow_redirects=True, transport=transport)
+                                         timeout=REQUEST_TIMEOUT_S, follow_redirects=False, transport=transport)
         self.limiter = limiter or HostLimiter()
 
     async def aclose(self) -> None:
@@ -118,15 +132,36 @@ class HttpClient:
 
     async def get(self, host: str, url: str, *, concurrency: int, spacing_s: float,
                   headers: dict | None = None) -> Response:
-        async def go() -> Response:
+        async def fetch() -> Response:
             t0 = time.perf_counter()
-            async with self._client.stream("GET", url, headers=headers or {}) as r:
-                body = await r.aread()
-                wire = r.num_bytes_downloaded
-            return Response(
-                status=r.status_code, body=body, etag=r.headers.get("etag"),
-                last_modified=r.headers.get("last-modified"),
-                retry_after_s=parse_retry_after(r.headers.get("retry-after"), time.time()),
-                wire_bytes=wire, duration_ms=int((time.perf_counter() - t0) * 1000),
-            )
+            target, wire = httpx.URL(url), 0
+            for _ in range(MAX_REDIRECTS + 1):
+                async with self._client.stream("GET", target, headers=headers or {}) as r:
+                    if r.is_redirect and r.headers.get("location"):
+                        wire += r.num_bytes_downloaded
+                        nxt = target.join(r.headers["location"])
+                        if nxt.scheme != "https" or nxt.host != target.host:
+                            raise ResponseRejected(f"redirect off {target.host} to {nxt.scheme}://{nxt.host}")
+                        target = nxt
+                        continue
+                    chunks, size = [], 0
+                    async for chunk in r.aiter_bytes():
+                        size += len(chunk)
+                        if size > MAX_BODY_BYTES:
+                            raise ResponseRejected(f"body over {MAX_BODY_BYTES} bytes")
+                        chunks.append(chunk)
+                    wire += r.num_bytes_downloaded
+                return Response(
+                    status=r.status_code, body=b"".join(chunks), etag=r.headers.get("etag"),
+                    last_modified=r.headers.get("last-modified"),
+                    retry_after_s=parse_retry_after(r.headers.get("retry-after"), time.time()),
+                    wire_bytes=wire, duration_ms=int((time.perf_counter() - t0) * 1000),
+                )
+            raise ResponseRejected(f"more than {MAX_REDIRECTS} redirects")
+
+        async def go() -> Response:
+            try:
+                return await asyncio.wait_for(fetch(), REQUEST_TOTAL_TIMEOUT_S)
+            except TimeoutError:
+                raise httpx.ReadTimeout(f"no complete answer within {REQUEST_TOTAL_TIMEOUT_S:.0f} s") from None
         return await self.limiter.run(host, concurrency, spacing_s, go)

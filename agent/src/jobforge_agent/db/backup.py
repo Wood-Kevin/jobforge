@@ -5,9 +5,13 @@ while the agent keeps writing. Every copy is integrity-checked before it counts.
 """
 from __future__ import annotations
 
+import os
+import re
 import sqlite3
 import time
 from pathlib import Path
+
+from jobforge_agent.db.connect import readonly_uri
 
 DAILY_KEEP = 7
 PRE_MIGRATE_KEEP = 5
@@ -18,7 +22,7 @@ class BackupError(RuntimeError):
 
 
 def integrity(path: Path) -> str:
-    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn = sqlite3.connect(readonly_uri(path), uri=True)
     try:
         return conn.execute("PRAGMA integrity_check").fetchone()[0]
     finally:
@@ -31,7 +35,7 @@ def backup_to(db_path: Path, dest: Path) -> Path:
     tmp = dest.with_suffix(dest.suffix + ".tmp")
     if tmp.exists():
         tmp.unlink()
-    src = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    src = sqlite3.connect(readonly_uri(db_path), uri=True)
     dst = sqlite3.connect(tmp)
     try:
         src.backup(dst)
@@ -68,7 +72,12 @@ def daily_backup(db_path: Path, backups: Path, today: str | None = None) -> Path
 
 
 def _prune(folder: Path, pattern: str, keep: int) -> None:
-    files = sorted(folder.glob(pattern))  # names sort chronologically
+    # Oldest first by (schema version, name): plain name order put "pre-migrate-v10-..." before
+    # "...-v9-...", so pruning deleted the newest backup once versions reached two digits.
+    def age(p: Path):
+        m = re.match(r"pre-migrate-v(\d+)-", p.name)
+        return (int(m.group(1)) if m else 0, p.name)
+    files = sorted(folder.glob(pattern), key=age)
     for old in files[:-keep]:
         old.unlink(missing_ok=True)
 
@@ -80,7 +89,7 @@ class SourceNewer(BackupError):
 
 
 def schema_version(path: Path) -> int:
-    conn = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+    conn = sqlite3.connect(readonly_uri(path), uri=True)
     try:
         return conn.execute("PRAGMA user_version").fetchone()[0]
     finally:
@@ -104,13 +113,24 @@ def restore(db_path: Path, source: Path, backups: Path | None = None, max_versio
     if backups is not None and db_path.exists():
         stamp = time.strftime("%Y%m%d-%H%M%S")
         kept = backup_to(db_path, backups / f"before-restore-v{schema_version(db_path)}-{stamp}.db")
-    for suffix in ("", "-wal", "-shm"):
-        Path(str(db_path) + suffix).unlink(missing_ok=True)
-    src = sqlite3.connect(f"file:{source}?mode=ro", uri=True)
-    dst = sqlite3.connect(db_path)
+    # Copy into a temporary file beside the database and check it first; the live file is replaced
+    # only by a finished, verified copy. Deleting the live database before reading the source left
+    # no database when the copy failed, and the next start silently created an empty one.
+    tmp = db_path.with_name(db_path.name + ".restore-tmp")
+    tmp.unlink(missing_ok=True)
+    src = sqlite3.connect(readonly_uri(source), uri=True)
+    dst = sqlite3.connect(tmp)
     try:
         src.backup(dst)
     finally:
         dst.close()
         src.close()
+    result = integrity(tmp)
+    if result != "ok":
+        tmp.unlink(missing_ok=True)
+        raise BackupError(f"restored copy failed integrity_check: {result}")
+    # The old -wal/-shm must go first: SQLite would replay an old WAL into the new file.
+    for suffix in ("-wal", "-shm"):
+        Path(str(db_path) + suffix).unlink(missing_ok=True)
+    os.replace(tmp, db_path)
     return kept

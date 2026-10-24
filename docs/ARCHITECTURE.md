@@ -195,7 +195,7 @@ evaluations lives in Python, where the scanner code and the tests already are.
 | Host crashes | — | Unaffected; keeps working. Tray gone until JobForge is reopened. |
 | Agent crashes or is killed | Watchdog (health every 5 s) sees 2 failures; respawns with backoff; after 3 restarts in 5 minutes, tray turns red and shows the last log lines instead of looping. **Reads the child's exit code:** 3 (already running) -> attach, do not respawn; 4 (database newer than this version) -> stop respawning and show the restore screen (spike: the watchdog respawned a refusing agent); 5 (refused elevated) -> stop respawning and show the D16 message. | On restart: lock is free (OS released it), recovery resets interrupted work. Spike: respawn in 13.6 s, previous run recorded `crash_recovered`, persisted pause survived. |
 | Agent hangs (alive, not answering) | **Never spawns a second agent while its last child is still alive** (spike: a hung agent plus respawn produced 8 hung agents). Tray shows "agent not responding" and offers Restart (kill + spawn). | An internal watchdog task logs `event_loop_stalled` if the loop misses ticks for > 30 s. |
-| Launched elevated (Run as administrator) | **D16 (Kevin, Q28):** compare the token's user SID with the interactive shell user's (Explorer's process owner). Same user -> relaunch itself at medium integrity through the shell (Explorer's token), log `relaunched_unelevated`, exit. Different user, or relaunch fails -> message "JobForge must run as you, without administrator rights", exit, start nothing. | Run mode, `--backup` or `--restore` while elevated -> exit 5, log `refused_elevated` (an elevated agent would create Administrators-owned files in the user's data root). `--shutdown` and `--status` are allowed elevated, because installer hooks need them. Logs `elevated` on every start. Spike: the autostart plugin wrote machine-wide `HKLM\...\Run` when elevated, so JobForge writes `HKCU\...\Run` itself (7.2). |
+| Launched elevated (Run as administrator) | **D16 (Kevin, Q28):** compare the token's user SID with the interactive shell user's (Explorer's process owner). Same user -> relaunch itself at medium integrity through the shell (Explorer's token), log `relaunched_unelevated`, exit; only when Explorer's own token is known to be unelevated (audit 2026-10-24: with UAC off Explorer is elevated, so every relaunch started elevated and relaunched again, forever). Different user, Explorer elevated or unknown, or relaunch fails -> message "JobForge must run as you, without administrator rights", exit, start nothing. | Run mode, `--backup` or `--restore` while elevated -> exit 5, log `refused_elevated` (an elevated agent would create Administrators-owned files in the user's data root). `--shutdown` and `--status` are allowed elevated, because installer hooks need them. Logs `elevated` on every start. Spike: the autostart plugin wrote machine-wide `HKLM\...\Run` when elevated, so JobForge writes `HKCU\...\Run` itself (7.2). |
 | Sleep / resume | Nothing special. | Scheduler sees a monotonic-clock tick gap > 2 min and re-spreads overdue employers (3.3). HTTP calls that were in flight fail and are retried by normal backoff. |
 | Sign-out / shutdown | Exits on session end. | **Implemented P1.2:** a hidden top-level window (`sessionend.py`) answers `WM_QUERYENDSESSION` and, on `WM_ENDSESSION`, requests a graceful stop and waits up to 4 s for the run row (`stop_reason = session_end_logoff` / `session_end_shutdown`). Console control events are not used: a console process that loads user32 does not receive logoff/shutdown events. Anything unfinished is recovered on next start. |
 | Update / uninstall | See 7.2. | `--shutdown` from the installer hook. |
@@ -211,7 +211,16 @@ or departs from the text below:
   request ends the poll with an outcome, and the scheduler's backoff reschedules it, so
   every attempt is a `source_fetches` row and request volume is measurable.
 - robots.txt is cached per host in `robots_cache` for 24 h; fetching it counts toward the
-  host's budget. A SKIPPED employer is next polled when that cache entry expires.
+  host's budget. A SKIPPED employer is next polled when that cache entry expires. An unreadable
+  robots.txt (network error, 5xx) still means "disallowed" but is cached for 15 minutes only
+  (audit 2026-10-24: one failed fetch after a wake from sleep parked every board of the host for a day).
+- The client follows redirects only on the same host over https (a redirect elsewhere, including
+  127.0.0.1, is refused and recorded as a network failure), caps a decoded body at 128 MB, and limits
+  a whole request to 300 s (per-step timeouts never fire on a server that trickles bytes). Any
+  unexpected exception in a poll still finishes it as `ERROR` with an `internal:` reason, logged at
+  error level: an unfinished `source_fetches` row blocks its employer until the next start.
+- Slugs from links, names or a watchlist must be letters, digits, `.`, `_`, `-` (every built-in list
+  slug fits); anything else is refused at import, since the slug is a path segment of a fixed API URL.
 - `HostLimiter` serializes and spaces requests per host across all polls (spacing = max of
   `request_spacing_ms` and robots `Crawl-delay`, plus 0-1 s jitter).
 - Budgets seeded in migration 0002: Greenhouse 300/h, Lever 120/h, Ashby 120/h. Greenhouse
@@ -282,7 +291,9 @@ poll. New employers start at `now + U(0, interval)`.
 24 h) plus per-host concurrency (default 1), minimum spacing (default 2 s +
 0-1 s jitter, and never below a robots `Crawl-delay`; Lever's is 1 s), and a
 per-host hourly request budget from `source_fetches`. Over budget: the source
-is skipped this tick and `BUDGET_DEFERRED` is logged.
+is skipped this tick and `BUDGET_DEFERRED` is logged. A claimed poll that has not finished counts as
+one request, and one claim batch never claims past a source's remaining budget (audit 2026-10-24:
+claims queued behind the host limiter counted as zero, so a full fetch overshot the hour about 2x).
 
 **Conditional requests (from Appendix A).** All three Phase 1 sources return
 an `ETag` and answer `If-None-Match` with `304 Not Modified` and an empty
@@ -296,9 +307,12 @@ unchanged board costs ~0 bytes of body instead of 0.6-14 MB.
 |---|---|---|
 | 429 / 503 with `Retry-After` | host (`sources.backoff_until_ms`) | Pause the host until `max(Retry-After, 60 s)`; reason recorded |
 | 429 / 503 without it, other 5xx, timeout, network error | employer | `consecutive_failures += 1`; next poll `now + min(interval * 2^failures, 6 h)` with jitter |
-| 404 on the board | employer | After 3 consecutive: `status = 'dead'`, polling stops, shown on the dashboard |
-| 401 / 403 on the board | employer | `status = 'blocked'`, polling stops (access restriction, not retried) |
-| robots.txt disallows | employer | `SKIPPED`; recheck when the robots cache expires |
+| 404 on the board | employer | After 3 consecutive: `status = 'dead'`, polling stops, its open jobs close (`job_closed`), shown on the dashboard |
+| 401 / 403 on the board | employer | `status = 'blocked'`, polling stops (access restriction, not retried). Its jobs stay open: the block may lift |
+| Naming a dead or blocked company again | employer | `status = 'active'`, next poll within one interval |
+| robots.txt disallows | employer | `SKIPPED`; recheck when the robots cache expires (15 min when robots.txt was unreadable) |
+| Collision (one listing, two postings under one id) | employer | `ERROR`; the stored ETag/Last-Modified are cleared so the next poll is a full 200, not a 304 that hides the error |
+| Unexpected exception in the poll | employer | `ERROR`, `internal: ...` in Status and the error log; backoff as a failure |
 | 200 or 304 | employer | `consecutive_failures = 0`, `last_success_at_ms = now` |
 
 **Bounded catch-up.** On agent start and after a detected gap, every employer
@@ -316,12 +330,12 @@ poll leaves all of its changes or none.
 
 | Case | Test | Write | Queue |
 |---|---|---|---|
-| Board unchanged | 304 | `source_fetches` NOT_MODIFIED; `jobs.last_seen_at_ms` for that employer's open jobs | Nothing |
+| Board unchanged | 304 | `source_fetches` NOT_MODIFIED; `jobs.last_seen_at_ms` for that employer's open jobs the last listing contained; a job already missing from it counts one more missing listing (and closes at 2) | Nothing |
 | New posting | `source_job_id` not in `jobs` | `raw_postings`, `jobs`, `change_events(posting_new)` | Filter; analysis if it passes |
 | Materially changed | `material_sha256` differs | New `raw_postings` row; `jobs.current_raw_posting_id` moves; `change_events(posting_changed)` | Re-filter; analysis if it passes; old analyses/evaluations kept as history |
 | Changed, not materially | only `payload_sha256` differs | `jobs.last_payload_sha256`, `last_seen_at_ms` | Nothing |
 | Unchanged | same hashes | `last_seen_at_ms` | Nothing |
-| Missing from a complete 200 listing | absent | `missing_polls += 1`; `closed_at_ms` after 2 consecutive successful complete listings without it | Nothing. Failed, partial or 304 polls never close jobs; reappearance clears `closed_at_ms` |
+| Missing from a complete 200 listing | absent | `missing_polls += 1`; `closed_at_ms` after 2 consecutive successful complete listings without it | Nothing. Failed and partial polls never close jobs. A 304 repeats the last complete listing (validators are stored only for complete 200s), so it counts as one (audit 2026-10-24: a removed job stayed open while the board kept answering 304). Reappearance clears `closed_at_ms` |
 
 `material_sha256` covers normalized title, company, location, work mode,
 salary, apply URL without tracking parameters, and whitespace/entity-normalized
@@ -694,8 +708,14 @@ a named replacement and a test, or it silently disappears.
 - **Rollback procedure:** install the previous version's installer, then
   `jobforge-agent --restore <pre-migrate backup>` (also a button in the host's
   error screen). Restore takes the agent lock first, so it cannot run under a
-  live agent.
+  live agent. It copies the backup into `jobforge.db.restore-tmp`, integrity-checks that copy, and only
+  then replaces the live file (audit 2026-10-24: the live file used to be deleted before the backup was
+  read, so a failed copy left no database and the next start silently created an empty one).
 - **Daily backup:** backup API, keep 7, integrity-checked; manual `--backup` keeps `manual-*.db`.
+  Pre-migrate backups (keep 5) are pruned oldest-first by schema version, then name: plain name order
+  put `v10` before `v9` and would have deleted the newest one.
+- **Read-only opens** use `Path.as_uri()` (`db/connect.readonly_uri`): an f-string `file:{path}` URI cut
+  the path at a `#` in the data root and opened another file.
 - Rejected: Alembic. Good on Postgres, but on SQLite most real changes are
   hand-written table rebuilds anyway, and the autogenerate value is small;
   plain SQL files are easier to review and package.
@@ -740,9 +760,18 @@ only by the Rust host.**
 - **Implemented so far (P1.1-P1.2):** `GET /v1/health`, `POST /v1/shutdown`,
   `POST /v1/discovery/pause|resume`, `GET /v1/events` (SSE; resumes after `Last-Event-ID`;
   new subscribers get only future events; woken by the committing code, 2 s fallback poll,
-  15 s keepalive; ends when the agent stops so it never blocks shutdown). The host's
+  15 s keepalive; ends when the agent stops so it never blocks shutdown; a `Last-Event-ID` above the
+  newest row, after a restored backup or an emptied log, resumes from now). The host's
   `agent_call` refuses `/v1/shutdown` and `/v1/events` from the webview: stopping is a host
-  action and the stream is relayed by the host.
+  action and the stream is relayed by the host. The route part of a window path must be plain (no
+  `.`/`..` segments, `%` escapes, `\` or `//`; audit 2026-10-24: the URL parser collapsed
+  `/v1/../v1/shutdown`, so a prefix check alone did not hold). The host also treats the agent as running
+  only when `/v1/health` reports the pid written in `ipc.json` (readable only by the user): a stale
+  `ipc.json` after a crash points at a port another process could bind.
+- **Agent IPC errors:** malformed JSON answers 400; any unhandled exception answers a JSON 500 and is
+  written to `agent.jsonl` as `ipc_unhandled_error` (it went only to the console log before). A
+  background task (heartbeat, maintenance, discovery, analysis) that ends before a stop is logged as
+  `background_task_died` and listed in `/v1/health` `task_errors`.
 - **Window (P1.8):** `desktop/src` (React): Jobs (APPLY + STRETCH by default, ranked by opportunity value; Filtered out and
   Skipped by you views; search; column headers sort and a filter row (fit, pay/place/level or filter reason, found within) narrows the loaded rows, `desktop/src/sortJobs.ts` and `filterJobs.ts`; the agent's `view=all` stays for tests and evidence, not in the window), job detail (three assessments, decisive reasons, eligibility checks, opportunity factors, the evidence
   table with the cited items **as the evaluated snapshot recorded them**, application status, the sanitized posting),
@@ -778,7 +807,9 @@ only by the Rust host.**
   pages when the agent stopped with exit 4.
 - **Host bridge (P1.8):** `agent_call(method, path, body?)` (GET/POST/PUT/PATCH/DELETE, JSON; 4xx/5xx come back with the
   agent's own message), `agent_upload(path, bytes)` (resumes only, raw bytes), `open_url(url)` (system browser; http(s)
-  only, no credentials, no control characters, <= 2048 chars; `javascript:`, `file:`, `ms-settings:`, UNC refused). The
+  only, no credentials, no control characters, <= 2048 chars; `javascript:`, `file:`, `ms-settings:`, UNC refused; space,
+`"`, `<`, `>` and backtick reach ShellExecute percent-encoded, so a browser registered as `"x.exe" "%1"` cannot be handed
+extra arguments). The
   event relay keeps its cursor in `<data root>\host\event_cursor`, so a restarted host resumes from it (before P1.8 a
   restarted host started from "now" and events committed while it was down were never delivered).
 - **Host command line:** `JobForge.exe [--background] [--exit] [--autostart on|off]`; with a
@@ -1426,7 +1457,10 @@ section 2. Spike P1.0d proves it before the decision is final (9).
 ## 8. Security and privacy
 
 - **No network listener beyond loopback.** The agent's IPC socket binds
-  `127.0.0.1` only, needs the per-start token, and checks the Host header.
+  `127.0.0.1` only, needs the per-start token (compared as bytes, constant time), and checks the Host header.
+- **Model calls ignore proxy settings** (`trust_env=False`): an `HTTP_PROXY` or Windows system proxy would
+  otherwise receive prompts carrying profile items and resume text, since httpx does not exempt loopback
+  (audit 2026-10-24). Discovery keeps the system proxy: board requests go to the internet.
   LM Studio stays on localhost with LAN serving off (Appendix A: not reachable
   on Ethernet, Tailscale or VMware adapters).
 - **Token handling.** Fresh per agent start, stored only in `run\ipc.json`

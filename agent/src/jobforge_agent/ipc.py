@@ -68,16 +68,29 @@ def read_ipc_file(path: Path) -> dict | None:
 def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     expected_host = f"127.0.0.1:{endpoint.port}"
-    expected_auth = f"Bearer {endpoint.token}"
+    expected_auth_bytes = f"Bearer {endpoint.token}".encode("ascii")
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
         # Host first: blocks DNS-rebinding pages even if they somehow had a token.
         if request.headers.get("host") != expected_host:
             return JSONResponse({"error": "bad host"}, status_code=400)
-        if not secrets.compare_digest(request.headers.get("authorization", ""), expected_auth):
+        # Bytes, not str: compare_digest raises TypeError on non-ASCII text, which answered 500.
+        # Header values arrive decoded as latin-1, so encoding back is lossless.
+        if not secrets.compare_digest(request.headers.get("authorization", "").encode("latin-1"), expected_auth_bytes):
             return JSONResponse({"error": "unauthorized"}, status_code=401)
         return await call_next(request)
+
+    @app.exception_handler(json.JSONDecodeError)
+    async def bad_json(request: Request, exc: json.JSONDecodeError):
+        return JSONResponse({"error": f"request body is not valid JSON: {exc.msg}"}, status_code=400)
+
+    @app.exception_handler(Exception)
+    async def unhandled(request: Request, exc: Exception):
+        # Into the agent's structured log, not only uvicorn's console file nobody reads.
+        runtime.log.error("ipc_unhandled_error", method=request.method, path=request.url.path,
+                          error=f"{type(exc).__name__}: {exc}"[:500])
+        return JSONResponse({"error": f"internal error: {type(exc).__name__}"}, status_code=500)
 
     @app.get("/v1/health")
     async def health():
@@ -140,8 +153,12 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
 
     @app.post("/v1/jobs/{job_id}/evaluate-anyway")
     async def evaluate_anyway(job_id: int, request: Request):
-        body = await request.json() if request.headers.get("content-length", "0") not in ("", "0") else {}
-        result = runtime.evaluate_anyway(job_id, (body or {}).get("note"))
+        body = await _body(request)
+        note = body.get("note") if body is not None else None
+        if body is None or not (note is None or (isinstance(note, str) and len(note) <= MAX_NOTE_CHARS)):
+            return JSONResponse({"error": f"expected an object with an optional 'note' of at most {MAX_NOTE_CHARS} characters"},
+                                status_code=422)
+        result = runtime.evaluate_anyway(job_id, note)
         if result is None:
             return JSONResponse({"error": "unknown job"}, status_code=404)
         return result
@@ -173,7 +190,12 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     @app.post("/v1/resumes")
     async def upload_resume(request: Request, filename: str, label: str | None = None):
         # Raw bytes in the body (no multipart, no base64): what is stored is exactly what was sent.
-        size = int(request.headers.get("content-length") or 0)
+        # Content-Length is required, so the limit holds before anything is read (a chunked body
+        # skipped the check and was buffered whole).
+        length = request.headers.get("content-length")
+        if not (length and length.isascii() and length.isdigit()):
+            return JSONResponse({"error": "Content-Length is required"}, status_code=411)
+        size = int(length)
         if size > resumes.MAX_BYTES:
             return JSONResponse({"error": f"file is {size} bytes; the limit is {resumes.MAX_BYTES}"}, status_code=413)
         data = await request.body()
@@ -490,13 +512,19 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         future events. Rows are read after commit, so nothing rolled back is ever sent.
         """
         raw = request.headers.get("last-event-id") or request.query_params.get("after")
-        last_id = int(raw) if raw and raw.isdigit() else runtime.latest_event_id()
+        latest = runtime.latest_event_id()
+        last_id = int(raw) if raw and raw.isascii() and raw.isdigit() and len(raw) <= 18 else latest
+        # A cursor past the newest row means the log was replaced (a restored backup) or emptied
+        # by the 7-day prune, so ids restart lower: resume from now, or nothing is sent until new
+        # ids pass the old cursor (audit 2026-10-24).
+        last_id = min(last_id, latest)
         return StreamingResponse(_event_stream(runtime, request, last_id), media_type="text/event-stream",
                                  headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     return app
 
 
+MAX_NOTE_CHARS = 2000
 EVENT_FALLBACK_POLL_S = 2.0
 KEEPALIVE_S = 15.0
 

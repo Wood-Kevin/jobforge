@@ -47,6 +47,18 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
+EVENT_KEEP_MS = 7 * 86_400_000
+
+
+def prune_change_events(conn, now: int) -> int:
+    """Delete change_events older than 7 days. The cutoff is rounded down to the whole second,
+    like the change_events_prune_only_old trigger's (strftime('%s')), so no row the DELETE picks is
+    younger than the trigger's cutoff: a millisecond cutoff aborted the whole prune whenever a row
+    fell inside that second (audit 2026-10-24)."""
+    cutoff = (now // 1000) * 1000 - EVENT_KEEP_MS
+    return conn.execute("DELETE FROM change_events WHERE created_at_ms < ?", (cutoff,)).rowcount
+
+
 @dataclass
 class StartupResult:
     migrated_from: int
@@ -64,6 +76,7 @@ class AgentRuntime:
         self.started_ms = now_ms()
         self.stop_event: asyncio.Event | None = None
         self.stop_reason = "unknown"
+        self.task_errors: dict[str, str] = {}  # background tasks that died before a stop (health)
         self.run_id: int | None = None
         self.lifecycle: AgentConnection | None = None
         self.user: AgentConnection | None = None
@@ -160,6 +173,7 @@ class AgentRuntime:
             "discovery_paused": paused is not None and paused[0] == "1",
             "uptime_s": round((now_ms() - self.started_ms) / 1000),
             "last_maintenance_error": self.last_maintenance_error,
+            "task_errors": dict(self.task_errors),
             "directory_error": self.directory_error,
             "data_dir": str(self.paths.root),
         }
@@ -699,6 +713,16 @@ class AgentRuntime:
 
     # ----- background tasks -----
 
+    def _task_finished(self, task: asyncio.Task) -> None:
+        """A background task that ends before a stop is a dead heartbeat, poller or worker while
+        /v1/health still said ok; it was reported only at shutdown. Log it now and show it in health."""
+        if self.is_stopping() or task.cancelled():
+            return
+        exc = task.exception()
+        error = f"{type(exc).__name__}: {exc}" if exc is not None else "ended without a stop"
+        self.task_errors[task.get_name()] = error
+        self.log.error("background_task_died", task=task.get_name(), error=error)
+
     async def heartbeat(self) -> None:
         assert self.stop_event is not None and self.lifecycle is not None
         while not self.stop_event.is_set():
@@ -716,8 +740,7 @@ class AgentRuntime:
                 made = backup.daily_backup(self.paths.db, self.paths.backups)
                 if made:
                     self.log.info("daily_backup", path=str(made), integrity="ok")
-                pruned = self.lifecycle.execute(
-                    "DELETE FROM change_events WHERE created_at_ms < ?", (now_ms() - 7 * 86_400_000,)).rowcount
+                pruned = prune_change_events(self.lifecycle, now_ms())
                 if pruned:
                     self.log.info("change_events_pruned", rows=pruned)
             except Exception as exc:  # the agent keeps running; the failure shows in the log and in /v1/health
@@ -756,8 +779,11 @@ class AgentRuntime:
         ipc.write_ipc_file(self.paths.ipc, endpoint, os.getpid())
         self.log.info("ipc_ready", port=endpoint.port)
 
-        tasks = [asyncio.create_task(self.heartbeat()), asyncio.create_task(self.maintenance()),
-                 asyncio.create_task(self.discovery.run(self.stop_event)), asyncio.create_task(self.analysis.run(self.stop_event))]
+        tasks = [asyncio.create_task(self.heartbeat(), name="heartbeat"), asyncio.create_task(self.maintenance(), name="maintenance"),
+                 asyncio.create_task(self.discovery.run(self.stop_event), name="discovery"),
+                 asyncio.create_task(self.analysis.run(self.stop_event), name="analysis")]
+        for t in tasks:
+            t.add_done_callback(self._task_finished)
         stop_task = asyncio.create_task(self.stop_event.wait())
         done, _ = await asyncio.wait({server_task, stop_task}, return_when=asyncio.FIRST_COMPLETED)
         if server_task in done and not self.stop_event.is_set():

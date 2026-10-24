@@ -89,7 +89,7 @@ class EvaluationWorker:
             return await self.process(c, cfg)
         return None
 
-    async def process(self, c: store.Claim, cfg: ModelConfig) -> str:
+    async def process(self, c: store.Claim, cfg: ModelConfig) -> str | None:
         t0 = time.perf_counter()
         attempts: list[dict] = []
         try:
@@ -114,8 +114,18 @@ class EvaluationWorker:
                         out = match.parse(stored["content"])
                         raw.update(reused_from=stored["from_evaluation_id"],
                                    reused={k: stored[k] for k in ("content", "model", "usage")})
-                    except match.InvalidOutput:
-                        out = None  # cannot happen for a done evaluation; then ask the model as usual
+                    except match.InvalidOutput as exc:
+                        # Only if match.parse got stricter than when the answer was stored. Say so, then
+                        # ask the model as usual, but through the health gate: a reuse claim skipped it,
+                        # and a down server answered "deferred", which retried at once in a tight loop.
+                        out = None
+                        self.log.error("stored_answer_unreadable", evaluation_id=c.evaluation_id,
+                                       from_evaluation_id=stored["from_evaluation_id"], error=str(exc)[:300])
+                        if not await self.gate.available(cfg):
+                            store.release(self.conn, c, spend_attempt=False,
+                                          error="deferred: stored answer unreadable and the model is not available",
+                                          now=self.now_ms())
+                            return None  # nothing ran: the worker loop waits instead of claiming it again at once
                 for attempt in (1, 2) if out is None else ():  # one retry on schema-invalid output
                     if self.before_call is not None:
                         await self.before_call()

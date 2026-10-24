@@ -85,7 +85,9 @@ def request_body(config: ModelConfig, messages: list[dict], response_format: dic
 
 class InferenceClient:
     def __init__(self, transport: httpx.AsyncBaseTransport | None = None):
-        self._http = httpx.AsyncClient(transport=transport)
+        # trust_env=False: model servers are local, and an HTTP_PROXY or Windows system proxy must
+        # never receive prompts carrying profile items and resume text (httpx does not exempt loopback).
+        self._http = httpx.AsyncClient(transport=transport, trust_env=False)
 
     async def aclose(self) -> None:
         await self._http.aclose()

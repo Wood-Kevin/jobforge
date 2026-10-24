@@ -26,7 +26,7 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
         actions={<button onClick={onProfile}>Open your profile</button>}>
         <p className="muted">These jobs can't be judged until you answer something. Use "Answer here" to add the experience in
           your own words or declare a fact; once it's saved (and confirmed), the jobs it covers update.</p>
-        <ErrorBox error={groups.error} />
+        <ErrorBox error={groups.error ?? schema.error ?? items.error} />
         {jobs.length === 0 && !groups.loading && <p className="muted">Nothing needs your input right now.</p>}
         {shared.length > 0 && (<>
           <h3>One answer covers several jobs</h3>

@@ -118,11 +118,18 @@ pub fn list_backups() -> Vec<BackupFile> {
 struct IpcInfo {
     port: u16,
     token: String,
+    #[serde(default)]
+    pid: Option<u64>,
 }
 
 fn read_ipc() -> Result<IpcInfo, String> {
     let raw = std::fs::read_to_string(ipc_file()).map_err(|e| format!("ipc.json: {e}"))?;
     serde_json::from_str(&raw).map_err(|e| format!("ipc.json: {e}"))
+}
+
+/// Whether a health answer comes from the agent that wrote ipc.json.
+fn pid_matches(ipc_pid: Option<u64>, health_pid: Option<u64>) -> bool {
+    matches!((ipc_pid, health_pid), (Some(a), Some(b)) if a == b)
 }
 
 /// One authenticated request to the agent. The token is read fresh each time because a
@@ -295,6 +302,16 @@ impl Supervisor {
     }
 
     fn running_from_health(&self, h: &serde_json::Value) -> bool {
+        // ipc.json survives an agent crash; the freed port can then be bound by another process.
+        // Our agent reports the pid it wrote into ipc.json (readable only by this user), so a
+        // different pid means the port is not our agent's: never show it as running or send it
+        // anything more (audit 2026-10-24).
+        let expected = read_ipc().ok().and_then(|i| i.pid);
+        if !pid_matches(expected, h["pid"].as_u64()) {
+            host_log(&format!("health pid {:?} != ipc.json pid {expected:?}; not our agent", h["pid"].as_u64()));
+            self.set_status(State::Starting, Some("the agent's port answers for another process".into()), None);
+            return false;
+        }
         let protocol = h["protocol_version"].as_u64().unwrap_or(0);
         if protocol != PROTOCOL_VERSION {
             // A stale agent from an older install: ask it to stop; the watchdog starts ours.
@@ -457,6 +474,14 @@ impl Supervisor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_the_agent_that_wrote_ipc_json_counts_as_running() {
+        assert!(pid_matches(Some(4242), Some(4242)));
+        assert!(!pid_matches(Some(4242), Some(9999))); // another process bound the freed port
+        assert!(!pid_matches(Some(4242), None));
+        assert!(!pid_matches(None, Some(4242)));
+    }
 
     #[test]
     fn reads_user_version_from_the_sqlite_header() {

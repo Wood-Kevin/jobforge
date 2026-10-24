@@ -23,7 +23,20 @@ pub fn checked(url: &str) -> Result<String, String> {
     if authority.is_empty() || authority.contains('@') || authority.contains('\\') {
         return Err("link refused: missing host or embedded credentials".into());
     }
-    Ok(u.to_string())
+    // Characters a browser's command line could split on reach ShellExecute only percent-encoded:
+    // a handler registered as "x.exe" "%1" would otherwise take a '"' as the end of the argument.
+    let mut out = String::with_capacity(u.len());
+    for c in u.chars() {
+        match c {
+            ' ' => out.push_str("%20"),
+            '"' => out.push_str("%22"),
+            '<' => out.push_str("%3C"),
+            '>' => out.push_str("%3E"),
+            '`' => out.push_str("%60"),
+            _ => out.push(c),
+        }
+    }
+    Ok(out)
 }
 
 pub fn open(url: &str) -> Result<(), String> {
@@ -43,6 +56,13 @@ pub fn open(url: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::checked;
+
+    #[test]
+    fn quotes_and_spaces_reach_the_shell_encoded() {
+        assert_eq!(checked("https://example.com/a b\" --new-window file:///c:/x").unwrap(),
+                   "https://example.com/a%20b%22%20--new-window%20file:///c:/x");
+        assert_eq!(checked("https://example.com/jobs?id=1&q=<x>").unwrap(), "https://example.com/jobs?id=1&q=%3Cx%3E");
+    }
 
     #[test]
     fn only_plain_web_links_pass() {

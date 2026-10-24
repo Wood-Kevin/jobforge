@@ -21,8 +21,11 @@ export default function App() {
   const [page, setPage] = useState<Page>("jobs");
   const [job, setJob] = useState<number | null>(null);
   const [sup, setSup] = useState<Supervisor | null>(null);
+  // Failures of the two startup checks are shown, not dropped: a dropped one left "Starting..." or
+  // skipped the setup guide with no sign why.
+  const [startError, setStartError] = useState<string | null>(null);
   useEffect(() => {
-    supervisorStatus().then(setSup).catch(() => setSup(null));
+    supervisorStatus().then(setSup).catch((e) => { setSup(null); setStartError(`Could not read the host's status: ${String(e)}`); });
     const un = onSupervisorChange(setSup);
     return () => { un.then((fn) => fn()); };
   }, []);
@@ -30,7 +33,8 @@ export default function App() {
   const [checkedSetup, setCheckedSetup] = useState(false);
   useEffect(() => {
     if (checkedSetup || sup?.state !== "running") return;
-    api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setCheckedSetup(true); }).catch(() => undefined);
+    api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setCheckedSetup(true); setStartError(null); })
+      .catch((e) => setStartError(`Could not check whether setup is finished: ${e instanceof Error ? e.message : String(e)}`));
   }, [sup, checkedSetup]);
   const go = (p: Page) => { setJob(null); setPage(p); };
   const open = (id: number) => setJob(id);
@@ -47,6 +51,7 @@ export default function App() {
       </nav>
       <main>
         {down && <p className="banner">{supervisorText(sup!)}</p>}
+        {startError && <p className="banner">{startError}</p>}
         {/* Only the restore screen while stopped this way: every page would just show "not reachable" (P1.9 drill). */}
         {sup?.state === "stopped_db_newer" ? <Restore />
           : job !== null ? <JobDetail id={job} onBack={() => setJob(null)} />

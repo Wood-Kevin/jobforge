@@ -58,9 +58,13 @@ pub fn write_cursor(path: &Path, id: u64) -> std::io::Result<()> {
 pub fn relay(app: AppHandle, sup: Arc<Supervisor>) {
     let cursor = event_cursor_file();
     let mut last_id: Option<u64> = read_cursor(&cursor);
+    // Failures are logged when they change, not every 2 s retry: visible, without flooding the log.
+    let mut last_connect_error: Option<String> = None;
+    let mut emit_failed = false;
     while !sup.is_exiting() {
         match open_event_stream(last_id) {
             Ok(resp) => {
+                last_connect_error = None;
                 host_log(&format!("event_stream_connected after={}", last_id.map(|i| i.to_string()).unwrap_or_else(|| "now".into())));
                 let mut first = true;
                 let reader = BufReader::new(resp.into_reader());
@@ -75,15 +79,30 @@ pub fn relay(app: AppHandle, sup: Arc<Supervisor>) {
                             host_log(&format!("event_cursor_write_failed: {e}"));
                         }
                     }
-                    if let Ok(value) = serde_json::from_str::<serde_json::Value>(data) {
-                        let _ = app.emit("agent-event", value);
+                    match serde_json::from_str::<serde_json::Value>(data) {
+                        Ok(value) => {
+                            if let Err(e) = app.emit("agent-event", value) {
+                                if !emit_failed {
+                                    host_log(&format!("event_emit_failed: {e}"));
+                                    emit_failed = true;
+                                }
+                            }
+                        }
+                        Err(e) => host_log(&format!("event_not_json: {e}")),
                     }
                 });
                 if let Err(e) = result {
                     host_log(&format!("event stream ended: {e}"));
                 }
             }
-            Err(_) => {} // agent not up yet; the watchdog reports that
+            Err(e) => {
+                // Usually the agent is not up yet (the watchdog reports that); a different
+                // error (a refused request, say) would otherwise never be seen.
+                if last_connect_error.as_deref() != Some(e.as_str()) {
+                    host_log(&format!("event_stream_connect_failed: {e}"));
+                    last_connect_error = Some(e);
+                }
+            }
         }
         std::thread::sleep(Duration::from_secs(2));
     }
