@@ -41,8 +41,11 @@ ELIGIBILITY = {
                   "status": (_enum("active", "current", "inactive", "expired", "none"), True),
                   "polygraph": (_enum("none", "ci", "full_scope"), False),
                   "last_active_year": (_num(1950, 2100), False)},
+    # time_zone (2026-10-24): a state can be split between zones (Florida's panhandle is Central), so
+    # "located in the Eastern timezone" cannot be settled from the state; the person's own answer can.
     "residency": {"country": (_STR, True), "state": (_STR, False), "city": (_STR, False),
-                  "willing_to_relocate": (_BOOL, False)},
+                  "willing_to_relocate": (_BOOL, False),
+                  "time_zone": (_enum("eastern", "central", "mountain", "pacific", "alaska", "hawaii"), False)},
     "physical": {"max_lift_lbs": (_num(0, 500), False), "can_stand_hours": (_num(0, 24), False)},
     "travel": {"max_travel_percent": (_num(0, 100), True)},
     "license": {"name": (_STR, True), "active": (_BOOL, True)},

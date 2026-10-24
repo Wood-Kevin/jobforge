@@ -610,7 +610,7 @@ split below is kept as documentation for any future server port (A13).
   | work_authorization | **us_citizen**, **authorized_to_work_us** (bool) |
   | sponsorship | **needs_sponsorship** (bool) |
   | clearance | **level** (none/confidential/secret/top_secret/ts_sci), **status** (active/current/inactive/expired/none), polygraph (none/ci/full_scope), last_active_year |
-  | residency | **country**, state, city, willing_to_relocate |
+  | residency | **country**, state, city, willing_to_relocate, time_zone (eastern/central/mountain/pacific/alaska/hawaii; 2026-10-24: a state can span zones, so "Eastern timezone" needs the person's answer) |
   | physical | max_lift_lbs, can_stand_hours (at least one) |
   | travel | **max_travel_percent** (0-100) |
   | license | **name**, **active**; several allowed |

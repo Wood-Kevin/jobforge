@@ -165,6 +165,7 @@ def test_editing_what_a_verified_item_says_clears_verification(paths):
     ({"type": "availability"}, "needs at least one of"),
     ({"type": "availability", "on_call": "yes"}, "on_call must be"),
     ({"type": "availability", "time_zone": "eastern"}, "do not take time_zone"),
+    ({"type": "residency", "country": "US", "time_zone": "atlantic"}, "time_zone must be"),
     ({"type": "astrology"}, "attributes.type must be one of"),
     ({}, "attributes.type must be one of"),
 ])
