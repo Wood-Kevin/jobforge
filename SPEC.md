@@ -96,6 +96,8 @@ matter"). Stays at the top level of `claude-projects`; no career-lane gate.
 - Change detection by `source_job_id` + `material_sha256` / `payload_sha256`;
   closure after 2 successful complete listings without the job; supersession.
 - Every posting stored, including filter rejects; re-filter; "evaluate anyway".
+  Since P1.10 (D9 amendment) a reject keeps its record and verdict but not its
+  description text.
 - Deterministic, versioned filter ruleset driven by a versioned search profile.
 - Resume upload, experience items incl. eligibility facts, verify action,
   completeness flags, inferred-claims inbox.
@@ -280,6 +282,19 @@ accepted, not owned.
   polling cost near-zero bytes on unchanged boards (measured).
 - **Rejected alternative and why:** Overwrite in place / drop rejects / fixed
   schedule slots (burst after downtime).
+- **Amendment 2026-10-23 (P1.10, Kevin: "no reason to keep posts that just
+  rejected and don't meet filters"):** at built-in-list scale the text of
+  every posting cost about 2.5 GB a day even compressed. Rejected postings
+  still keep their `raw_postings` row (identity, URLs, hashes) and verdict,
+  so change detection, closure and the Rejected list work; their description
+  is not kept. Text lives in `posting_texts` (migration 0010, compressed,
+  deletable), kept for a pass or an "evaluate anyway" override and dropped on
+  a reject; with no search profile nothing is kept. Re-filtering a job whose
+  text was dropped waits for its board's next full fetch (the ETag is
+  cleared), which stores the text again and filters it. Evaluations stay
+  defensible: only postings that pass are analyzed, and they keep their text.
+  Rejected: deleting rejected rows outright (they would come back as "new"
+  on every poll).
 
 ### D10: Analysis, evaluation and recommendation cached by their own dependencies
 - **Tier:** standard-practice.
@@ -399,7 +414,8 @@ triggers and constraints that apply to every connection.
 | sources, employers | global | User-action writes config; discovery updates backoff/status and inserts built-in list rows (`origin = 'directory'`, never updates enabled/origin) | Authorizer allow-lists; `origin` CHECK |
 | employer_poll_state, robots_cache | global | Discovery only (user action may set next_poll_at for poll-now) | Authorizer |
 | source_fetches | global | Discovery only | Authorizer + partial unique index on in-flight rows |
-| raw_postings | global | Insert only; description stored compressed and the API object not kept since 0010 | Append-only triggers + unique (source_job_id, material_sha256); CHECK never both plain and compressed text |
+| raw_postings | global | Insert only; since 0010 no description and no API object (payload `null`) | Append-only triggers + unique (source_job_id, material_sha256) |
+| posting_texts | global | Discovery inserts (pass, override, or wanted again) and deletes (reject without override, no profile) | Authorizer: discovery only; PK = FK to raw_postings |
 | jobs | global | Discovery writes | Authorizer |
 | change_events | global | Any writer component inserts; delete only rows > 7 days | Trigger |
 | posting_analyses, requirements | global | Evaluation writes; discovery and user action (evaluate anyway) insert pending analyses and may only change `status` (supersede) | Authorizer (column-level for discovery and user) + partial unique index (one pending per job) |
@@ -499,6 +515,7 @@ PowerShell for process, registry and ACL probes.
 | Bounded catch-up | SQL requests per host in the first interval after each `agent_runs` start or detected gap | Printed numbers vs budget |
 | Change detection | SQL 24 h new / changed / closed per source; raw rows vs fetches | Raw rows only for new/changed |
 | Rejected postings retained | SQL raw_postings with only `reject` results | Count > 0, growing |
+| Rejected postings keep no text (0010) | verify.sh FILTER "Posting text kept by verdict"; database size | `reject` without override: text_kept 0; `pass` and overrides: text_kept 1 |
 | Every stored posting has a verdict | `scripts/verify_filter.py` coverage section | Open jobs without a verdict for the active profile: printed count (0 after a re-filter) |
 | Re-filter keeps history | `scripts/verify_filter.py` history section | One row set per profile version; older versions' counts unchanged after a new save |
 | Filter port matches the scanner | `scanner\.venv\Scripts\python scripts/verify_filter.py DB --scanner ..\job-scanner` | Same-verdict and same-rule counts; each disagreement listed with both reasons |
@@ -569,7 +586,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
-| 2026-10-23 | P1.10 built-in company list (D17): `discovery/directory.json` version 2026-10-23, 5,855 boards (Greenhouse 3,185, Ashby 2,460, Lever 210; 217,026 open jobs) from 7,433 Common Crawl candidates (CC-MAIN-2026-43, -39), each checked against its board API; 4 index pages failed and are listed in the file. Migration 0009 `employers.origin`; startup sync adds missing rows only (`origin = 'directory'`, 24 h, first polls spread over a day); add by name (list, then board APIs; `check_failed` never `not_found`); list switch; Status summarizes the list. Fixed from the live run: a named list company kept the list's 24 h interval (now polls like the person's, test). Live (evidence data root, 30 min): sync added 5,855 then 0 on restart; Setup step 1 done with no input; "Mistral" found on Lever by probe, a made-up name `not_found`; switch changed 5,853 rows and no user rows; fetches/hour Greenhouse 77/300, Ashby 58/120, Lever 5/120, 0 `budget_deferred`; 30.0 KB per posting, 6.5 GB projected for a full day; then migration 0010 (Kevin: "lets do it" to options a+b): description stored zlib-compressed, API object not stored, old rows read unchanged (copy of a v9 database: 5,335 rows identical after upgrade); measured 11.5 KB per posting (-62%), about 2.5 GB projected (DEFERRED_COMPLEXITY.md). Version 0.3.0. Window changes built, not seen live (the installed JobForge held the single instance). Evidence: `docs/evidence/p1_10_built_in_list_live.txt` | Kevin: "having users have to put in job boards is insanity"; chose "Both" |
+| 2026-10-23 | P1.10 built-in company list (D17): `discovery/directory.json` version 2026-10-23, 5,855 boards (Greenhouse 3,185, Ashby 2,460, Lever 210; 217,026 open jobs) from 7,433 Common Crawl candidates (CC-MAIN-2026-43, -39), each checked against its board API; 4 index pages failed and are listed in the file. Migration 0009 `employers.origin`; startup sync adds missing rows only (`origin = 'directory'`, 24 h, first polls spread over a day); add by name (list, then board APIs; `check_failed` never `not_found`); list switch; Status summarizes the list. Fixed from the live run: a named list company kept the list's 24 h interval (now polls like the person's, test). Live (evidence data root, 30 min): sync added 5,855 then 0 on restart; Setup step 1 done with no input; "Mistral" found on Lever by probe, a made-up name `not_found`; switch changed 5,853 rows and no user rows; fetches/hour Greenhouse 77/300, Ashby 58/120, Lever 5/120, 0 `budget_deferred`; 30.0 KB per posting, 6.5 GB projected for a full day. Then (Kevin: "lets do it"; then "no reason to keep posts that just rejected and don't meet filters", D9 amendment) migration 0010: posting text in `posting_texts`, compressed, kept only for a pass or an override, API object not stored; a job whose text was dropped is filtered after its board's next full fetch (ETag cleared), never on missing text. Measured: 11.5 KB per posting compressed, 2.6 KB with rejects' text dropped (about 0.6 GB projected at list scale); live: pass and override kept text, 1,850 rejects none, "evaluate anyway" on a rejected job brought its 6,207-character text back within 60 s. Version 0.3.0. Window changes built, not seen live (the installed JobForge held the single instance). Evidence: `docs/evidence/p1_10_built_in_list_live.txt` | Kevin: "having users have to put in job boards is insanity"; chose "Both" |
 | 2026-10-23 | P1.9 closed except two measurements that need inputs (DEFERRED_COMPLEXITY.md): drill run 2 passed every leg (upgrade while running 8 -> 9, refusal with exit 4 after downgrade, restore from the window's restore screen with pre-upgrade data back and the newer data kept as `before-restore-v9`), repeated on the final v0.2.0 build. `verify.sh` added at the root: raw evidence for every section 6 row (IPC exposure, process, data dirs, DB, discovery, filter, analysis, evaluation, profile, window, golden, tests, repo, logs), manual rows printed as instructions, no verdicts. Restore state now shows only the restore screen. Interpretation report: not measured (LM Studio not running; the run now stops at the first unreachable-model error). Golden report: tooling live, waiting for Kevin's 20-30 labels | Release drill (P1.9 acceptance) |
 | 2026-10-23 | P1.9 release drill, first run (v0.1.0 -> v0.2.0 -> v0.1.0): upgrade while running passed (hook stop `update`, pre-migrate backup, 7 -> 8, counts unchanged). Downgrade failed its acceptance: the v0.1 installer left v0.2's `0008` migration file in the install dir and the v0.1 agent ran on the schema-8 database instead of exiting 4. Fixed: `SCHEMA_VERSION` pinned in code (files above it ignored), the install hook clears `agent\`, and backups no longer leave `-wal`/`-shm` files. Drill repeated with the fixed v0.2.0 and a drill-only v0.3.0 (`docs/evidence/p1_9_release_drill.txt`) | Release drill (P1.9 acceptance) |
 | 2026-10-23 | P1.9 part 1, v0.2.0: golden-set labels (migration 0008 `golden_labels`, append-only; "Your call" on a job; `jobforge-agent golden` report per model/prompt/rule version with false SKIP, false APPLY, REVIEW share, REVIEWs labeled obvious, confusion table; `golden --suite interpretation` runs E1 with a real model on the layer-A snippets, which moved into the package so the installed agent has them). Restore screen in the window for the stopped-database-newer state (host `list_backups` / `restore_backup`). `--restore` now keeps the live database as a `before-restore-*` backup and refuses a backup newer than the agent (exit 4): a rollback no longer destroys post-upgrade data. Spec correction: the lifecycle suites row named `agent/tests/lifecycle`, which never existed (they are `agent/tests/integration/` and `tests/test_migrate.py`, `test_backup.py`, `test_recovery.py`) | Kevin: proceed to P1.9 |

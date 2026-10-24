@@ -9,6 +9,12 @@
 - An analysis that already exists for the same posting version and analysis versions is never
   requeued: posting analysis depends only on the posting text (D10).
 - Closed jobs are filtered for the record but not queued.
+- Posting text is kept only while wanted (migration 0010, db/textpack.py): a reject without an
+  "evaluate anyway" override drops it (and supersedes a pending analysis, which would need it);
+  with no search profile nothing has passed, so nothing is kept. A job whose text was dropped is
+  not filtered again here (the rules read the description; a verdict on missing text would be
+  wrong and would stick): its board's next full fetch stores the text again (discovery/changes.py
+  _wants_text) and filters it then.
 """
 from __future__ import annotations
 
@@ -17,6 +23,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from jobforge_agent.analysis.versions import EXTRACTION_PROMPT_VERSION, INTERPRETER_VERSION, SEGMENTER_VERSION
+from jobforge_agent.db import textpack
 from jobforge_agent.filtering import rules
 from jobforge_agent.filtering.profile import CompiledProfile, compile_profile
 from jobforge_agent.filtering.salary import Salary
@@ -46,17 +53,39 @@ def default_model_config_id(conn: sqlite3.Connection) -> int | None:
     return int(row[0]) if row and row[0].isdigit() else None
 
 
-def job_view(conn: sqlite3.Connection, job_id: int) -> tuple[rules.JobView, int, bool] | None:
+# A job whose posting text was dropped but is wanted again: a search profile exists and the current
+# posting has no reject verdict under it, or the person asked to evaluate it anyway. Aliases: j (jobs),
+# rp (its current raw posting), pt (textpack.JOIN). One parameter: the ruleset version.
+WANTS_TEXT = (
+    f"NOT {textpack.KEPT} AND EXISTS (SELECT 1 FROM search_profiles) "
+    "AND (EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = j.id) OR NOT EXISTS ("
+    " SELECT 1 FROM filter_results fr WHERE fr.raw_posting_id = rp.id AND fr.verdict = 'reject' AND fr.ruleset_version = ?"
+    " AND fr.search_profile_id = (SELECT id FROM search_profiles ORDER BY version DESC LIMIT 1)))")
+
+
+def request_full_fetch(conn: sqlite3.Connection, job_id: int | None = None) -> int:
+    """Forget the ETag of every board (or the one board of `job_id`) with an open job whose text is
+    wanted again, so its next poll is a full fetch that brings the text back. Returns boards changed."""
+    only = "AND j.id = ? " if job_id is not None else ""
+    return conn.execute(
+        "UPDATE employer_poll_state SET etag = NULL, last_modified = NULL WHERE employer_id IN ("
+        f"SELECT DISTINCT j.employer_id FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id {textpack.JOIN} "
+        f"WHERE j.closed_at_ms IS NULL {only}AND {WANTS_TEXT})",
+        ((job_id,) if job_id is not None else ()) + (rules.RULESET_VERSION,)).rowcount
+
+
+def job_view(conn: sqlite3.Connection, job_id: int) -> tuple[rules.JobView, int, bool, bool] | None:
+    """(view, current raw posting id, closed, text kept)."""
     row = conn.execute(
-        "SELECT j.title, j.location_text, coalesce(rp.description_text, unpack_text(rp.description_text_z)), j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
-        "j.posted_at, j.current_raw_posting_id, j.closed_at_ms IS NOT NULL FROM jobs j "
-        "JOIN raw_postings rp ON rp.id = j.current_raw_posting_id WHERE j.id = ?", (job_id,)).fetchone()
+        f"SELECT j.title, j.location_text, {textpack.TEXT}, j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
+        f"j.posted_at, j.current_raw_posting_id, j.closed_at_ms IS NOT NULL, {textpack.KEPT} FROM jobs j "
+        f"JOIN raw_postings rp ON rp.id = j.current_raw_posting_id {textpack.JOIN} WHERE j.id = ?", (job_id,)).fetchone()
     if row is None:
         return None
     salary = Salary(row[4], row[5], row[6], "structured") if row[6] and (row[4] is not None or row[5] is not None) else None
     view = rules.JobView(title=row[0], location_text=row[1] or "", description=row[2] or "", work_mode=row[3],
                          salary=salary, posted_at=row[7])
-    return view, row[8], bool(row[9])
+    return view, row[8], bool(row[9]), bool(row[10])
 
 
 def queue_analysis(conn: sqlite3.Connection, job_id: int, raw_id: int, model_config_id: int, now: int) -> bool:
@@ -84,6 +113,8 @@ class FilterStats:
     queued: int = 0
     overrides_queued: int = 0
     skipped_no_model: int = 0
+    waiting_for_text: int = 0  # text dropped earlier; filtered when the board's next full fetch brings it back
+    texts_dropped: int = 0
 
 
 def filter_job(conn: sqlite3.Connection, job_id: int, profile: ActiveProfile, now: int, stats: FilterStats,
@@ -92,7 +123,10 @@ def filter_job(conn: sqlite3.Connection, job_id: int, profile: ActiveProfile, no
     got = job_view(conn, job_id)
     if got is None:
         return None
-    view, raw_id, closed = got
+    view, raw_id, closed, kept = got
+    if not kept:
+        stats.waiting_for_text += 1
+        return None
     outcome = rules.evaluate(view, profile.compiled)
     cur = conn.execute(
         "INSERT INTO filter_results (job_id, raw_posting_id, search_profile_id, ruleset_version, verdict, reasons, created_at_ms) "
@@ -106,7 +140,11 @@ def filter_job(conn: sqlite3.Connection, job_id: int, profile: ActiveProfile, no
     stats.passed += outcome.passed
     stats.rejected += not outcome.passed
     override = conn.execute("SELECT 1 FROM filter_overrides WHERE job_id = ?", (job_id,)).fetchone() is not None
-    if (outcome.passed or override) and not closed:
+    if not outcome.passed and not override:
+        stats.texts_dropped += textpack.drop(conn, raw_id)
+        conn.execute("UPDATE posting_analyses SET status = 'superseded' WHERE job_id = ? AND status = 'pending'", (job_id,))
+        return outcome
+    if not closed:
         if model_config_id is None:
             stats.skipped_no_model += 1
         elif queue_analysis(conn, job_id, raw_id, model_config_id, now):
@@ -119,9 +157,14 @@ def filter_job(conn: sqlite3.Connection, job_id: int, profile: ActiveProfile, no
 
 
 def filter_jobs(conn: sqlite3.Connection, job_ids: list[int], now: int, *, emit_events: bool = True) -> FilterStats | None:
-    """Filter jobs with the active profile; None if no profile exists yet (postings wait, re-filter later)."""
+    """Filter jobs with the active profile; None if no profile exists yet. Then nothing has passed,
+    so their text is dropped; after a profile is saved, the next full fetch brings it back."""
     profile = active_profile(conn)
     if profile is None:
+        for job_id in job_ids:
+            raw = conn.execute("SELECT current_raw_posting_id FROM jobs WHERE id = ?", (job_id,)).fetchone()
+            if raw:
+                textpack.drop(conn, raw[0])
         return None
     stats = FilterStats()
     model_id = default_model_config_id(conn)

@@ -63,6 +63,8 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "robots_cache": full(),
         "source_fetches": full(),
         "raw_postings": ins(),
+        # Posting text is kept only while wanted: dropped on a reject, stored again when wanted (0010).
+        "posting_texts": Grant(insert=True, delete=True),
         "jobs": full(),
         "change_events": ins(),
         "filter_results": ins(),
@@ -86,7 +88,8 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "settings": full(),
         "sources": full(),
         "employers": full(),
-        "employer_poll_state": _merge(ins(), upd("next_poll_at_ms")),
+        # etag/last_modified: "evaluate anyway" on a job whose text was dropped forces a full fetch (0010).
+        "employer_poll_state": _merge(ins(), upd("next_poll_at_ms", "etag", "last_modified")),
         "search_profiles": ins(),
         "resumes": full(delete=True),
         "experience_items": full(delete=True),

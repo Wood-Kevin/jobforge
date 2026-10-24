@@ -163,3 +163,49 @@ employers by origin/enabled/status: [('directory', 1, 'active', 5855)]
 filter_results: 0 posting_analyses: 0
 log warnings/errors/budget_deferred: {}
 18:59:12 Compressed run: 11,495 bytes per posting vs 30,005 before (-62%); description_raw 3.0 KB and description_text 2.5 KB per posting compressed (were 8.0 and 5.4); payload 4 bytes. Projection for the list's 217,026 open jobs: about 2.5 GB. Agent stopped; folder left in place.
+19:10:55 --- Rejected postings keep no text (0010 rewritten: posting_texts). Third fresh root: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_10c. Note: jobforge-evidence-p1_10b was made with the superseded 0010 (description_*_z columns) and must not be opened by later agents.
+19:11:00 health: pid=26504
+19:11:00 synthetic search profile saved: version=1 (titles: help desk, it support, noc, systems administrator, desktop support; home state TX)
+=== after 30 min, rejected text dropped
+db_bytes=13289584 raw_postings=3304 texts_kept=0 text_bytes=0 db_bytes_per_posting=4022
+verdicts: [('reject', 3304)]
+boards polled: 117
+fetches last hour: [('greenhouse', 300, 67), ('lever', 120, 5), ('ashby', 120, 45)]
+analyses: []
+── Posting text kept by verdict under the active profile (0010: kept = pass or override; reject and no profile = not kept)
+['verdict', 'override', 'text_kept', 'open_jobs', 'text_bytes']
+["reject", 0, 0, 3304, null]
+
+── Database size
+['bytes']
+[7299072]
+
+── Filter port vs job-scanner (scanner's interpreter)
+database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_10c\data\jobforge.db
+schema: 10  profiles: 1  active profile: 1
+rulesets with results for the active profile: ['rules-1']
+
+== Coverage: open jobs with a verdict on their current posting for the active profile
+19:41:32 (first evaluate-anyway attempt failed in the test script: job id lookup quoting; no request reached a job. Redone below.)
+19:42:17 profile v2 saved (adds 'support engineer', 'support specialist')
+19:42:27 log: {"profile_version": 2, "ruleset": "rules-1", "jobs": 3659, "new_results": 0, "already_filtered": 0, "passed": 0, "rejected": 0, "queued": 0, "texts_dropped": 0, "waiting_for_text": 3659, "full_fetch_boards": 125, "seconds": 0.0, "event": "refilter_done", "level": "info", "timestamp": "2026-10-23T23:42:17.376505Z"}
+19:42:42 job 1220 'IT Systems Administrator' before: verdict= description_text null=True override=False
+19:42:42 evaluate anyway: {"job_id":1220,"queued":false,"closed":false,"waiting_for_text":true}
+19:43:42 60 s later: description_text chars=6207 override=True analysis status=pending
+=== 15 min after profile v2 (broader titles)
+── Posting text kept by verdict under the active profile (0010: kept = pass or override; reject and no profile = not kept)
+['verdict', 'override', 'text_kept', 'open_jobs', 'text_bytes']
+["no verdict", 0, 0, 3530, null]
+["pass", 0, 1, 1, 5811]
+["reject", 0, 0, 1850, null]
+["reject", 1, 1, 1, 5942]
+
+── Database size
+['bytes']
+[8183808]
+
+db_bytes=13899888 raw_postings=5382 db_bytes_per_posting=2582 texts_kept=2 avg_kept_text_bytes=5876
+verdicts by profile: [(1, 'reject', 3659), (2, 'pass', 1), (2, 'reject', 1851)]
+analyses: [('pending', 2)]
+error log lines: 0
+19:59:09 Agent stopped. Rejected postings keep no text: 2,582 bytes per posting overall (30,005 plain, 11,495 compressed-only). Folder left in place.

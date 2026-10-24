@@ -40,25 +40,20 @@ def _count(db, table):
     return db.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
 
 
-TEXT = "coalesce(description_text, unpack_text(description_text_z))"
+TEXT = "coalesce(rp.description_text, unpack_text(pt.description_text_z))"
+FROM = "raw_postings rp LEFT JOIN posting_texts pt ON pt.raw_posting_id = rp.id"
 
 
 def test_new_postings_store_compressed_text_and_no_payload(ctx):
-    """Migration 0010 (P1.10 storage): the description goes in the _z columns, the API object is
-    not kept (payload_sha256 still is), and a row cannot hold both copies of a text."""
-    import sqlite3
+    """Migration 0010 (P1.10 storage): the description goes to posting_texts, compressed, and the API
+    object is not kept (payload_sha256 still is). Dropping it is the filter's job (test_filter_pipeline)."""
     db, _, apply, _ = ctx
     apply([_raw()])
-    row = db.execute("SELECT payload, payload_sha256, description_raw, description_text, description_raw_z, "
-                     f"description_text_z, {TEXT}, coalesce(description_raw, unpack_text(description_raw_z)) "
-                     "FROM raw_postings").fetchone()
+    row = db.execute(f"SELECT rp.payload, rp.payload_sha256, rp.description_raw, rp.description_text, pt.description_raw_z, "
+                     f"{TEXT}, coalesce(rp.description_raw, unpack_text(pt.description_raw_z)) FROM {FROM}").fetchone()
     assert row[0] == "null" and len(row[1]) == 64
-    assert row[2] is None and row[3] is None and isinstance(row[4], bytes) and isinstance(row[5], bytes)
-    assert row[6] == "Monitor networks. Requirements: CCNA." and row[7] == "<p>Monitor networks. Requirements: CCNA.</p>"
-    with pytest.raises(sqlite3.IntegrityError):
-        db.execute("INSERT INTO raw_postings (employer_id, source_job_id, fetched_at_ms, payload, description_text, "
-                   "description_text_z, payload_sha256, material_sha256, adapter_version) "
-                   "SELECT employer_id, 'x', 0, 'null', 'plain', x'00', 'p', 'm', 'v' FROM raw_postings LIMIT 1")
+    assert row[2] is None and row[3] is None and isinstance(row[4], bytes)
+    assert row[5] == "Monitor networks. Requirements: CCNA." and row[6] == "<p>Monitor networks. Requirements: CCNA.</p>"
 
 
 def test_new_posting_creates_raw_job_and_event(ctx):
@@ -97,12 +92,12 @@ def test_tracking_parameter_change_is_not_material(ctx):
 def test_material_change_appends_raw_row_and_keeps_the_old_one(ctx):
     db, _, apply, _ = ctx
     apply([_raw()])
-    first = db.execute(f"SELECT id, {TEXT} FROM raw_postings").fetchone()
+    first = db.execute(f"SELECT rp.id, {TEXT} FROM {FROM}").fetchone()
     c = apply([_raw(desc="Monitor networks. Requirements: CCNA and 2 years NOC.")])
     assert c.changed == 1 and _count(db, "raw_postings") == 2
     current = db.execute("SELECT current_raw_posting_id FROM jobs").fetchone()[0]
     assert current != first[0]
-    assert db.execute(f"SELECT {TEXT} FROM raw_postings WHERE id = ?", (first[0],)).fetchone()[0] == first[1]
+    assert db.execute(f"SELECT {TEXT} FROM {FROM} WHERE rp.id = ?", (first[0],)).fetchone()[0] == first[1]
     assert [r[0] for r in db.execute("SELECT type FROM change_events ORDER BY id")] == ["posting_new", "posting_changed"]
 
 

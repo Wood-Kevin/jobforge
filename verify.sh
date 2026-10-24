@@ -202,6 +202,9 @@ fi
 if run filter; then
   section "FILTER — coverage, history, analysis queue, scanner parity"
   probe "scripts/verify_filter.py" "$PY" "$ROOT/scripts/verify_filter.py" "$DB"
+  probe "Posting text kept by verdict under the active profile (0010: kept = pass or override; reject and no profile = not kept)" \
+    sql "SELECT coalesce(fr.verdict, 'no verdict') AS verdict, EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = j.id) AS override, (rp.description_text IS NOT NULL OR pt.raw_posting_id IS NOT NULL) AS text_kept, count(*) AS open_jobs, sum(length(pt.description_raw_z) + length(pt.description_text_z)) AS text_bytes FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id LEFT JOIN posting_texts pt ON pt.raw_posting_id = rp.id LEFT JOIN filter_results fr ON fr.raw_posting_id = rp.id AND fr.search_profile_id = (SELECT id FROM search_profiles ORDER BY version DESC LIMIT 1) WHERE j.closed_at_ms IS NULL GROUP BY 1, 2, 3 ORDER BY 1, 2, 3"
+  probe "Database size" sql "SELECT page_count * page_size AS bytes FROM pragma_page_count(), pragma_page_size()"
   if [[ -x "$SCANNER/.venv/Scripts/python.exe" ]]; then
     probe "Filter port vs job-scanner (scanner's interpreter)" "$SCANNER/.venv/Scripts/python.exe" "$ROOT/scripts/verify_filter.py" "$DB" --scanner "$SCANNER"
   else

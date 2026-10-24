@@ -43,8 +43,9 @@ def seed_basics(conn) -> dict:
         "INSERT INTO employers (source_id, slug, display_name) VALUES (?, 'acme', 'Acme') RETURNING id", (ids["source"],)
     ).fetchone()[0]
     ids["raw"] = conn.execute(
-        "INSERT INTO raw_postings (employer_id, source_job_id, fetched_at_ms, payload, payload_sha256, material_sha256, adapter_version) "
-        "VALUES (?, 'greenhouse:acme:1', ?, ?, 'p1', 'm1', 'gh-1') RETURNING id",
+        # Plain text as written before migration 0010 (adapters always stored a string, possibly empty).
+        "INSERT INTO raw_postings (employer_id, source_job_id, fetched_at_ms, payload, description_text, payload_sha256, material_sha256, adapter_version) "
+        "VALUES (?, 'greenhouse:acme:1', ?, ?, '', 'p1', 'm1', 'gh-1') RETURNING id",
         (ids["employer"], NOW, json.dumps({"id": 1})),
     ).fetchone()[0]
     ids["job"] = conn.execute(

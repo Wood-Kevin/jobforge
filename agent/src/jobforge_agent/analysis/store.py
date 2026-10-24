@@ -12,6 +12,7 @@ from dataclasses import dataclass
 
 from jobforge_agent.analysis.interpret import Requirement
 from jobforge_agent.analysis.segment import Segmented
+from jobforge_agent.db import textpack
 
 MAX_ATTEMPTS = 3  # same budget as startup recovery (db/recovery.py)
 
@@ -59,8 +60,16 @@ def claim(conn: sqlite3.Connection, model_config_id: int, now: int, lease_ms: in
         if row is None:
             return None
         posting = conn.execute(
-            "SELECT j.title, coalesce(rp.description_text, unpack_text(rp.description_text_z)) FROM raw_postings rp JOIN jobs j ON j.id = ? WHERE rp.id = ?",
+            f"SELECT j.title, {textpack.TEXT}, {textpack.KEPT} FROM raw_postings rp {textpack.JOIN} JOIN jobs j ON j.id = ? WHERE rp.id = ?",
             (row[2], row[1])).fetchone()
+        if not posting[2]:
+            # Rejecting a posting supersedes its pending analysis in the same transaction as dropping
+            # its text (filtering/pipeline.py), so this is a broken invariant, not a normal case. Mark
+            # it failed (counted on Status) rather than analyze an empty posting or block the queue.
+            conn.execute("UPDATE posting_analyses SET status = 'failed', lease_until_ms = NULL, "
+                         "last_error = 'posting text not kept' WHERE id = ?", (row[0],))
+            _event(conn, "analysis_failed", row[2], {"analysis_id": row[0], "error": "text_not_kept"}, now)
+            return go()
         return Claim(row[0], row[1], row[2], model_config_id, posting[0] or "", posting[1] or "")
     return _tx(conn, go)
 

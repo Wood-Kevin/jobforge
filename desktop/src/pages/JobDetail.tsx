@@ -45,7 +45,9 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
         {d.filter?.verdict === "reject" && (
           <p className="warn">This job doesn't match your search ({plainFilterReason(d.filter.reasons.primary)}).
             {!d.override && <> <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.evaluateAnyway(d.id, "from the job view"); reload(); })}>Assess it anyway</button></>}
-            {d.override && " Assessment requested."}</p>)}
+            {d.override && (d.description_html === null && d.description_text === null
+              ? " Assessment requested. Its description wasn't kept, so JobForge fetches it again first."
+              : " Assessment requested.")}</p>)}
         <ErrorBox error={act.error} />
       </Card>
 
@@ -111,6 +113,10 @@ function Posting({ d }: { d: Detail }) {
     const href = a.getAttribute("href");
     if (href) act.run(() => openUrl(href));
   };
+  if (d.description_html === null && d.description_text === null) {
+    // Postings that don't match the search keep no description (storage); the link still works.
+    return <p className="muted">The description isn't kept for jobs that don't match your search. Use "Open job posting" to read it.</p>;
+  }
   return <><div className="posting" onClick={onClick} dangerouslySetInnerHTML={{ __html: html }} /><ErrorBox error={act.error} /></>;
 }
 

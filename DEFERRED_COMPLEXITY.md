@@ -294,11 +294,20 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Trigger:** `budget_deferred` lines for ashby in the agent log, or Kevin deciding a higher budget.
 
 ## Storage at built-in-list scale (P1.10)
-- **What:** before migration 0010 the database grew 30.0 KB per posting (evidence root, 30 min, 5,029 postings).
-  Kevin chose (a)+(b) on 2026-10-23 ("lets do it"): 0010 stops storing the never-read API object and stores the
-  description zlib-compressed. Measured after (second fresh root, 30 min, 7,420 postings): 11.5 KB per posting
-  (-62%; compressed description_raw 3.0 KB, description_text 2.5 KB). The list's 217,026 open jobs still project
-  to about 2.5 GB after the first full day, growing with every material edit (postings are kept).
-- **Why deferred:** the next cuts change retention, which SPEC fixes ("all postings retained"): (c) keep the
-  description only for postings that pass the search profile; (d) a smaller list. Kevin's call.
-- **Trigger:** a database over 3 GB, or a disk-space complaint.
+- **What:** measured on fresh evidence roots, 30 min each: 30.0 KB per posting with plain text; 11.5 KB compressed
+  (Kevin: "lets do it"); 2.6 KB once rejected postings keep no text (Kevin: "no reason to keep posts that just
+  rejected and don't meet filters"; SPEC D9 amendment). A kept (passing) posting's text is about 6 KB compressed.
+  The list's 217,026 open jobs project to about 0.6 GB after the first full day, plus about 6 KB per pass; it grows
+  with each material edit (a new 2.6 KB raw row), since posting records are kept.
+- **Why deferred:** pruning records of closed rejected jobs would change retention again; not needed at this size.
+- **Trigger:** a database over 2 GB.
+
+## Re-filter waits for a full fetch (P1.10)
+- **What:** a job whose text was dropped (rejected, or polled before any search profile existed) is filtered under a
+  new profile only when its board's next full fetch brings the text back (the ETag is cleared at once). For the
+  built-in list that is up to 24 h after a profile change; live: 3,530 of 5,382 jobs were still waiting 15 min after
+  saving profile v2. A new user who sets the profile after the first polls sees list jobs fill in over a day.
+- **Why deferred:** filtering on missing text would record wrong verdicts that stick (unique per posting, profile,
+  ruleset); pulling all boards' next poll forward would exceed the per-host budgets.
+- **Trigger:** Kevin finds the delay after a profile change too long; then consider re-polling boards with
+  waiting jobs in budget order, or keeping title-only filtering for a first pass.

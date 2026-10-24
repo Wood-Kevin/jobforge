@@ -509,12 +509,19 @@ the label. The append-only trigger check (`migrate.check_append_only_triggers`) 
 has reached the migration that creates it (`TABLE_SINCE_VERSION`, pinned by a test against the migration files).
 Migration 0009 (P1.10) adds `employers.origin` (`user` | `directory`, default `user`, CHECK): directory rows come from the
 built-in company list (3.3 "Company directory") and follow its switch; existing rows are the person's.
-Migration 0010 (P1.10) adds `raw_postings.description_raw_z` and `description_text_z`: new rows store the description
-zlib-compressed there (`db/textpack.py`) with the plain columns NULL, and `payload` as JSON `null` (the API object was
-never read; `payload_sha256` still drives change detection). Rows from before 0010 keep plain text and are never
-rewritten (append-only). Every reader uses `coalesce(plain, unpack_text(compressed))`; `open_connection` registers
-`unpack_text` on every connection, and scripts that open the file directly register it themselves (`verify_filter.py`).
-Why: at built-in-list scale the plain columns cost 30 KB per posting (see DEFERRED_COMPLEXITY.md, storage).
+Migration 0010 (P1.10, SPEC D9 amendment) moves posting text to `posting_texts` (zlib, `db/textpack.py`), kept only
+while wanted. New `raw_postings` rows carry no description and `payload` JSON `null` (never read; `payload_sha256`
+still drives change detection). The poll stores the text, the filter (same transaction) drops it on a reject without
+an override, and supersedes that job's pending analysis; with no search profile everything is dropped. A job whose
+text is gone is never re-filtered (the rules read the description; a verdict on missing text would stick): the
+re-filter clears the ETag of its board (`pipeline.request_full_fetch`), and the next full fetch stores the text again
+when `pipeline.WANTS_TEXT` holds (profile exists and no reject verdict under it, or an override) and filters it.
+"Evaluate anyway" on such a job does the same for its board at once. E5/E6 and the analysis claim never run on a
+job without text (`evaluation/store.py` `_TEXT_KEPT`; a pending analysis without text is marked failed, not run).
+Rows from before 0010 keep plain text and are never rewritten. Every reader uses
+`coalesce(rp.description_text, unpack_text(pt.description_text_z))` over `LEFT JOIN posting_texts`; `open_connection`
+registers `unpack_text`, and scripts that open the file directly register it themselves (`verify_filter.py`).
+Why: at built-in-list scale the text cost 30 KB per posting plain, 11.5 KB compressed (DEFERRED_COMPLEXITY.md).
 Migration 0007 (P1.8c) adds `inferred_claims.proposed_by_resume_id` (no foreign key: deleting a resume must neither fail
 nor take accepted suggestions with it) and `inferred_claims.proposed_fields` (JSON: dates or `dates_as_written`, applied on
 accept).
@@ -539,7 +546,8 @@ split below is kept as documentation for any future server port (A13).
 | `employer_poll_state` | employer_id PK FK, next_poll_at_ms, last_attempt_at_ms, last_success_at_ms, last_outcome, last_error, consecutive_failures, lease_until_ms, etag, last_modified | Index on next_poll_at_ms. |
 | `robots_cache` | host PK, fetched_at_ms, expires_at_ms, http_status, body | |
 | `source_fetches` | id, employer_id FK, started_at_ms, finished_at_ms, outcome (OK/EMPTY/NOT_MODIFIED/ERROR/SKIPPED/INTERRUPTED/BUDGET_DEFERRED), http_status, retry_after_s, requests_made, bytes_received, duration_ms, postings_seen, new_count, changed_count, closed_count, complete, error | **Partial unique index** `(employer_id) WHERE finished_at_ms IS NULL`. |
-| `raw_postings` | id, employer_id FK, source_job_id, fetched_at_ms, first_fetch_id FK, listing_url, apply_url, payload (JSON; `null` since 0010), description_raw, description_text, payload_sha256, material_sha256, adapter_version, description_raw_z, description_text_z (0010, zlib BLOB) | **Append-only by trigger.** Unique (source_job_id, material_sha256). CHECK: a text is held plain or compressed, never both. |
+| `raw_postings` | id, employer_id FK, source_job_id, fetched_at_ms, first_fetch_id FK, listing_url, apply_url, payload (JSON; `null` since 0010), description_raw, description_text (NULL since 0010), payload_sha256, material_sha256, adapter_version | **Append-only by trigger.** Unique (source_job_id, material_sha256). |
+| `posting_texts` (0010) | raw_posting_id PK/FK, description_raw_z, description_text_z (zlib BLOB) | Kept only while wanted (pass or override); discovery inserts and deletes. |
 | `jobs` | id, source_job_id UNIQUE, employer_id FK (0002), current_raw_posting_id FK, last_payload_sha256, title, company, location_text, work_mode, salary_min, salary_max, salary_period, posted_at, first_seen_at_ms, last_seen_at_ms, missing_polls, closed_at_ms | Current view. |
 | `posting_analyses` | id, raw_posting_id FK, model_config_id FK, model_id_reported, extraction_prompt_version, segmenter_version, interpreter_version, sections (JSON), status (pending/running/done/failed/superseded), attempts, lease_until_ms, last_error, raw_response (JSON) | Unique on the version tuple. Partial unique index `(job_id) WHERE status = 'pending'` (job_id denormalized) enforces supersession. |
 | `requirements` | id, posting_analysis_id FK, text, jd_quote, quote_found, quote_occurrences, section_label, sentence, model_importance, model_polarity, model_subject, eligibility_type, min_years, cue_importance, cue_polarity, cue_subject, final_class, interpretation_status, flags (JSON) | |

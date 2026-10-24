@@ -278,9 +278,20 @@ class AgentRuntime:
                     conn.execute("ROLLBACK")
                     raise
                 await asyncio.sleep(0)  # let polls and IPC run between chunks
+            # Jobs whose text was dropped under an earlier profile are filtered when their board's next
+            # full fetch brings the text back (pipeline.WANTS_TEXT); make sure it is not a 304.
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                full_fetch_boards = filter_pipeline.request_full_fetch(conn)
+                conn.execute("COMMIT")
+            except Exception:
+                conn.execute("ROLLBACK")
+                raise
             summary = {"profile_version": profile.version, "ruleset": filter_rules.RULESET_VERSION, "jobs": len(job_ids),
                        "new_results": totals.filtered, "already_filtered": totals.already_filtered, "passed": totals.passed,
-                       "rejected": totals.rejected, "queued": totals.queued, "seconds": round((now_ms() - started) / 1000, 1)}
+                       "rejected": totals.rejected, "queued": totals.queued, "texts_dropped": totals.texts_dropped,
+                       "waiting_for_text": totals.waiting_for_text, "full_fetch_boards": full_fetch_boards,
+                       "seconds": round((now_ms() - started) / 1000, 1)}
             conn.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('refilter_done', ?, ?)",
                          (json.dumps(summary), now_ms()))
             self.log.info("refilter_done", **summary)
@@ -294,20 +305,27 @@ class AgentRuntime:
         got = filter_pipeline.job_view(self.user, job_id)
         if got is None:
             return None
-        _, raw_id, closed = got
+        _, raw_id, closed, kept = got
         model_id = filter_pipeline.default_model_config_id(self.user)
         self.user.execute("BEGIN IMMEDIATE")
         try:
             self.user.execute("INSERT INTO filter_overrides (job_id, note, created_at_ms) VALUES (?, ?, ?)", (job_id, note, now_ms()))
-            queued = (not closed and model_id is not None
+            queued = (kept and not closed and model_id is not None
                       and filter_pipeline.queue_analysis(self.user, job_id, raw_id, model_id, now_ms()))
+            waiting_for_text = not kept and not closed
+            if waiting_for_text:
+                # The text was dropped when the job was rejected (0010): fetch the board now, in full;
+                # the poll stores the text and queues the analysis (the override makes it wanted).
+                filter_pipeline.request_full_fetch(self.user, job_id)
+                self.user.execute("UPDATE employer_poll_state SET next_poll_at_ms = min(next_poll_at_ms, ?) "
+                                  "WHERE employer_id = (SELECT employer_id FROM jobs WHERE id = ?)", (now_ms(), job_id))
             self.user.execute("INSERT INTO change_events (type, job_id, created_at_ms) VALUES ('evaluate_anyway', ?, ?)", (job_id, now_ms()))
             self.user.execute("COMMIT")
         except Exception:
             self.user.execute("ROLLBACK")
             raise
         self.notify_events()
-        return {"job_id": job_id, "queued": bool(queued), "closed": closed}
+        return {"job_id": job_id, "queued": bool(queued), "closed": closed, "waiting_for_text": waiting_for_text}
 
     def filter_summary(self) -> dict:
         """Verdicts and rejection categories for the active profile and ruleset (evidence and dashboard)."""

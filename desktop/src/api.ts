@@ -97,7 +97,7 @@ export const api = {
   jobs: (view: "recommended" | "rejected" | "all", search: string, limit = 200, offset = 0) =>
     agentCall<JobList>("GET", `/v1/jobs?view=${view}&limit=${limit}&offset=${offset}${search ? `&q=${q(search)}` : ""}`),
   job: (id: number) => agentCall<JobDetail>("GET", `/v1/jobs/${id}`),
-  evaluateAnyway: (id: number, note: string) => agentCall<{ queued: boolean }>("POST", `/v1/jobs/${id}/evaluate-anyway`, { note }),
+  evaluateAnyway: (id: number, note: string) => agentCall<{ queued: boolean; waiting_for_text: boolean }>("POST", `/v1/jobs/${id}/evaluate-anyway`, { note }),
   setApplication: (id: number, fields: { status?: string; notes?: string; note?: string }) =>
     agentCall<Application>("PUT", `/v1/jobs/${id}/application`, fields),
   applications: () => agentCall<ApplicationRow[]>("GET", "/v1/applications"),

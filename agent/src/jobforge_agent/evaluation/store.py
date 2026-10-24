@@ -51,6 +51,12 @@ def _event(conn, type_: str, job_id: int | None, ref: dict, now: int) -> None:
 
 # ----- sync: snapshot, queue, recompute -----
 
+# E5/E6 read the posting text (job_facts). A job whose text was dropped (rejected, migration 0010)
+# and then overridden waits until its board's next full fetch stores the text again.
+_TEXT_KEPT = (
+    "AND (EXISTS (SELECT 1 FROM posting_texts pt WHERE pt.raw_posting_id = j.current_raw_posting_id) "
+    "     OR (SELECT rp.description_text IS NOT NULL FROM raw_postings rp WHERE rp.id = j.current_raw_posting_id)) ")
+
 _CANDIDATES = (
     "SELECT pa.id, pa.job_id, EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = pa.job_id) "
     "FROM posting_analyses pa JOIN jobs j ON j.id = pa.job_id "
@@ -60,6 +66,7 @@ _CANDIDATES = (
     "AND (EXISTS (SELECT 1 FROM filter_results fr WHERE fr.raw_posting_id = j.current_raw_posting_id "
     "             AND fr.search_profile_id = ? AND fr.ruleset_version = ? AND fr.verdict = 'pass') "
     "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = pa.job_id)) "
+    + _TEXT_KEPT +
     # A superseded row does not count: reverting the profile to an earlier snapshot must queue it again.
     "AND NOT EXISTS (SELECT 1 FROM evaluations e WHERE e.posting_analysis_id = pa.id AND e.profile_snapshot_id = ? "
     "                AND e.model_config_id = ? AND e.match_prompt_version = ? AND e.status <> 'superseded') "
@@ -89,7 +96,8 @@ _LATEST_DONE = (
     "            ORDER BY (e2.profile_snapshot_id = ? AND e2.model_config_id = ?) DESC, e2.id DESC LIMIT 1) "
     "AND (EXISTS (SELECT 1 FROM filter_results fr WHERE fr.raw_posting_id = j.current_raw_posting_id "
     "             AND fr.search_profile_id = ? AND fr.ruleset_version = ? AND fr.verdict = 'pass') "
-    "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = e.job_id))")
+    "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = e.job_id))"
+    + _TEXT_KEPT)
 
 
 def current_snapshot_id(conn: sqlite3.Connection) -> int | None:
@@ -213,7 +221,9 @@ def split(reqs: list[facts.Req]) -> tuple[list[facts.Req], list[facts.Req]]:
 
 
 def job_facts(conn: sqlite3.Connection, job_id: int, profile) -> assess.JobFacts:
-    view, _, _ = filter_pipeline.job_view(conn, job_id)
+    view, _, _, kept = filter_pipeline.job_view(conn, job_id)
+    if not kept:  # never assess on a missing description; _TEXT_KEPT keeps such jobs out of the sets
+        raise RuntimeError(f"job {job_id}: posting text not kept")
     # The filter's own reading of location, work mode and salary under this profile, so
     # opportunity value never waits for a re-filter to land.
     return assess.JobFacts(view.title, view.posted_at, filter_rules.evaluate(view, profile.compiled))
@@ -410,7 +420,10 @@ def persist_done(conn: sqlite3.Connection, c: Claim, reqs: list[facts.Req], fact
                       downgraded=sum(v.has_flag("downgraded") for v in out), inferred_claims=added)
         _event(conn, "evaluation_done", c.job_id, {"evaluation_id": c.evaluation_id, **counts}, now)
         profile = filter_pipeline.active_profile(conn)
-        rec = write_recommendation(conn, c.evaluation_id, c.job_id, profile, now) if profile is not None else None
+        # A re-filter may have rejected the job (dropping its text) during the model call: the
+        # evaluation is kept, and recompute writes the recommendation if the text comes back.
+        kept = filter_pipeline.job_view(conn, c.job_id)[3]
+        rec = write_recommendation(conn, c.evaluation_id, c.job_id, profile, now) if profile is not None and kept else None
         return {**counts, "recommendation": rec}
     return _tx(conn, go)
 

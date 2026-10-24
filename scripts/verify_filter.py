@@ -26,7 +26,7 @@ if "--scanner" in args:
     del args[i:i + 2]
 db = Path(args[0]) if args else Path(os.environ["LOCALAPPDATA"]) / "dev.kevin.jobforge" / "data" / "jobforge.db"
 conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-# Posting text written since migration 0010 is compressed (agent db/textpack.py).
+# Posting text written since migration 0010 is compressed in posting_texts (agent db/textpack.py).
 conn.create_function("unpack_text", 1, lambda b: None if b is None else zlib.decompress(b).decode("utf-8"), deterministic=True)
 
 
@@ -113,8 +113,11 @@ from ats_scanner.models import RawJob, Salary  # noqa: E402
 
 cfg = load_config(scanner_dir / "config.yaml")
 full = {r[0]: r for r in q(
-    "SELECT j.id, j.title, j.location_text, coalesce(rp.description_text, unpack_text(rp.description_text_z)), j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
-    "j.posted_at FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id WHERE j.closed_at_ms IS NULL")}
+    "SELECT j.id, j.title, j.location_text, coalesce(rp.description_text, unpack_text(pt.description_text_z)), j.work_mode, j.salary_min, j.salary_max, j.salary_period, "
+    "j.posted_at FROM jobs j JOIN raw_postings rp ON rp.id = j.current_raw_posting_id "
+    # Since 0010 rejected postings keep no text: compare only postings whose text is kept.
+    "LEFT JOIN posting_texts pt ON pt.raw_posting_id = rp.id WHERE j.closed_at_ms IS NULL "
+    "AND (rp.description_text IS NOT NULL OR pt.raw_posting_id IS NOT NULL)")}
 RENAME = {"REMOTE_EXCLUDES_FL": "REMOTE_EXCLUDES_HOME"}
 agree_verdict = agree_rule = 0
 disagree = []
