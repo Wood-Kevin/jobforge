@@ -93,12 +93,36 @@ cd ..
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build.ps1
 ```
 
-Some agent tests compare the search filter against a private job-scanner config, read from
-`..\job-scanner\config.yaml` (or `JOBFORGE_SCANNER_CONFIG`); without that file they fail.
-
 To run the window against a separate data folder while developing, build the host with
 `npx tauri build --no-bundle` and start it with `JOBFORGE_DATA_DIR` (the data folder), `JOBFORGE_AGENT_EXE`
 (the agent's virtual-environment Python) and `JOBFORGE_AGENT_ARGS=-m jobforge_agent`.
 
 `verify.sh` (Git Bash) prints raw evidence from a running installation (database state, logs, probes) without
 judging it.
+
+## Testing and CI
+
+Every pull request to `main` and every push to it runs [CI](.github/workflows/ci.yml), with no secrets, no local
+AI model and no private files:
+
+| Job | Runner | What it runs | Locally |
+|---|---|---|---|
+| Python agent | Windows | `uv sync --locked`, then the agent tests except the two groups below | `cd agent; uv run pytest -m "not integration and not private_config"` |
+| Window | Ubuntu | `npm ci`, `npm run build` (type-check and bundle), Vitest | `cd desktop; npm ci; npm run build; npx vitest run` |
+| Desktop host | Windows | `cargo check --locked --all-targets`, `cargo test --locked` (after building the window) | `cd desktop\src-tauri; cargo test --locked` |
+
+Two groups of agent tests only run locally; CI leaves them out by name and lists them in each run's summary:
+
+- `integration` starts real agent processes and needs an interactive Windows session (hosted runners are
+  elevated and have no desktop).
+- `private_config` runs the search-filter regression suite against a private job-scanner config, read from
+  `JOBFORGE_SCANNER_CONFIG` (or `..\job-scanner\config.yaml`). Without it the suite is skipped and pytest prints
+  why.
+
+`uv run pytest -q` runs everything that can run on your machine.
+
+**Dependencies and security.** Dependabot opens weekly pull requests for the Python, npm, Cargo and GitHub
+Actions dependencies, with minor and patch updates grouped; nothing merges without review and a green CI.
+CodeQL scans Python, JavaScript/TypeScript and Rust, Dependabot alerts on known vulnerabilities, and secret
+scanning with push protection is on. To report a vulnerability, use the repository's **Security** tab
+(**Report a vulnerability**) rather than a public issue.
