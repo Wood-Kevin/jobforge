@@ -35,6 +35,11 @@ def test_job_lists_by_view(env):
                    (rejected_job, rejected_job, env.ids["profile"], _ruleset(), json.dumps({"primary": "TITLE_NO_MATCH"}), NOW))
     rec = views.list_jobs(env.ev, "recommended", None, 50, 0)
     assert [j["id"] for j in rec["jobs"]] == [env.ids["job"]] and rec["jobs"][0]["recommendation"]["current"] is True
+    # A row carries the evaluation's fit counts and the posting's pay, so the list can say why the job is there.
+    row = rec["jobs"][0]
+    assert {"direct", "transferable", "unknown"} <= row["recommendation"]["fit_counts"].keys() and row["salary"] is None
+    env.db.execute("UPDATE jobs SET salary_min = 70000, salary_max = 90000, salary_period = 'YEAR' WHERE id = ?", (env.ids["job"],))
+    assert views.list_jobs(env.ev, "recommended", None, 50, 0)["jobs"][0]["salary"] == {"min": 70000, "max": 90000, "period": "YEAR"}
     rej = views.list_jobs(env.ev, "rejected", None, 50, 0)
     assert [(j["id"], j["filter_primary"]) for j in rej["jobs"]] == [(rejected_job, "TITLE_NO_MATCH")]
     assert views.list_jobs(env.ev, "all", "sales", 50, 0)["total"] == 1

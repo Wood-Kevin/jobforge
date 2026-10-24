@@ -3,7 +3,7 @@
 // events and every 15 s (ages change without events).
 import { type Supervisor } from "../agent";
 import { api } from "../api";
-import { Badge, Card, ErrorBox, age, useAction, useLive } from "../ui";
+import { Badge, Card, ErrorBox, PageHeader, age, useAction, useLive } from "../ui";
 
 export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; onSetup?: () => void }) {
   const health = useLive(api.health, [], [], 15_000);
@@ -48,10 +48,13 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
 
   return (
     <div className="page">
-      <Card title="Status" actions={h && (
+      {/* The tray note lives here, not under every page (visual foundation 2026-10-24). */}
+      <PageHeader title="Status" sub="Is JobForge working, and does anything need attention? Closing the window keeps JobForge running in the tray; use the tray menu to exit."
+        actions={h && (
         <button disabled={act.busy} onClick={() => act.run(async () => { await (h.discovery_paused ? api.resumeDiscovery() : api.pauseDiscovery()); health.reload(); disc.reload(); })}>
           {h.discovery_paused ? "Resume checking for jobs" : "Pause checking for jobs"}
-        </button>)}>
+        </button>)} />
+      <Card>
         <p className="lead">
           {!d && !disc.error ? <span className="muted">Checking status...</span>
             : watched === 0 ? <>No companies are being watched yet. <a href="#" onClick={(e) => { e.preventDefault(); onSetup?.(); }}>Open setup</a></>

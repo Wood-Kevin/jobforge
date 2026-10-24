@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evidenceSentence, factorText, headline, opportunityLabel, plain } from "./labels";
+import { evidenceSentence, factorText, fitSegments, fmtSalary, headline, opportunityLabel, plain, whyLine } from "./labels";
 
 describe("factorText", () => {
   it("tells a posting that doesn't say apart from a preference you haven't set", () => {
@@ -36,5 +36,20 @@ describe("factorText", () => {
       .toBe("Worth a try: 2 requirements match directly, 1 relies on related experience, 1 is an important gap and 1 is unanswered.");
     expect(headline("APPLY", { direct: 2, self_reported_covering: 1 })).toContain("haven't confirmed");
     expect(headline("REVIEW", c)).toBeNull();
+  });
+});
+
+describe("job row helpers", () => {
+  it("says why a job is listed from its fit counts, in bar order, skipping zeros", () => {
+    expect(whyLine({ direct: 3, transferable: 2, gap_minor: 1, unknown: 0, rule: "x" })).toBe("3 matched · 2 related · 1 small gap");
+    expect(whyLine({ gap_material: 2, unknown: 1 })).toBe("2 important gaps · 1 unanswered");
+    expect(whyLine(null)).toBe("");
+    expect(fitSegments({ direct: 1, transferable: 0 })).toEqual([{ key: "direct", n: 1, text: "1 matched" }]);
+  });
+  it("writes pay in plain words", () => {
+    expect(fmtSalary({ min: 75000, max: 95000, period: "YEAR" })).toBe("$75k–$95k a year");
+    expect(fmtSalary({ min: 40, max: 40, period: "HOUR" })).toBe("$40 an hour");
+    expect(fmtSalary({ min: 90000, max: null, period: "YEAR" })).toBe("From $90k a year");
+    expect(fmtSalary({ min: null, max: null, period: "YEAR" })).toBe("Pay not listed");
   });
 });

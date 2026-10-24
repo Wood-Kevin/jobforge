@@ -3,7 +3,8 @@
 // self-reported; "verified" only ever comes from the Confirm button (verify route; SPEC D2, Q6).
 import { useState, type ChangeEvent } from "react";
 import { api, type Claim, type Item, type Schema } from "../api";
-import { Badge, Card, ConfirmButton, ErrorBox, ago, useAction, useLive } from "../ui";
+import { Badge, Card, ConfirmButton, ErrorBox, PageHeader, since, useAction, useLive } from "../ui";
+import { icons } from "../icons";
 
 const KIND_ORDER = ["role", "achievement", "skill", "cert", "education"];
 
@@ -14,6 +15,7 @@ export default function Profile() {
   const list = items.data ?? [];
   return (
     <div className="page">
+      <PageHeader title="Your profile" sub="Your resume, your experience and the facts JobForge checks jobs against. Only what you confirm settles a job." />
       {/* Resumes first and the profile-file import last (usability pass 2026-10-24): the file is an
           advanced, mostly one-time step; Setup tucks it away the same way. */}
       <Resumes />
@@ -332,13 +334,14 @@ export function Resumes() {
     if (f) act.run(async () => { await api.uploadResume(f.name, new Uint8Array(await f.arrayBuffer())); list.reload(); });
   };
   return (
-    <Card title="Resumes" actions={<input type="file" accept=".pdf,.docx,.md,.txt" onChange={onFile} disabled={act.busy} />}>
+    <Card title="Resumes" actions={<label className="file-button">{icons.upload}Upload a resume
+      <input className="visually-hidden" type="file" accept=".pdf,.docx,.md,.txt" onChange={onFile} disabled={act.busy} /></label>}>
       <p className="muted">Stored exactly as uploaded. "Suggest items" has the AI list the roles, skills, certifications and
         education in a resume for you to check; nothing is added until you add it.</p>
       {(list.data ?? []).length === 0 ? <p className="muted">No resumes uploaded.</p> : (
         <table><tbody>{list.data!.map((r) => (
           <tr key={r.id}><td>{r.original_filename}</td><td className="muted">{Math.round(r.bytes / 1024)} KB · {r.text_chars ? `${r.text_chars} chars of text` : "no text extracted"}</td>
-            <td className="muted">{ago(r.uploaded_at_ms)} ago</td>
+            <td className="muted">{since(r.uploaded_at_ms)}</td>
             <td><button className="small primary" disabled={act.busy || !r.text_chars} onClick={() => suggestFrom(r.id)}>Suggest items</button>{" "}
               <ConfirmButton label="Delete" disabled={act.busy} onConfirm={() => act.run(async () => { await api.deleteResume(r.id); list.reload(); })} /></td></tr>))}</tbody></table>)}
       {note && <p className="ok-text">{note.text}</p>}

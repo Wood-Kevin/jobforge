@@ -21,7 +21,7 @@ export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
   const [f, setF] = useState<Form | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   useEffect(() => { if (loaded.data) setF(loaded.data); }, [loaded.data]);
-  if (!f) return <Card title="What you're looking for"><ErrorBox error={loaded.error} /><p className="muted">Loading...</p></Card>;
+  if (!f) return <Card title="Your search"><ErrorBox error={loaded.error} /><p className="muted">Loading...</p></Card>;
   const set = (patch: Partial<Form>) => setF({ ...f, ...patch });
   const save = () => act.run(async () => {
     const r = await api.saveSearchForm(f);
@@ -42,7 +42,7 @@ export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
       <option value="neutral">fine</option><option value="unfavorable">I'd rather not</option>
     </select>);
   return (
-    <Card title="What you're looking for">
+    <Card title="Your search">
       <div className="form-grid">
         <label className="wide">Job titles you want <span className="muted">(one per line, e.g. Help Desk, NOC Technician)</span>
           <textarea rows={5} value={lines(f.titles)} onChange={(e) => set({ titles: unlines(e.target.value) })} /></label>
@@ -84,7 +84,7 @@ export function SearchFormCard({ onSaved }: { onSaved?: () => void }) {
         {saved && <span className="ok-text">{saved}</span>}
         <span className="spacer" />
         <label className="file-button">Use my job-scanner settings instead
-          <input type="file" accept=".yaml,.yml" onChange={importScanner} /></label>
+          <input className="visually-hidden" type="file" accept=".yaml,.yml" onChange={importScanner} /></label>
       </div>
       <ErrorBox error={act.error} />
     </Card>
@@ -135,7 +135,7 @@ export function CompaniesCard({ compact = false }: { compact?: boolean }) {
         <button className="primary" disabled={act.busy || !text.trim()} onClick={() => act.run(async () => { setMsg("Looking them up..."); report(await api.addEmployers(text)); setText(""); })}>Add companies</button>
         <span className="spacer" />
         <label className="file-button">Use my job-scanner watchlist
-          <input type="file" accept=".yaml,.yml" onChange={(e) => act.run(async () => { const t = await readFile(e); if (t !== null) report(await api.importWatchlist(t)); })} /></label>
+          <input className="visually-hidden" type="file" accept=".yaml,.yml" onChange={(e) => act.run(async () => { const t = await readFile(e); if (t !== null) report(await api.importWatchlist(t)); })} /></label>
       </div>
       {msg && <p className="ok-text">{msg}</p>}
       <ErrorBox error={act.error ?? status.error} />

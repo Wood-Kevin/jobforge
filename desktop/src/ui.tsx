@@ -1,7 +1,8 @@
 // Shared hooks and small components for the window.
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AgentError, onAgentEvent, onSupervisorChange, type ChangeEvent } from "./agent";
-import { plain } from "./labels";
+import { icons } from "./icons";
+import { fitSegments, plain, whyLine } from "./labels";
 import { latestGate } from "./latest";
 
 /** Loads data, and loads it again when an agent event of one of `types` arrives (live refresh,
@@ -74,6 +75,16 @@ export function ErrorBox({ error }: { error: string | null }) {
   return error ? <p className="error" role="alert">{error}</p> : null;
 }
 
+/** A page's title, one line on what the page is for, and the page's own actions (search, a link). */
+export function PageHeader({ title, sub, actions }: { title: ReactNode; sub?: ReactNode; actions?: ReactNode }) {
+  return (
+    <header className="page-head">
+      <div><h1>{title}</h1>{sub && <p>{sub}</p>}</div>
+      {actions && <div className="actions">{actions}</div>}
+    </header>
+  );
+}
+
 export function Card({ title, children, actions }: { title?: ReactNode; children: ReactNode; actions?: ReactNode }) {
   return (
     <section className="card">
@@ -89,7 +100,8 @@ export function Card({ title, children, actions }: { title?: ReactNode; children
 }
 
 const TONE: Record<string, string> = {
-  APPLY: "ok", STRETCH: "info", REVIEW: "warn", SKIP: "bad",
+  // Stretch is amber and Needs your input blue (visual foundation 2026-10-24): a blue Stretch read like a link.
+  APPLY: "ok", STRETCH: "stretch", REVIEW: "info", SKIP: "bad",
   ELIGIBLE: "ok", UNKNOWN: "warn", BLOCKED: "bad",
   STRONG: "ok", COMPETITIVE: "ok", WEAK: "bad", INSUFFICIENT: "warn",
   HIGH: "ok", MEDIUM: "info", LOW: "bad",
@@ -101,6 +113,37 @@ const TONE: Record<string, string> = {
   saved: "info", applied: "ok", interviewing: "ok", offer: "ok", rejected: "bad", withdrawn: "muted",
 };
 
+/** The badge tone of a value ("ok", "stretch", "info", "warn", "bad", "muted"). */
+export const tone = (value: string | null | undefined) => (value && TONE[value]) || "muted";
+
+const REC_ICON: Record<string, ReactNode> = { APPLY: icons.check, STRETCH: icons.stretch, REVIEW: icons.question, SKIP: icons.cross };
+
+/** A recommendation with its icon, so it doesn't rest on color alone. `large` on the job page. */
+export function RecBadge({ value, large = false }: { value: string | null | undefined; large?: boolean }) {
+  if (!value) return null;
+  return <span className={`badge rec ${tone(value)}${large ? " large" : ""}`}>{REC_ICON[value]}{plain(value)}</span>;
+}
+
+/** The fit counts as a bar (matched, related, gaps, unanswered); its label reads the same counts. */
+export function FitBar({ counts, large = false }: { counts: Record<string, unknown> | null | undefined; large?: boolean }) {
+  const segs = fitSegments(counts);
+  if (!segs.length) return null;
+  return (
+    <span className={large ? "fitbar large" : "fitbar"} role="img" aria-label={whyLine(counts)}>
+      {segs.map((s) => <span key={s.key} className={`seg ${s.key}`} style={{ flexGrow: s.n }} />)}
+    </span>
+  );
+}
+
+/** A short message at the bottom of the window, with an optional action (Undo). */
+export function Toast({ children, onClose }: { children: ReactNode; onClose: () => void }) {
+  useEffect(() => {
+    const t = window.setTimeout(onClose, 8000);
+    return () => window.clearTimeout(t);
+  }, [onClose]);
+  return <div className="toast" role="status">{children}</div>;
+}
+
 // `text` replaces the plain wording where one value means different things (opportunity factors).
 export function Badge({ value, title, text }: { value: string | null | undefined; title?: string; text?: string }) {
   if (!value) return null;
@@ -111,6 +154,11 @@ export function ago(ms: number | null | undefined): string {
   if (!ms) return "-";
   const s = Math.round((Date.now() - ms) / 1000);
   return age(s);
+}
+
+/** "5m ago", or "unknown" without a time (the callers used to append " ago" to ago()'s "-"). */
+export function since(ms: number | null | undefined): string {
+  return ms ? `${ago(ms)} ago` : "unknown";
 }
 
 export function age(s: number | null | undefined): string {

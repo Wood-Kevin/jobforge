@@ -2,7 +2,7 @@
 // done; reachable later from the menu. Everything here can be changed again in Preferences/Profile.
 import { api } from "../api";
 import { CompaniesCard, ModelCard, SearchFormCard } from "../settings";
-import { useLive } from "../ui";
+import { PageHeader, useLive } from "../ui";
 import { Claims, Import, Resumes } from "./Profile";
 
 export default function Setup({ onDone }: { onDone: () => void }) {
@@ -15,8 +15,8 @@ export default function Setup({ onDone }: { onDone: () => void }) {
       <div><strong>{title}</strong><div className="muted">{hint}</div></div></div>);
   return (
     <div className="page">
+      <PageHeader title="Set up JobForge" />
       <div className="card hero">
-        <h2>Set up JobForge</h2>
         <p>JobForge keeps checking thousands of companies' job boards, skips jobs that don't match what you want, and reads the rest
           against your experience. Four steps; you can change any of them later.</p>
         {st?.complete && <p className="ok-text">All set. <button className="primary" onClick={onDone}>See your jobs</button></p>}

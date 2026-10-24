@@ -96,7 +96,7 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
     rows = conn.execute(
         f"SELECT j.id, j.title, j.company, j.location_text, j.work_mode, j.posted_at, j.first_seen_at_ms, fr.verdict, fr.reasons, "
         f"EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = j.id), "
-        f"(SELECT status FROM applications a WHERE a.job_id = j.id), g.copies, g.total "
+        f"(SELECT status FROM applications a WHERE a.job_id = j.id), g.copies, g.total, j.salary_min, j.salary_max, j.salary_period "
         f"FROM ({page}) g JOIN jobs j ON j.id = g.id {_filter_join()} ORDER BY g.first_seen_at_ms DESC, g.id DESC",
         params + [limit, int(offset), profile.id, filter_rules.RULESET_VERSION]).fetchall()
     # The total rides on the page rows; past the last page there are none, so count separately.
@@ -109,10 +109,12 @@ def list_jobs(conn: sqlite3.Connection, view: str, q: str | None, limit: int, of
         jobs.append({"id": r[0], "title": r[1], "company": r[2], "location": r[3], "work_mode": r[4], "posted_at": r[5],
                      "first_seen_at_ms": r[6], "filter_verdict": r[7], "filter_primary": reasons.get("primary"),
                      "override": bool(r[9]), "application_status": r[10], "copies": r[11],
+                     # Pay and the fit counts let a row say why it is there (UX redesign step 2); display only.
+                     "salary": {"min": r[13], "max": r[14], "period": r[15]} if r[15] else None,
                      "skipped": "you" if r[0] in labeled else "copy" if r[0] in hidden else None,
                      "recommendation": None if rec is None else {
                          k: rec[k] for k in ("recommendation", "eligibility", "fit", "opportunity", "rank_key", "current",
-                                             "newer_evaluation_pending")}})
+                                             "newer_evaluation_pending", "fit_counts")}})
     if view == "recommended":
         jobs.sort(key=lambda j: (order[j["recommendation"]["recommendation"]], -(j["recommendation"]["rank_key"] or 0), j["id"]))
     return {"view": view, "total": total, "jobs": jobs, "search_profile": {"id": profile.id, "version": profile.version}}

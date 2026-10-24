@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { api } from "../api";
 import { plain } from "../labels";
 import { byJob, type Unsettled } from "../reviewGroups";
-import { Badge, Card, ErrorBox, useAction, useLive } from "../ui";
+import { Badge, Card, ErrorBox, PageHeader, useAction, useLive } from "../ui";
 import { Answer } from "./Answer";
 
 function badge(g: { kind: string; type: string | null }) {
@@ -24,10 +24,11 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
   const link = (id: number, title: string) => <a href="#" onClick={(e) => { e.preventDefault(); onOpen(id); }}>{title}</a>;
   return (
     <div className="page">
-      <Card title={groups.data === null ? "Needs your input" : `${jobs.length} job${jobs.length === 1 ? "" : "s"} need${jobs.length === 1 ? "s" : ""} your input`}
-        actions={<button onClick={onProfile}>Open your profile</button>}>
-        <p className="muted">These jobs can't be judged until you answer something. Use "Answer here" to add the experience in
-          your own words or declare a fact; once it's saved (and confirmed), the jobs it covers update.</p>
+      <PageHeader title={groups.data === null ? "Needs your input" : `${jobs.length} job${jobs.length === 1 ? "" : "s"} need${jobs.length === 1 ? "s" : ""} your input`}
+        sub={<>These jobs can't be judged until you answer something. Use "Answer here" to add the experience in your own words or
+          declare a fact; once it's saved (and confirmed), the jobs it covers update.</>}
+        actions={<button onClick={onProfile}>Open your profile</button>} />
+      <Card>
         <ErrorBox error={groups.error ?? schema.error ?? items.error} />
         {groups.data === null && !groups.error && <p className="muted">Loading questions...</p>}
         {groups.data !== null && jobs.length === 0 && <p className="muted">Nothing needs your input right now.</p>}

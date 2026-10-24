@@ -146,3 +146,44 @@ export function matchNote(m: { match_type: string; gap_size: Record<string, unkn
   if (typeof g.detail === "string") return g.detail;
   return null;
 }
+
+// ----- job rows and the job page's verdict (UX redesign step 2) -----
+
+// The fit counts as bar segments and a short line, in the order the bar draws them. Required items only, like
+// the headline: the agent's fit_counts leave out preferred lines and lines settled by eligibility facts.
+const SEGMENTS: [key: string, one: string, many: string][] = [
+  ["direct", "matched", "matched"], ["transferable", "related", "related"], ["gap_material", "important gap", "important gaps"],
+  ["gap_minor", "small gap", "small gaps"], ["unknown", "unanswered", "unanswered"]];
+
+export function fitSegments(c: Record<string, unknown> | null | undefined): { key: string; n: number; text: string }[] {
+  if (!c) return [];
+  return SEGMENTS.map(([key, one, many]) => {
+    const n = Number(c[key] ?? 0) || 0;
+    return { key, n, text: `${n} ${n === 1 ? one : many}` };
+  }).filter((s) => s.n > 0);
+}
+
+/** "3 matched · 2 related · 1 small gap", or "" with no counts. */
+export function whyLine(c: Record<string, unknown> | null | undefined): string {
+  return fitSegments(c).map((s) => s.text).join(" · ");
+}
+
+/** The verdict's title on the job page, beside the recommendation. */
+export const VERDICT_TITLE: Record<string, string> = {
+  APPLY: "Worth applying", STRETCH: "Worth a try", REVIEW: "JobForge needs your input", SKIP: "Probably not for you" };
+
+/** Pay, place and level in a few words, for a job row. */
+export const OPPORTUNITY_SHORT: Record<string, string> = {
+  HIGH: "Pay & place look good", MEDIUM: "Pay & place: mixed", LOW: "Pay & place: not what you want", UNKNOWN: "Pay & place: not stated" };
+
+const PERIOD: Record<string, string> = { YEAR: "a year", MONTH: "a month", WEEK: "a week", DAY: "a day", HOUR: "an hour" };
+
+/** "$75k–$95k a year", "$40 an hour", "From $90k a year". */
+export function fmtSalary(s: { min: number | null; max: number | null; period: string }): string {
+  const f = (n: number) => (n >= 1000 ? `$${Math.round(n / 1000)}k` : `$${n}`);
+  const per = PERIOD[s.period] ?? s.period.toLowerCase();
+  if (s.min !== null && s.max !== null) return s.min === s.max ? `${f(s.min)} ${per}` : `${f(s.min)}–${f(s.max)} ${per}`;
+  if (s.min !== null) return `From ${f(s.min)} ${per}`;
+  if (s.max !== null) return `Up to ${f(s.max)} ${per}`;
+  return "Pay not listed";
+}

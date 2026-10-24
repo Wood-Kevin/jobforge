@@ -790,7 +790,8 @@ only by the Rust host.**
   on the agent events that concern them and when the agent becomes reachable; no view polls the database.
   Agent routes added: `GET /v1/jobs?view=recommended|rejected|all&q=&limit=&offset=`, `GET /v1/jobs/{id}`,
   `PUT /v1/jobs/{id}/application`, `GET /v1/applications`, `GET /v1/profile/schema`. Recommendation rows carry `current`
-  and `newer_evaluation_pending`. Every route the window calls is in `desktop/src/api.ts`; a test fails if one is not served.
+  and `newer_evaluation_pending`; list rows also carry the posting's `salary` and the recommendation's `fit_counts`
+  (UX redesign step 2, display only: a row says its pay and why it is listed). Every route the window calls is in `desktop/src/api.ts`; a test fails if one is not served.
   UI types are written by hand (the routes return plain JSON objects with no response models, so the D14 plan of
   generating them from OpenAPI had nothing to generate; corrected in P1.8).
 - **First-run setup and plain settings (P1.8b):** `GET /v1/setup/status` (companies, search profile, model, profile:

@@ -12,10 +12,15 @@ import Review from "./pages/Review";
 import Restore from "./pages/Restore";
 import Setup from "./pages/Setup";
 import { api } from "./api";
+import { icons, Logo } from "./icons";
+import { byJob } from "./reviewGroups";
+import { useLive } from "./ui";
 
 type Page = "setup" | "dashboard" | "jobs" | "review" | "profile" | "applications" | "preferences";
-const PAGES: [Page, string][] = [["jobs", "Jobs"], ["review", "Needs your input"], ["profile", "Your profile"],
-  ["applications", "Applications"], ["dashboard", "Status"], ["preferences", "Preferences"], ["setup", "Setup"]];
+// The menu in two groups (visual foundation 2026-10-24): finding work, then what JobForge knows about you. Status
+// sits at the bottom with the running dot; Setup shows only until setup is complete (Preferences links to it).
+const FIND: [Page, string][] = [["jobs", "Jobs"], ["review", "Needs your input"], ["applications", "Applications"]];
+const ABOUT: [Page, string][] = [["profile", "Your profile"], ["preferences", "What you're looking for"]];
 
 export default function App() {
   const [page, setPage] = useState<Page>("jobs");
@@ -31,9 +36,10 @@ export default function App() {
   }, []);
   // First run: open the setup guide until companies, a search profile and the model are in place.
   const [checkedSetup, setCheckedSetup] = useState(false);
+  const [setupDone, setSetupDone] = useState(true);
   useEffect(() => {
     if (checkedSetup || sup?.state !== "running") return;
-    api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setCheckedSetup(true); setStartError(null); })
+    api.setupStatus().then((s) => { if (!s.complete) setPage("setup"); setSetupDone(s.complete); setCheckedSetup(true); setStartError(null); })
       .catch((e) => setStartError(`Could not check whether setup is finished: ${e instanceof Error ? e.message : String(e)}`));
   }, [sup, checkedSetup]);
   // Opening a job keeps the page it was opened from mounted (hidden), so its tab, search, filters and
@@ -56,14 +62,36 @@ export default function App() {
     if (b.focus?.isConnected) b.focus.focus({ preventScroll: true });
   }, [job]);
   const down = sup && sup.state !== "running";
+  // Menu counts: the jobs worth a look (Apply and Stretch, the Jobs page's default view) and the jobs waiting on
+  // an answer, counted like the Needs your input page counts them. A failed count shows no number; the page
+  // itself shows the error when opened.
+  const recs = useLive(() => api.jobs("recommended", "", 500), [], ["recommendation_computed", "golden_labeled", "job_closed", "job_reopened", "refilter_done"]);
+  const questions = useLive(api.reviewQuestions, [], ["recommendation_computed", "profile_changed", "golden_labeled"]);
+  const counts: Partial<Record<Page, number>> = {
+    jobs: recs.data?.jobs.filter((j) => j.recommendation && ["APPLY", "STRETCH"].includes(j.recommendation.recommendation)).length,
+    review: questions.data ? byJob(questions.data).jobs.length : undefined,
+  };
+  const item = ([p, label]: [Page, string]) => (
+    <button key={p} className={page === p && job === null ? "nav active" : "nav"} aria-current={page === p && job === null ? "page" : undefined} onClick={() => go(p)}>
+      {icons[p as keyof typeof icons]}<span>{label}</span>
+      {counts[p] !== undefined && counts[p]! > 0 && <span className={p === "review" ? "count attention" : "count"}>{counts[p]}</span>}
+    </button>);
 
   return (
     <div className="shell">
-      <nav>
-        <h1>JobForge</h1>
-        {PAGES.map(([p, label]) => (
-          <button key={p} className={page === p && job === null ? "nav active" : "nav"} onClick={() => go(p)}>{label}</button>))}
-        <p className="muted foot"><span className={`dot ${sup?.state ?? "starting"}`} /> {sup?.state === "running" ? "Running in the background" : sup?.state === "starting" || !sup ? "Starting..." : "Not running - see Status"}</p>
+      <nav aria-label="Main">
+        <div className="brand"><Logo />JobForge</div>
+        {(!setupDone || page === "setup") && item(["setup", "Finish setting up"])}
+        <div className="group">Find work</div>
+        {FIND.map(item)}
+        <div className="group">About you</div>
+        {ABOUT.map(item)}
+        <div className="foot">
+          <button className={page === "dashboard" && job === null ? "nav status active" : "nav status"} onClick={() => go("dashboard")}>
+            <span className={`dot ${sup?.state ?? "starting"}`} />
+            <span>{sup?.state === "running" ? "Running · Status" : sup?.state === "starting" || !sup ? "Starting..." : "Not running · Status"}</span>
+          </button>
+        </div>
       </nav>
       <main>
         {down && <p className="banner">{supervisorText(sup!)}</p>}
@@ -78,11 +106,10 @@ export default function App() {
                 : page === "review" ? <Review onOpen={open} onProfile={() => go("profile")} />
                 : page === "profile" ? <Profile />
                 : page === "applications" ? <Applications onOpen={open} onJobs={() => go("jobs")} />
-                : page === "setup" ? <Setup onDone={() => go("jobs")} />
-                : <Preferences />}
+                : page === "setup" ? <Setup onDone={() => { setSetupDone(true); go("jobs"); }} />
+                : <Preferences onSetup={() => go("setup")} />}
             </div>
           </>}
-        <p className="muted">Closing this window keeps JobForge running in the tray. Use the tray menu to exit.</p>
       </main>
     </div>
   );

@@ -26,10 +26,11 @@ export type FilterSummary = { profile_version: number | null; ruleset?: string; 
 
 export type Category = "APPLY" | "STRETCH" | "REVIEW" | "SKIP";
 export type RecSummary = { recommendation: Category; eligibility: string; fit: string; opportunity: string; rank_key: number | null;
-  current: boolean; newer_evaluation_pending: boolean };
+  current: boolean; newer_evaluation_pending: boolean; fit_counts?: Record<string, unknown> };
 export type JobRow = { id: number; title: string; company: string; location: string | null; work_mode: string | null; posted_at: string | null;
   first_seen_at_ms: number; filter_verdict: "pass" | "reject" | null; filter_primary: string | null; override: boolean;
   application_status: string | null; recommendation: RecSummary | null; copies: number;
+  salary: { min: number | null; max: number | null; period: string } | null;
   // "you": your current call on this job is SKIP; "copy": an exact copy of one you skipped.
   skipped: "you" | "copy" | null };
 export type JobList = { view: string; total: number; jobs: JobRow[]; search_profile: { id: number; version: number } | null };

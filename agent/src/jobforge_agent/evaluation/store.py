@@ -534,7 +534,7 @@ def recommendation_list(conn: sqlite3.Connection, category: str | None, limit: i
         return []
     params = latest_done_params(conn, profile)
     rows = conn.execute(
-        "SELECT rc.recommendation, rc.eligibility, rc.fit, rc.opportunity, rc.rank_key, rc.decisive_reasons, j.id AS job_id, "
+        "SELECT rc.recommendation, rc.eligibility, rc.fit, rc.opportunity, rc.rank_key, rc.decisive_reasons, rc.fit_counts, j.id AS job_id, "
         "j.title, j.company, j.location_text, rc.evaluation_id, "
         "(e.profile_snapshot_id = ? AND e.model_config_id = ?) AS current, "
         "EXISTS (SELECT 1 FROM evaluations ep WHERE ep.job_id = j.id AND ep.status IN ('pending', 'running')) AS newer_evaluation_pending "
@@ -544,7 +544,7 @@ def recommendation_list(conn: sqlite3.Connection, category: str | None, limit: i
         "ORDER BY CASE rc.recommendation WHEN 'APPLY' THEN 0 WHEN 'STRETCH' THEN 1 WHEN 'REVIEW' THEN 2 ELSE 3 END, "
         "rc.rank_key DESC, j.id LIMIT ?",
         (params[0], params[1], *params, profile.id, VERDICT_RULE_VERSION, category, category, limit)).fetchall()
-    return [{**dict(r), "decisive_reasons": json.loads(r["decisive_reasons"]), "current": bool(r["current"]),
+    return [{**dict(r), "decisive_reasons": json.loads(r["decisive_reasons"]), "fit_counts": json.loads(r["fit_counts"]), "current": bool(r["current"]),
              "newer_evaluation_pending": bool(r["newer_evaluation_pending"])} for r in rows]
 
 
