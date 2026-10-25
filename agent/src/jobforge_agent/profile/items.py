@@ -266,14 +266,23 @@ def _open_claim(conn, claim_id: int):
 
 def accept_claim(conn: sqlite3.Connection, claim_id: int, edits: dict) -> int:
     """Accept, optionally reworded: becomes a self-reported item (never verified by accepting).
-    A suggestion read from a resume brings its dates (proposed_fields) and is sourced to that resume."""
+    A suggestion read from a resume brings its dates (proposed_fields) and is sourced to that resume.
+    One that replaces a role already in the profile (evidence.replaces_item_id, suggest.store) updates
+    that item, so the role is not listed twice; its verification is cleared, since the text changed."""
     statement, kind, _, resume_id, proposed = _open_claim(conn, claim_id)
     fields = {"kind": kind if kind in KINDS and kind != "eligibility" else "skill", "statement": statement,
               **json.loads(proposed), **edits,
               "source": f"resume:{resume_id}:claim:{claim_id}" if resume_id is not None else f"inferred_claim:{claim_id}"}
     if fields["kind"] == "eligibility":
         raise ProfileInputError("eligibility facts are entered directly, not accepted from inferences")
-    item_id = create_item(conn, fields)
+    evidence = json.loads(conn.execute("SELECT evidence FROM inferred_claims WHERE id = ?", (claim_id,)).fetchone()[0])
+    replaces = evidence.get("replaces_item_id") if isinstance(evidence, dict) else None  # the column defaults to []
+    if replaces is not None and conn.execute("SELECT 1 FROM experience_items WHERE id = ? AND kind = 'role'",
+                                             (replaces,)).fetchone():
+        update_item(conn, replaces, fields)
+        item_id = replaces
+    else:  # nothing to replace, or that item was deleted since: added as a new one
+        item_id = create_item(conn, fields)
     conn.execute("UPDATE inferred_claims SET state = 'accepted', accepted_as_item_id = ? WHERE id = ?", (item_id, claim_id))
     return item_id
 

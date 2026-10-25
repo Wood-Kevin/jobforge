@@ -4,10 +4,16 @@ The model reads the resume's extracted text and proposes items (role, skill, cer
 achievement), each with a quote copied from the resume. Code decides what stands:
 - the quote must be found in the resume text (compared word by word, ignoring case, punctuation
   and line breaks), otherwise the suggestion is dropped and counted, never stored;
+- a role carries its resume lines (`details`, r1-v2): each must be found in the resume text the same
+  way, or it is dropped and counted; the role's statement is "<title> at <employer>: line; line", so
+  E3, which reads only items, sees what was done in the role and not just its title;
 - dates must be YYYY-MM; a year-only date is not padded to a month (that would invent precision),
   it is kept as written in `attributes.dates_as_written` and both dates stay empty, because an
   empty end date means "present" to E3;
-- a suggestion whose statement is already an item or an open/rejected suggestion is skipped.
+- a suggestion whose statement is already an item or an open/rejected suggestion is skipped;
+- a role suggestion for a role already in the profile (same start date, or same "<title> at
+  <employer>") records that item in its evidence, and accepting it updates that item instead of
+  adding a second one (items.accept_claim).
 What stands goes to the `inferred_claims` inbox, unconfirmed. Accepting one makes a self-reported
 item; confirming it is a separate click (SPEC D2, Q6). Eligibility facts (citizenship, clearance,
 work authorization) are not suggested: they are typed facts entered in their own form.
@@ -25,12 +31,14 @@ import sqlite3
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 # Pinned by a hash in tests/test_suggest.py: change the prompt or schema, bump this.
-RESUME_PROMPT_VERSION = "r1-v1"
+RESUME_PROMPT_VERSION = "r1-v2"  # 2026-10-25: roles carry their resume lines (details)
 KINDS = ("role", "skill", "cert", "education", "achievement")
 MAX_TEXT_CHARS = 30_000
 MAX_SUGGESTIONS = 80
 TIMEOUT_S = 300.0   # the host allows /suggest-items 330 s (desktop/src-tauri/src/lib.rs)
 MAX_TOKENS = 8000
+MAX_STATEMENT_CHARS = 2000  # items.validate's limit
+_BULLETS = " -*;•\x7f"  # list marks around a resume line (pypdf reads some bullets as U+007F)
 
 SCHEMA = {
     "type": "object",
@@ -42,11 +50,12 @@ SCHEMA = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["kind", "statement", "quote", "start_date", "end_date"],
+                "required": ["kind", "statement", "quote", "details", "start_date", "end_date"],
                 "properties": {
                     "kind": {"type": "string", "enum": list(KINDS)},
                     "statement": {"type": "string"},
                     "quote": {"type": "string"},
+                    "details": {"type": "array", "items": {"type": "string"}},
                     "start_date": {"type": ["string", "null"]},
                     "end_date": {"type": ["string", "null"]},
                 },
@@ -58,7 +67,7 @@ SCHEMA = {
 SYSTEM = """You turn a resume into a list of profile items for a job-matching tool. The candidate reviews every item before it is used.
 
 Item kinds:
-- "role": one job held. Statement: "<title> at <employer>" plus one short clause on the main duties.
+- "role": one job held. Statement: "<title> at <employer>". "details": EVERY line the resume lists under that job (duties, results, tools), each copied exactly as written, one line per entry, in the resume's order.
 - "skill": one tool, technology or ability the resume says the candidate used (e.g. "Active Directory user administration").
 - "cert": one certification or license.
 - "education": one degree, diploma or course of study.
@@ -70,6 +79,7 @@ Rules:
 - Dates: "YYYY-MM" when the resume gives month and year; "YYYY" when it gives only the year; null when it gives none. For a current role, end_date is "present".
 - For education, end_date is the completion (or expected completion) date; start_date is null unless the resume gives one.
 - Only roles and education have dates; other kinds use null for both.
+- Only roles have "details"; other kinds use [].
 - Do not include citizenship, security clearance, work authorization or contact details; those are entered separately.
 - List EVERY entry of a skills or technical-skills section as its own "skill" item, in the resume's order; do not pick a few.
 - One item per role, skill, cert, degree or achievement; no duplicates.
@@ -97,6 +107,7 @@ class _Item(BaseModel):
     kind: str
     statement: str
     quote: str
+    details: list[str]
     start_date: str | None
     end_date: str | None
 
@@ -148,7 +159,8 @@ def parse(content: str, resume_text: str) -> tuple[list[dict], dict]:
     except ValidationError as exc:
         raise SuggestError(f"the model's answer did not match the schema: {exc.errors()[0]['msg']}") from None
     words = _words(resume_text)
-    kept, counts, seen = [], {"proposed": len(out.items), "quote_not_found": 0, "bad_kind": 0, "repeated": 0}, set()
+    kept, seen = [], set()
+    counts = {"proposed": len(out.items), "quote_not_found": 0, "bad_kind": 0, "repeated": 0, "detail_not_found": 0}
     for it in out.items[:MAX_SUGGESTIONS]:
         if it.kind not in KINDS:
             counts["bad_kind"] += 1
@@ -157,19 +169,34 @@ def parse(content: str, resume_text: str) -> tuple[list[dict], dict]:
         if not q or f" {q} " not in f" {words} ":
             counts["quote_not_found"] += 1
             continue
-        key = norm_statement(it.statement)
+        head = it.statement.strip()[:500]
+        statement = head
+        if it.kind == "role":
+            details = []
+            for d in it.details:
+                dw = _words(d)
+                if dw and f" {dw} " in f" {words} ":
+                    details.append(" ".join(d.split()).strip(_BULLETS))
+                elif dw:
+                    counts["detail_not_found"] += 1
+            if details:
+                statement = (head + ": " + "; ".join(details))[:MAX_STATEMENT_CHARS]
+        key = norm_statement(statement)
         if not key or key in seen:
             counts["repeated"] += 1
             continue
         seen.add(key)
-        kept.append({"kind": it.kind, "statement": it.statement.strip()[:500], "quote": it.quote.strip()[:500],
+        kept.append({"kind": it.kind, "statement": statement, "head": head, "quote": it.quote.strip()[:500],
                      "fields": _dates(it.kind, it.start_date, it.end_date)})
     return kept, counts
 
 
 def store(conn: sqlite3.Connection, resume_id: int, resume_sha256: str, suggestions: list[dict], now: int) -> dict:
     """Insert into the inbox (caller holds the transaction). Statements already in the profile or
-    already suggested (open or rejected) are skipped, so a rerun does not bring back what was turned down."""
+    already suggested (open or rejected) are skipped, so a rerun does not bring back what was turned down.
+    A role already in the profile (same start date, or same "<title> at <employer>") is recorded as the
+    item the suggestion replaces."""
+    roles = conn.execute("SELECT id, statement, start_date FROM experience_items WHERE kind = 'role'").fetchall()
     known = {norm_statement(r[0]) for r in conn.execute("SELECT statement FROM experience_items")}
     known |= {norm_statement(r[0]) for r in conn.execute("SELECT statement FROM inferred_claims")}
     added = 0
@@ -178,10 +205,16 @@ def store(conn: sqlite3.Connection, resume_id: int, resume_sha256: str, suggesti
         if key in known:
             continue
         known.add(key)
+        evidence = {"resume_id": resume_id, "resume_sha256": resume_sha256, "quote": s["quote"],
+                    "prompt_version": RESUME_PROMPT_VERSION}
+        if s["kind"] == "role":
+            start, head = s["fields"].get("start_date"), norm_statement(s.get("head") or "")
+            same = [r for r in roles if (start and r[2] == start)
+                    or (head and norm_statement(r[1].split(":")[0]) == head)]
+            if len(same) == 1:  # two candidates: ambiguous, so it is added as a new item, as before
+                evidence.update(replaces_item_id=same[0][0], replaces_statement=same[0][1])
         conn.execute("INSERT INTO inferred_claims (statement, kind, rationale, evidence, proposed_by_resume_id, proposed_fields, "
                      "created_at_ms) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                     (s["statement"], s["kind"], None, json.dumps({"resume_id": resume_id, "resume_sha256": resume_sha256,
-                                                                   "quote": s["quote"], "prompt_version": RESUME_PROMPT_VERSION}),
-                      resume_id, json.dumps(s["fields"]), now))
+                     (s["statement"], s["kind"], None, json.dumps(evidence), resume_id, json.dumps(s["fields"]), now))
         added += 1
     return {"added": added, "already_known": len(suggestions) - added}
