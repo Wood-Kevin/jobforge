@@ -410,6 +410,14 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
     work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
     (50 of 112 state one).
 
+## Host HTTP client: ureq 2 to 3 (2026-10-25)
+- **What:** Dependabot PR #3 (ureq 2.12.1 to 3.5.0) was closed: ureq 3 changes the API and the host does not build
+  with it. The host uses ureq only for its own agent on localhost (`desktop/src-tauri`), so 2.x is not a risk today.
+- **Why deferred:** a port with no user-visible gain; it belongs in a dependency pass, not between features.
+- **Trigger:** a security advisory for ureq 2, or Tauri or another dependency requiring ureq 3.
+- **Also dismissed the same day:** Dependabot alert 1 (`glib` < 0.20, moderate), as not used: glib is Tauri's Linux
+  (GTK) dependency and JobForge builds only for Windows. Revisit if a Linux build is ever added.
+
 ## Over-credit on practices the person lacks (2026-10-25)
 - **What:** with roles now carrying their resume lines (r1-v2), both Gemma and gpt-oss still credit some requirements
   the person confirmed they do not meet: deep SQL, operating cloud managed services, sprint planning (Gemma), audit
