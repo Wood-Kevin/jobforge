@@ -658,8 +658,17 @@ split below is kept as documentation for any future server port (A13).
   only if its quote is found in the resume text word for word (case, punctuation and line breaks ignored), takes dates
   only as YYYY-MM (a year-only date is kept as written in `attributes.dates_as_written`, never padded to a month, because
   an empty end date means "present"), and skips statements already in the profile or already suggested (open, accepted
-  or rejected). What stands goes to the inbox with `evidence = {resume_id, resume_sha256, quote, prompt_version}`;
-  accepting applies `proposed_fields` and sets `source = resume:<resume id>:claim:<claim id>`. No eligibility facts are
+  or rejected). A role carries its resume lines (`details`, r1-v2): each is kept only if found in the resume text the
+  same way, and the role's statement becomes "<title> at <employer>: line; line" (at most 2,000 characters). E3 reads
+  only items, so under r1-v1, which kept a role as its title alone, the matcher never saw what was done in a role and
+  graded from titles and the skills list (2026-10-25: a resume line on administering a directory service for a few
+  hundred staff never reached the profile, which held only the role's title). Rejected alternative: one item per resume line, which
+  would split a role's dates from its duties and give E3 lines with no years. What stands goes to the inbox with
+  `evidence = {resume_id, resume_sha256, quote, prompt_version}`; a role suggestion for a role already in the profile
+  (exactly one role with the same start date or the same "<title> at <employer>") adds `replaces_item_id` and
+  `replaces_statement`, the window shows "Replaces: ...", and accepting it updates that item (its verification is
+  cleared, as for any edit) instead of listing the role twice. Accepting applies `proposed_fields` and sets
+  `source = resume:<resume id>:claim:<claim id>`. No eligibility facts are
   suggested (they are typed facts with their own form). The model call runs with no transaction open; the inbox write
   is one user-action transaction (`profile_changed`, ids only). Rejected alternative: writing suggestions straight into
   `experience_items`, which would put unread model output into the profile E3 matches against.

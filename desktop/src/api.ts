@@ -70,8 +70,8 @@ export type Completeness = { cert_list_complete: boolean; eligibility_facts_comp
 export type Schema = { kinds: string[]; eligibility: Record<string, Record<string, { type: string; required: boolean }>>; multiple_allowed: string[]; application_statuses: string[] };
 export type Claim = { id: number; statement: string; kind: string; rationale: string | null; state: string; proposed_by_evaluation_id: number | null; created_at_ms: number;
   proposed_by_resume_id: number | null; proposed_fields: { start_date?: string; end_date?: string | null; attributes?: Record<string, string> };
-  evidence: { quote?: string; [k: string]: unknown } };
-export type SuggestReport = { proposed: number; added: number; already_known: number; quote_not_found: number; bad_kind: number; repeated: number; seconds: number };
+  evidence: { quote?: string; replaces_item_id?: number; replaces_statement?: string; [k: string]: unknown } };
+export type SuggestReport = { proposed: number; added: number; already_known: number; quote_not_found: number; bad_kind: number; repeated: number; detail_not_found: number; seconds: number };
 export type Resume = { id: number; label: string | null; original_filename: string; mime: string; sha256: string; bytes: number; text_chars: number; uploaded_at_ms: number };
 export type ReviewGroup = { kind: string; type: string | null; example: string; jobs: { job_id: number; title: string; company: string; question: string;
   current: boolean; requirement_id?: number; unrecognized_eligibility?: string | null; reading_problem?: ReadingProblem | null }[] };

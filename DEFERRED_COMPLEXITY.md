@@ -257,8 +257,9 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 ## Resume suggestions: recall not measured (P1.8c)
 - **What:** Code guarantees the wording (every kept suggestion quotes the resume) but no test measures recall. Measured
   once by hand: a prompt draft kept 10 of the 27 entries in one resume's skills section; the final r1-v1 line ("list
-  every entry of a skills section") brought both tested resumes to every entry (27/27, 25/25). Recall of skills that
-  appear only in experience bullets is not measured. Missing items cost a manual add; E3 then reads the profile as
+  every entry of a skills section") brought both tested resumes to every entry (27/27, 25/25). Since r1-v2
+  (2026-10-25) a role carries its resume lines, so experience stated only in a role's lines reaches E3 through the role
+  item (one real resume: 5 of 5 roles, every line found); recall of those lines is otherwise not measured. Missing items cost a manual add; E3 then reads the profile as
   thinner than it is (more REVIEW). Eligibility facts in a resume (clearance, citizenship)
   are deliberately not suggested; the user enters them in the typed form.
 - **Why deferred:** measuring recall needs a labeled item list per resume; a reviewed `profile_draft.json` (46
@@ -408,6 +409,20 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   - Not a defect: the work-mode factor is `unknown` on all 112 recommendations because the active profile has no
     work-mode preferences (the form's Remote/Hybrid/On-site are "no preference"), not because jobs lack a mode
     (50 of 112 state one).
+
+## Over-credit on practices the person lacks (2026-10-25)
+- **What:** with roles now carrying their resume lines (r1-v2), both Gemma and gpt-oss still credit some requirements
+  the person confirmed they do not meet: deep SQL, operating cloud managed services, sprint planning (Gemma), audit
+  evidence preparation (Gemma). On six requirements the person answered, Gemma was right on 2, gpt-oss on 4, with the
+  fuller profile as before it. An E3 prompt rewording (m1-v2: all parts and qualifiers, narrower "transferable") made
+  both models stricter across the board (Gemma APPLY 12 to 4) without being more right on those six; dropped.
+- **Options, not chosen:** (a) a profile list of confirmed absences ("I do not have: ..."), matched like the
+  completeness flags, so an absent practice reads as a gap; (b) APPLY needing more direct matches (a verdict rules
+  version, no model calls); (c) gpt-oss as the default model (more right on the six, about 3x slower than Gemma with
+  the fuller profile: 70 s vs 24 s per job, median).
+- **Why deferred:** each changes recommendations; six answers are too few to choose between them.
+- **Trigger:** the person labels more requirements (Your call), or reports another job marked APPLY on something
+  they lack.
 
 ## Answering a "Needs your input" question in place (2026-10-24; "Yes" part RESOLVED same day)
 - **Resolved (Kevin: "We should be able to answer the questions directly", meaning on "Needs your input"):** each

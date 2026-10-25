@@ -330,6 +330,8 @@ export function Claims({ fromResumeOnly = false, guessesOnly = false }: { fromRe
           <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.acceptClaim(c.id, {}); claims.reload(); })}>Add</button>
           <button className="small" disabled={act.busy} onClick={() => act.run(async () => { await api.rejectClaim(c.id); claims.reload(); })}>Not right</button>
         </span></div>
+        {/* A role already in the profile is updated, not added twice (resume suggestions r1-v2). */}
+        {c.evidence.replaces_statement && <div className="muted">Replaces: "{c.evidence.replaces_statement}"</div>}
         {c.evidence.quote ? <div className="muted">Your resume: "{c.evidence.quote}"</div> : c.rationale && <div className="muted">{c.rationale}</div>}</li>);
   };
   const addAll = () => act.run(async () => {
@@ -392,6 +394,7 @@ export function Resumes() {
       const parts = [`Found ${r.proposed} items; ${r.added} new ones are listed above for you to check`];
       if (r.already_known) parts.push(`${r.already_known} you already have or turned down`);
       if (r.quote_not_found) parts.push(`${r.quote_not_found} left out because their wording is not in the resume`);
+      if (r.detail_not_found) parts.push(`${r.detail_not_found} job duty lines left out for the same reason`);
       setNote({ id, text: parts.join("; ") + "." });
     } catch (e) {
       setNote(null);
