@@ -48,7 +48,7 @@ def test_job_lists_by_view(env):
 
 
 def test_exact_copies_show_as_one_row_and_different_jobs_do_not(env):
-    """Bridgeway posted one job under two ids (2026-10-24): one row, the detail links the other. Voxel's
+    """Company D posted one job under two ids (2026-10-24): one row, the detail links the other. Company T's
     Tier 2 and Tier 3 share an intro but not their text, and a same-title job with other text stays apart."""
     a, _ = add_job(env.db, env.ids, 41, "System Administrator", desc="Same text.")
     b, _ = add_job(env.db, env.ids, 42, "System Administrator", desc="Same text.")
@@ -96,7 +96,7 @@ def test_a_job_you_skip_leaves_the_default_views_with_its_copies(env):
 
 
 def test_an_eligibility_line_the_code_did_not_type_is_marked_for_the_window(env):
-    """Nash, 2026-10-24: "Remote in Eastern US (required)" was typed work_authorization by the model and
+    """Company N, 2026-10-24: "Remote in Eastern US (required)" was typed work_authorization by the model and
     nothing by the code, so it went to the matcher and came back unknown; the window must not offer an
     experience answer for it. Display only: no decision reads the field."""
     from jobforge_agent.evaluation import store

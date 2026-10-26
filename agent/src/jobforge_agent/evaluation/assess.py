@@ -15,7 +15,8 @@ Three assessments, never combined into a number:
 Recommendation, first rule that matches (each recorded as the decisive reason):
 1 BLOCKED -> SKIP; 2 WEAK -> SKIP; 3 UNKNOWN or INSUFFICIENT -> REVIEW (with questions);
 4 STRONG/COMPETITIVE -> APPLY; 5 STRETCH + LOW -> SKIP; 6 STRETCH -> STRETCH.
-SKIP therefore only comes from rules 1, 2 or 5 (property test, D7).
+SKIP therefore only comes from rules 1, 2 or 5 (property test, D7). Rules v4 add a STRETCH from too many
+unknowns (fit counts `unshown`), which rule 5 never skips.
 """
 from __future__ import annotations
 
@@ -128,7 +129,7 @@ def eligibility(reqs: list[Req], matches: dict[int, Validated], rules: dict | No
                             "why": "type-only conflict; met by verified facts under both readings (rules v2)"})
         elif r.interpretation_status == "conflict":
             # A type-only conflict settles once verified facts meet it (check_both), so ask for the fact; any
-            # other conflict is a reading question (v3, before/after round 2: Nash's location lines asked
+            # other conflict is a reading question (v3, before/after round 2: Company N's location lines asked
             # "Is this a requirement for you?", which no fact can answer).
             ask_fact = question and _type_only_conflict(r) is not None
             reasons.append({**base, "effect": "unknown", "why": "model and code read this requirement differently",
@@ -190,10 +191,22 @@ def fit(reqs: list[Req], matches: dict[int, Validated], rules: dict) -> tuple[st
         "material_gaps": [{"requirement_id": r.id, "quote": r.jd_quote} for r in material],
         "unknown_requirements": [{"requirement_id": r.id, "quote": r.jd_quote} for r in unknown],
     }
+    # v4 (many_unknown: stretch): once enough is judged, too many unknowns make a STRETCH marked `unshown`
+    # instead of INSUFFICIENT, and evidenced material gaps are counted first. recommend() never skips an
+    # unshown STRETCH, so a SKIP still needs positive evidence (D7).
+    unshown_stretch = fr.get("many_unknown") == "stretch"
+    unshown = None
     if judgeable < fr["min_judgeable"]:
         label, why = "INSUFFICIENT", f"{judgeable} judgeable negotiable requirements (< {fr['min_judgeable']})"
+    elif unshown_stretch and conflicts > fr["max_conflicts"]:
+        label, why = "INSUFFICIENT", f"{conflicts} interpretation conflicts (> {fr['max_conflicts']})"
+    elif unshown_stretch and len(material) > fr["max_stretch_gaps"]:
+        label, why = "WEAK", f"{len(material)} material gaps (> {fr['max_stretch_gaps']})"
     elif uncertain_share > fr["max_uncertain_share"]:
-        label, why = "INSUFFICIENT", f"unknown + unverifiable = {uncertain_share:.0%} of requirements (> {fr['max_uncertain_share']:.0%})"
+        if unshown_stretch:
+            unshown = f"{len(unknown) + len(unverifiable)} of {denom} requirements not shown in the profile ({uncertain_share:.0%})"
+        else:
+            label, why = "INSUFFICIENT", f"unknown + unverifiable = {uncertain_share:.0%} of requirements (> {fr['max_uncertain_share']:.0%})"
     elif conflicts > fr["max_conflicts"]:
         label, why = "INSUFFICIENT", f"{conflicts} interpretation conflicts (> {fr['max_conflicts']})"
     elif len(material) > fr["max_stretch_gaps"]:
@@ -201,15 +214,22 @@ def fit(reqs: list[Req], matches: dict[int, Validated], rules: dict) -> tuple[st
     elif material:
         if len(unknown) <= fr["stretch_max_unknown"]:
             label, why = "STRETCH", f"{len(material)} material gap(s), the rest covered"
+        elif unshown_stretch:
+            unshown = f"{len(material)} material gap(s) and {len(unknown)} requirements not shown in the profile"
         else:
             label, why = "INSUFFICIENT", f"{len(material)} material gap(s) and {len(unknown)} unknown (> {fr['stretch_max_unknown']})"
     elif counts["transferable"] == 0 and len(unknown) <= fr["strong_max_unknown"]:
         label, why = "STRONG", "no material gaps, every covered requirement direct"
     elif len(unknown) <= fr["competitive_max_unknown"]:
         label, why = "COMPETITIVE", "no material gaps"
+    elif unshown_stretch:
+        unshown = f"no material gaps, {len(unknown)} requirements not shown in the profile"
     else:
         # Not in the 6.5 list: no gaps, but more unknowns than COMPETITIVE allows. Not enough to call.
         label, why = "INSUFFICIENT", f"no material gaps but {len(unknown)} unknown (> {fr['competitive_max_unknown']})"
+    if unshown:
+        label, why = "STRETCH", unshown
+        counts["unshown"] = True
     counts["rule"] = why
     return label, counts
 
@@ -345,7 +365,7 @@ def recommend(elig: str, elig_reasons: list[dict], fit_label: str, fit_counts: d
             # Never hidden: an APPLY carried by self-reported items says so (6.5).
             detail += f"; {fit_counts['self_reported_covering']} covered only by self-reported items"
         return "APPLY", [{"rule": 4, "name": "apply", "detail": detail}]
-    if fit_label == "STRETCH" and opp == "LOW":
+    if fit_label == "STRETCH" and opp == "LOW" and not fit_counts.get("unshown"):
         bad = ", ".join(f"{f['factor']} ({f['detail']})" for f in opp_factors if f["value"] == "unfavorable")
         return "SKIP", [{"rule": 5, "name": "stretch_low_value", "detail": f"stretch, low value: {bad}"}]
     return "STRETCH", [{"rule": 6, "name": "stretch", "detail": fit_counts["rule"]}]

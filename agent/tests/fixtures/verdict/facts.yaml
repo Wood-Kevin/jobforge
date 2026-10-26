@@ -2,7 +2,7 @@
 # facts: shorthand per type -> attributes (item verified unless `item_status` is given).
 # Quotes marked "P1.6 live" are real requirement rows from the 42-posting run.
 
-- name: Vultr state list includes Florida (P1.6 live)
+- name: Company U state list includes Florida (P1.6 live)
   type: residency
   quote: "We are currently accepting applications from candidates residing in the following states: Alabama, Arizona, Colorado, Connecticut, Florida, Georgia, Idaho, Illinois, Indiana, Iowa, Kentucky, Louisiana, Maryland, Massachu"
   facts: {residency: {country: US, state: FL}}
@@ -20,7 +20,7 @@
   facts: {residency: {country: US, state: VA}}
   expect: {outcome: fails}
 
-- name: Plaid Pacific time zone, Florida resident (P1.6 live)
+- name: Company O Pacific time zone, Florida resident (P1.6 live)
   type: residency
   quote: "This position requires employees to be primarily located within the Pacific Time Zone and to work Pacific Time business hours."
   facts: {residency: {country: US, state: FL}}
@@ -38,19 +38,19 @@
   facts: {residency: {country: US, state: GA}}
   expect: {outcome: met}
 
-- name: Keeper commute to El Dorado Hills, CA (P1.6 live)
+- name: Company L commute to El Dorado Hills, CA (P1.6 live)
   type: residency
-  quote: "Must reside within reasonable commuting distance of Keeper's El Dorado Hills, CA office"
+  quote: "Must reside within reasonable commuting distance of Company L's El Dorado Hills, CA office"
   facts: {residency: {country: US, state: FL}}
   expect: {outcome: fails}
 
 - name: willing to relocate turns a fail into a question
   type: residency
-  quote: "Must reside within reasonable commuting distance of Keeper's El Dorado Hills, CA office"
+  quote: "Must reside within reasonable commuting distance of Company L's El Dorado Hills, CA office"
   facts: {residency: {country: US, state: FL, willing_to_relocate: true}}
   expect: {outcome: unanswered, reason: fails_but_willing_to_relocate}
 
-- name: Lyft must be based in the US (P1.6 live)
+- name: Company Y must be based in the US (P1.6 live)
   type: residency
   quote: "candidates for this role must be based in the US."
   facts: {residency: {country: United States, state: Florida}}
@@ -128,7 +128,7 @@
   facts: {sponsorship: {needs_sponsorship: true}}
   expect: {outcome: unanswered, reason: hedged_wording}
 
-- name: needs sponsorship, posting sponsors (P1.6 live, Anthropic)
+- name: needs sponsorship, posting sponsors (P1.6 live, Company B)
   type: sponsorship
   quote: "visa sponsorship: we do sponsor visas!"
   facts: {sponsorship: {needs_sponsorship: true}}
@@ -187,7 +187,7 @@
   completeness: {eligibility_facts_complete: true}
   expect: {outcome: fails, basis: none}
 
-- name: lift 50 pounds (P1.6 live, Keeper)
+- name: lift 50 pounds (P1.6 live, Company L)
   type: physical
   quote: "Ability to lift up to 50 pounds and safely move, install or replace IT hardware"
   facts: {physical: {max_lift_lbs: 40}}
@@ -223,7 +223,7 @@
   facts: {license: {name: "Driver's license", active: true}}
   expect: {outcome: met}
 
-- name: SkillBridge, not active duty (P1.6 live, Axonius)
+- name: SkillBridge, not active duty (P1.6 live, Company C)
   type: program_status
   quote: "Active-duty military service member approved to participate in the DoD SkillBridge program"
   facts: {program_status: {active_duty: false, veteran: true}}
@@ -349,7 +349,7 @@
   facts: {license: {name: "Florida driver's license", active: true}}
   expect: {outcome: met}
 
-# ----- v3 (Evaluation calibration 1, cases E1-E2; the Nash case 2026-10-24) -----
+# ----- v3 (Evaluation calibration 1, cases E1-E2; the Company N case 2026-10-24) -----
 - name: a declared time zone settles a state split between zones
   type: residency
   quote: "Remote in Eastern US (required)"

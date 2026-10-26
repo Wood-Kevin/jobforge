@@ -128,3 +128,7 @@ Actions dependencies, with minor and patch updates grouped; nothing merges witho
 CodeQL scans Python, JavaScript/TypeScript and Rust, Dependabot alerts on known vulnerabilities, and secret
 scanning with push protection is on. To report a vulnerability, use the repository's **Security** tab
 (**Report a vulnerability**) rather than a public issue.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

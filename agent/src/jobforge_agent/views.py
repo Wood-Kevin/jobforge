@@ -22,7 +22,7 @@ VIEWS = ("recommended", "rejected", "skipped", "all")
 MAX_LIMIT = 500
 
 
-# Exact copies: one employer posting the same job under several ids (Bridgeway's "System Administrator"
+# Exact copies: one employer posting the same job under several ids (Company D's "System Administrator"
 # twice, 2026-10-24). Lists show one row per copy group; the detail links every open copy. The text is
 # compared where it is kept, so two different jobs that share a title and location (two teams'
 # "Software Engineer, Remote") never merge; rejected postings keep no text (0010)

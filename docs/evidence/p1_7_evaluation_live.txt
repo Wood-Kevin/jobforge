@@ -91,117 +91,117 @@ replayed, 0 model calls. This is the evidence for the code being committed.
 
 == Per job: recommendation and its three assessments
    job company        title                                    rec      elig     fit          opp     rule
-   414 Lyft           Business Systems Engineer                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
-   570 Vultr          Technical Support Engineer               REVIEW   UNKNOWN  COMPETITIVE  HIGH    no material gaps
-   573 Vultr          Technical Support Specialist             REVIEW   UNKNOWN  STRONG       MEDIUM  no material gaps, every covered requirement direct
-   576 Vultr          Linux Systems Administrator              REVIEW   UNKNOWN  INSUFFICIENT HIGH    1 material gap(s) and 3 unknown (> 2)
-   577 Vultr          RMA Systems Engineer                     REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
-   601 Vultr          Network DevOps Engineer, RDMA Fabric Aut REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
-   603 Vultr          Infrastructure Production Engineer       REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
-   617 Vultr          Server Onboarding Specialist             REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
-   735 OpenAI         Hardware Operations Engineer             REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 40% of requirements (> 30%)
-  2164 Lambda         Technical Success Engineer               STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
-  2396 Tailscale      Customer Reliability Engineer            REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 38% of requirements (> 30%)
-  2407 Tailscale      Infrastructure Engineer                  STRETCH  ELIGIBLE STRETCH      HIGH    2 material gap(s), the rest covered
-  2416 Tailscale      Security Infrastructure Engineer         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 material gap(s) and 3 unknown (> 2)
-  2444 Tailscale      Windows Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 43% of requirements (> 30%)
-  2845 Anthropic      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 55% of requirements (> 30%)
-  2846 Anthropic      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 56% of requirements (> 30%)
-  2847 Anthropic      IT Systems Engineer, M&A                 REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 36% of requirements (> 30%)
-  2848 Anthropic      IT Systems Engineer, Mobile Client Platf REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 81% of requirements (> 30%)
-  3343 Huntress Labs  Security Operations Analyst - West Coast REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
-  7711 Chainguard     Security Analyst (Governance and Trust)  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 50% of requirements (> 30%)
-  7771 Snyk           Professional Services Engineer           REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 44% of requirements (> 30%)
-  9573 Censys         Systems Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 73% of requirements (> 30%)
-  9694 Render         Customer Engineer                        REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
-  9705 Supabase       Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
-  9709 Supabase       Support Engineer (AMER - Weekends)       REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
-  9715 Supabase       Database Support Engineer (AMER)         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 60% of requirements (> 30%)
-  9725 Supabase       Site Reliability Engineer                REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
-  9733 Supabase       Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 50% of requirements (> 30%)
-  10390 Plaid          Technical Support Engineer               REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
-  10518 Keeper Securit Google Cloud & Gemini Enterprise Adminis SKIP     ELIGIBLE WEAK         MEDIUM  5 material gaps (> 2)
-  10533 Keeper Securit IT Support Specialist, Tier 2            REVIEW   UNKNOWN  INSUFFICIENT HIGH    no material gaps but 4 unknown (> 2)
-  10581 Keeper Securit Systems Support Engineer (Night Shift)   REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 40% of requirements (> 30%)
-  11285 Bitwarden      Implementation Engineer, Customer Suppor REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 55% of requirements (> 30%)
-  11286 Bitwarden      IT Security Administrator                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  5 interpretation conflicts (> 3)
-  11766 Vercel         Security Software Engineer, IAM          REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 judgeable negotiable requirements (< 3)
-  11903 GitLab         Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 57% of requirements (> 30%)
-  11941 GitLab         Intermediate Security Analyst, Vulnerabi REVIEW   ELIGIBLE INSUFFICIENT HIGH    no material gaps but 3 unknown (> 2)
-  12107 GitLab         Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
-  12108 GitLab         Support Engineer, U.S. Government Suppor REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 60% of requirements (> 30%)
-  12111 GitLab         Tech Operations Specialist               REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 33% of requirements (> 30%)
-  12263 Axonius        Technical Support Engineer (SkillBridge: REVIEW   UNKNOWN  STRONG       HIGH    no material gaps, every covered requirement direct
-  12729 PostHog        Site Reliability Engineer (US - Pacific  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
-  13404 Abnormal       L1 Technical Support Engineer (Spanish-S STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
+   414 Company Y           Business Systems Engineer                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
+   570 Company U          Technical Support Engineer               REVIEW   UNKNOWN  COMPETITIVE  HIGH    no material gaps
+   573 Company U          Technical Support Specialist             REVIEW   UNKNOWN  STRONG       MEDIUM  no material gaps, every covered requirement direct
+   576 Company U          Linux Systems Administrator              REVIEW   UNKNOWN  INSUFFICIENT HIGH    1 material gap(s) and 3 unknown (> 2)
+   577 Company U          RMA Systems Engineer                     REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
+   601 Company U          Network DevOps Engineer, RDMA Fabric Aut REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+   603 Company U          Infrastructure Production Engineer       REVIEW   UNKNOWN  COMPETITIVE  MEDIUM  no material gaps
+   617 Company U          Server Onboarding Specialist             REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
+   735 Company AC         Hardware Operations Engineer             REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 40% of requirements (> 30%)
+  2164 Company AF         Technical Success Engineer               STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
+  2396 Company S      Customer Reliability Engineer            REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 38% of requirements (> 30%)
+  2407 Company S      Infrastructure Engineer                  STRETCH  ELIGIBLE STRETCH      HIGH    2 material gap(s), the rest covered
+  2416 Company S      Security Infrastructure Engineer         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 material gap(s) and 3 unknown (> 2)
+  2444 Company S      Windows Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 43% of requirements (> 30%)
+  2845 Company B      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 55% of requirements (> 30%)
+  2846 Company B      IT Systems Engineer, Client Platform Eng REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 56% of requirements (> 30%)
+  2847 Company B      IT Systems Engineer, M&A                 REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 36% of requirements (> 30%)
+  2848 Company B      IT Systems Engineer, Mobile Client Platf REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 81% of requirements (> 30%)
+  3343 Company I  Security Operations Analyst - West Coast REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 31% of requirements (> 30%)
+  7711 Company E     Security Analyst (Governance and Trust)  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 50% of requirements (> 30%)
+  7771 Company AB           Professional Services Engineer           REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 44% of requirements (> 30%)
+  9573 Company AA         Systems Engineer                         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 73% of requirements (> 30%)
+  9694 Company AE         Customer Engineer                        REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9705 Company R       Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9709 Company R       Support Engineer (AMER - Weekends)       REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  9715 Company R       Database Support Engineer (AMER)         REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 60% of requirements (> 30%)
+  9725 Company R       Site Reliability Engineer                REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
+  9733 Company R       Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 50% of requirements (> 30%)
+  10390 Company O          Technical Support Engineer               REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 33% of requirements (> 30%)
+  10518 Company L Google Cloud & Gemini Enterprise Adminis SKIP     ELIGIBLE WEAK         MEDIUM  5 material gaps (> 2)
+  10533 Company L IT Support Specialist, Tier 2            REVIEW   UNKNOWN  INSUFFICIENT HIGH    no material gaps but 4 unknown (> 2)
+  10581 Company L Systems Support Engineer (Night Shift)   REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 40% of requirements (> 30%)
+  11285 Company Z      Implementation Engineer, Customer Suppor REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  unknown + unverifiable = 55% of requirements (> 30%)
+  11286 Company Z      IT Security Administrator                REVIEW   UNKNOWN  INSUFFICIENT MEDIUM  5 interpretation conflicts (> 3)
+  11766 Company AD         Security Software Engineer, IAM          REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  1 judgeable negotiable requirements (< 3)
+  11903 Company X         Cloud Platform Engineer                  REVIEW   ELIGIBLE INSUFFICIENT HIGH    unknown + unverifiable = 57% of requirements (> 30%)
+  11941 Company X         Intermediate Security Analyst, Vulnerabi REVIEW   ELIGIBLE INSUFFICIENT HIGH    no material gaps but 3 unknown (> 2)
+  12107 Company X         Support Engineer (AMER)                  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 57% of requirements (> 30%)
+  12108 Company X         Support Engineer, U.S. Government Suppor REVIEW   UNKNOWN  INSUFFICIENT HIGH    unknown + unverifiable = 60% of requirements (> 30%)
+  12111 Company X         Tech Operations Specialist               REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 33% of requirements (> 30%)
+  12263 Company C        Technical Support Engineer (SkillBridge: REVIEW   UNKNOWN  STRONG       HIGH    no material gaps, every covered requirement direct
+  12729 Company P        Site Reliability Engineer (US - Pacific  REVIEW   ELIGIBLE INSUFFICIENT MEDIUM  unknown + unverifiable = 70% of requirements (> 30%)
+  13404 Company A       L1 Technical Support Engineer (Spanish-S STRETCH  ELIGIBLE STRETCH      MEDIUM  1 material gap(s), the rest covered
      1 Chime Financia AEO Content Strategist                   REVIEW   ELIGIBLE INSUFFICIENT LOW     unknown + unverifiable = 44% of requirements (> 30%)
 
 == SKIP only from positive evidence: SKIPs whose decisive rule is not 1, 2 or 5
   rows: 0
-  [Keeper Securit] 5 material gaps: 5+ years of experience administering enterprise cloud, SaaS, identity or IT syst; Strong hands-on experience administering Google Clo
+  [Company L] 5 material gaps: 5+ years of experience administering enterprise cloud, SaaS, identity or IT syst; Strong hands-on experience administering Google Clo
 
 == Invented quotes and conflicts excluded: blocks from a non-confirmed or recall requirement
   rows: 0
   eligibility reasons by effect and why: {('unknown', 'model and code read this requirement differently'): 10, ('unknown', 'the profile cannot answer this'): 2, ('unknown', 'eligibility sentence the model did not extract'): 16, ('unknown', 'met only on a self-reported fact'): 3}
 
 == Missed blockers surface: unextracted_eligibility rows and the recommendation they produced
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
-  [Anthropic] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
-  [Render] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | at render's discretion, the business may sponsor existing visa transfers.
-  [Keeper Secur] REVIEW  residency          effect=unknown  outcome=fails      basis=verified      | must reside within reasonable commuting distance of keeper's el dorado hills, ca office an
-  [Axonius] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | please note: this program is reserved for active-duty military service members approved to
-  [Axonius] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | axonius is partnering with the dod skillbridge program to offer transitioning military ser
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | visa sponsorship: we do sponsor visas!
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | however, we aren't able to successfully sponsor visas for every role and every candidate.
+  [Company B] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | but if we make you an offer, we will make every reasonable effort to get you a visa, and w
+  [Company AE] REVIEW  sponsorship        effect=unknown  outcome=met        basis=self_reported | at render's discretion, the business may sponsor existing visa transfers.
+  [Company L] REVIEW  residency          effect=unknown  outcome=fails      basis=verified      | must reside within reasonable commuting distance of keeper's el dorado hills, ca office an
+  [Company C] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | please note: this program is reserved for active-duty military service members approved to
+  [Company C] REVIEW  program_status     effect=unknown  outcome=unanswered basis=none          | axonius is partnering with the dod skillbridge program to offer transitioning military ser
 
 == REVIEW causes
-  [Lyft] Business Systems Engineer            fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] Technical Support Engineer           fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] Technical Support Specialist         fit=STRONG       eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] Linux Systems Administrator          fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] RMA Systems Engineer                 fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] Network DevOps Engineer, RDMA Fabric fit=INSUFFICIENT eligibility unknown from: -
-  [Vultr] Infrastructure Production Engineer   fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
-  [Vultr] Server Onboarding Specialist         fit=INSUFFICIENT eligibility unknown from: -
-  [OpenAI] Hardware Operations Engineer         fit=INSUFFICIENT eligibility unknown from: travel/the profile cannot answer this
-  [Tailscale] Customer Reliability Engineer        fit=INSUFFICIENT eligibility unknown from: -
-  [Tailscale] Security Infrastructure Engineer     fit=INSUFFICIENT eligibility unknown from: -
-  [Tailscale] Windows Engineer                     fit=INSUFFICIENT eligibility unknown from: -
-  [Anthropic] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
-  [Anthropic] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
-  [Anthropic] IT Systems Engineer, M&A             fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
-  [Anthropic] IT Systems Engineer, Mobile Client P fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
-  [Huntress Lab] Security Operations Analyst - West C fit=INSUFFICIENT eligibility unknown from: -
-  [Chainguard] Security Analyst (Governance and Tru fit=INSUFFICIENT eligibility unknown from: -
-  [Snyk] Professional Services Engineer       fit=INSUFFICIENT eligibility unknown from: -
-  [Censys] Systems Engineer                     fit=INSUFFICIENT eligibility unknown from: -
-  [Render] Customer Engineer                    fit=INSUFFICIENT eligibility unknown from: sponsorship/model and code read this requirement differently; sponsorship/eligibility sentence the model did not extract
-  [Supabase] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
-  [Supabase] Support Engineer (AMER - Weekends)   fit=INSUFFICIENT eligibility unknown from: -
-  [Supabase] Database Support Engineer (AMER)     fit=INSUFFICIENT eligibility unknown from: -
-  [Supabase] Site Reliability Engineer            fit=INSUFFICIENT eligibility unknown from: -
-  [Supabase] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
-  [Plaid] Technical Support Engineer           fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
-  [Keeper Secur] IT Support Specialist, Tier 2        fit=INSUFFICIENT eligibility unknown from: physical/the profile cannot answer this; residency/eligibility sentence the model did not extract
-  [Keeper Secur] Systems Support Engineer (Night Shif fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
-  [Bitwarden] Implementation Engineer, Customer Su fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
-  [Bitwarden] IT Security Administrator            fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
-  [Vercel] Security Software Engineer, IAM      fit=INSUFFICIENT eligibility unknown from: -
-  [GitLab] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
-  [GitLab] Intermediate Security Analyst, Vulne fit=INSUFFICIENT eligibility unknown from: -
-  [GitLab] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
-  [GitLab] Support Engineer, U.S. Government Su fit=INSUFFICIENT eligibility unknown from: work_authorization/met only on a self-reported fact
-  [GitLab] Tech Operations Specialist           fit=INSUFFICIENT eligibility unknown from: -
-  [Axonius] Technical Support Engineer (SkillBri fit=STRONG       eligibility unknown from: program_status/model and code read this requirement differently; program_status/eligibility sentence the model did not extract; program_status/eligibility sentence the model did not extract
-  [PostHog] Site Reliability Engineer (US - Paci fit=INSUFFICIENT eligibility unknown from: -
+  [Company Y] Business Systems Engineer            fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] Technical Support Engineer           fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] Technical Support Specialist         fit=STRONG       eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] Linux Systems Administrator          fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] RMA Systems Engineer                 fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] Network DevOps Engineer, RDMA Fabric fit=INSUFFICIENT eligibility unknown from: -
+  [Company U] Infrastructure Production Engineer   fit=COMPETITIVE  eligibility unknown from: residency/model and code read this requirement differently
+  [Company U] Server Onboarding Specialist         fit=INSUFFICIENT eligibility unknown from: -
+  [Company AC] Hardware Operations Engineer         fit=INSUFFICIENT eligibility unknown from: travel/the profile cannot answer this
+  [Company S] Customer Reliability Engineer        fit=INSUFFICIENT eligibility unknown from: -
+  [Company S] Security Infrastructure Engineer     fit=INSUFFICIENT eligibility unknown from: -
+  [Company S] Windows Engineer                     fit=INSUFFICIENT eligibility unknown from: -
+  [Company B] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Company B] IT Systems Engineer, Client Platform fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Company B] IT Systems Engineer, M&A             fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Company B] IT Systems Engineer, Mobile Client P fit=INSUFFICIENT eligibility unknown from: sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract; sponsorship/eligibility sentence the model did not extract
+  [Company I Lab] Security Operations Analyst - West C fit=INSUFFICIENT eligibility unknown from: -
+  [Company E] Security Analyst (Governance and Tru fit=INSUFFICIENT eligibility unknown from: -
+  [Company AB] Professional Services Engineer       fit=INSUFFICIENT eligibility unknown from: -
+  [Company AA] Systems Engineer                     fit=INSUFFICIENT eligibility unknown from: -
+  [Company AE] Customer Engineer                    fit=INSUFFICIENT eligibility unknown from: sponsorship/model and code read this requirement differently; sponsorship/eligibility sentence the model did not extract
+  [Company R] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
+  [Company R] Support Engineer (AMER - Weekends)   fit=INSUFFICIENT eligibility unknown from: -
+  [Company R] Database Support Engineer (AMER)     fit=INSUFFICIENT eligibility unknown from: -
+  [Company R] Site Reliability Engineer            fit=INSUFFICIENT eligibility unknown from: -
+  [Company R] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
+  [Company O] Technical Support Engineer           fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Company L] IT Support Specialist, Tier 2        fit=INSUFFICIENT eligibility unknown from: physical/the profile cannot answer this; residency/eligibility sentence the model did not extract
+  [Company L] Systems Support Engineer (Night Shif fit=INSUFFICIENT eligibility unknown from: residency/model and code read this requirement differently
+  [Company Z] Implementation Engineer, Customer Su fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
+  [Company Z] IT Security Administrator            fit=INSUFFICIENT eligibility unknown from: sponsorship/met only on a self-reported fact
+  [Company AD] Security Software Engineer, IAM      fit=INSUFFICIENT eligibility unknown from: -
+  [Company X] Cloud Platform Engineer              fit=INSUFFICIENT eligibility unknown from: -
+  [Company X] Intermediate Security Analyst, Vulne fit=INSUFFICIENT eligibility unknown from: -
+  [Company X] Support Engineer (AMER)              fit=INSUFFICIENT eligibility unknown from: -
+  [Company X] Support Engineer, U.S. Government Su fit=INSUFFICIENT eligibility unknown from: work_authorization/met only on a self-reported fact
+  [Company X] Tech Operations Specialist           fit=INSUFFICIENT eligibility unknown from: -
+  [Company C] Technical Support Engineer (SkillBri fit=STRONG       eligibility unknown from: program_status/model and code read this requirement differently; program_status/eligibility sentence the model did not extract; program_status/eligibility sentence the model did not extract
+  [Company P] Site Reliability Engineer (US - Paci fit=INSUFFICIENT eligibility unknown from: -
   [Chime Financ] AEO Content Strategist               fit=INSUFFICIENT eligibility unknown from: -
   REVIEWs caused only by type-only conflicts the code's type meets with a verified fact (fit judgeable): 4
 
@@ -229,7 +229,7 @@ database: C:\Users\kevin\AppData\Local\jobforge-evidence-p1_7replay\data\jobforg
   v2: recommendation {'REVIEW': 39, 'APPLY': 1, 'STRETCH': 3, 'SKIP': 1}; eligibility {'UNKNOWN': 18, 'ELIGIBLE': 26}
 
   jobs whose result changed: 1 of 44
-    570 Vultr          Technical Support Engineer               v1: REVIEW/UNKNOWN/COMPETITIVE  ->  v2: APPLY/ELIGIBLE/COMPETITIVE
+    570 Company U          Technical Support Engineer               v1: REVIEW/UNKNOWN/COMPETITIVE  ->  v2: APPLY/ELIGIBLE/COMPETITIVE
 
 == Reading of the numbers (not a verdict)
 - REVIEW 40 of 44. Fit INSUFFICIENT on 35: 184 of 442 negotiable requirements unknown (147 the model's own

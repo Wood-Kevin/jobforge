@@ -41,6 +41,11 @@ class Paths:
         return self.root / "run"
 
     @property
+    def auth(self) -> Path:
+        """ChatGPT sign-in tokens, DPAPI-encrypted, in a user-only folder like run (SPEC D18)."""
+        return self.root / "auth"
+
+    @property
     def lock(self) -> Path:
         return self.run / "agent.lock"
 
@@ -49,7 +54,7 @@ class Paths:
         return self.run / "ipc.json"
 
     def ensure(self) -> None:
-        for d in (self.data, self.logs, self.backups, self.run):
+        for d in (self.data, self.logs, self.backups, self.run, self.auth):
             d.mkdir(parents=True, exist_ok=True)
 
 

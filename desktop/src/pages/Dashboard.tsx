@@ -14,6 +14,8 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const evaluation = useLive(api.evaluationStatus, [], ["evaluation_done", "evaluation_failed", "evaluations_queued"], 15_000);
   const recs = useLive(() => api.jobs("recommended", "", 500), [], ["recommendation_computed"]);
   const gold = useLive(api.goldenReport, [], ["golden_labeled", "recommendation_computed"]);
+  const models = useLive(api.modelConfigs, [], ["model_step_changed", "model_config_enabled", "model_config_disabled"], 15_000);
+  const usage = useLive(api.modelUsage, [], ["evaluation_done", "analysis_done"], 60_000);
   // "Needs your input" counts two kinds of job (UX redesign step 3: Status said 9 while the page said 8): those
   // with a question for you, and those whose only open lines JobForge couldn't settle (no answer helps).
   const questions = useLive(api.reviewQuestions, [], ["recommendation_computed", "profile_changed", "golden_labeled"]);
@@ -22,6 +24,7 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const act = useAction();
   const accuracyTools = useAccuracyTools();
 
+  const cloudIds = new Set((models.data ?? []).filter((c) => c.provider_kind === "chatgpt").map((c) => c.id));
   const h = health.data;
   const d = disc.data;
   const enabled = (d?.employers ?? []).filter((e) => e.enabled);
@@ -29,7 +32,11 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const watched = enabled.length + (b?.enabled ?? 0);
   const counts: Record<string, number> = {};
   for (const j of recs.data?.jobs ?? []) counts[j.recommendation!.recommendation] = (counts[j.recommendation!.recommendation] ?? 0) + 1;
-  const gate = Object.values(evaluation.data?.inference ?? {})[0] ?? Object.values(analysis.data?.inference ?? {})[0];
+  // The model on this PC is the fallback step's config; ChatGPT configs in use are reported separately (SPEC D18).
+  const local = models.data?.find((c) => c.steps.includes("fallback"));
+  const gates = { ...(analysis.data?.inference ?? {}), ...(evaluation.data?.inference ?? {}) };
+  const gate = local ? gates[String(local.id)] : Object.values(gates)[0];
+  const cloudOut = models.data?.find((c) => c.provider_kind === "chatgpt" && c.out && c.steps.length > 0);
   const waitingAi = (analysis.data?.counts.pending ?? 0) + (evaluation.data?.counts.pending ?? 0);
   const lastCheck = Math.min(...enabled.map((e) => e.last_success_age_s ?? Infinity), b?.last_success_age_s ?? Infinity);
 
@@ -43,6 +50,11 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   if (sup && sup.state !== "running") problems.push("JobForge's background service is not running.");
   if (h?.discovery_paused) problems.push("Checking for new jobs is paused.");
   if (gate && gate.up === false) problems.push(`The AI model isn't reachable (LM Studio closed or its server stopped). ${waitingAi} postings are waiting; they'll be read automatically when it's back.`);
+  if (cloudOut) problems.push(cloudOut.out === "capped"
+    ? "Your ChatGPT plan is at its usage limit. JobForge is using the model on this PC meanwhile and checks those jobs again with ChatGPT afterwards."
+    : cloudOut.out === "signed_out" || cloudOut.out === "chatgpt_auth_rejected"
+      ? "JobForge is signed out of ChatGPT. Sign in again in Preferences; until then it uses the model on this PC."
+      : "ChatGPT isn't answering. JobForge is using the model on this PC meanwhile.");
   if ((evaluation.data?.pending_waiting_for_disabled_config ?? 0) + (analysis.data?.pending_waiting_for_disabled_config ?? 0) > 0)
     problems.push("The AI model is turned off, so postings aren't being read. Turn it on in Preferences.");
   for (const e of enabled) {
@@ -99,6 +111,10 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
         </table>
         <h3>AI model queue</h3>
         <p className="muted">Postings: {fmt(analysis.data?.counts)} · Matches against your profile: {fmt(evaluation.data?.counts)}</p>
+        {(usage.data?.rows ?? []).some((r) => cloudIds.has(r.model_config_id)) && (<>
+          <h3>ChatGPT requests</h3>
+          <p className="muted">{usageLine(usage.data!.rows.filter((r) => cloudIds.has(r.model_config_id)))} OpenAI doesn't publish how
+            these count against your plan; you can set a weekly limit for JobForge in ChatGPT's settings.</p></>)}
         <h3>Companies</h3>
         {b && b.total > 0 && (
           <p className="muted">Built-in list: {b.watching ? `${b.enabled} watched, checked about once a day; ${b.checked_once} checked at least once.` : `turned off (${b.total} companies).`}
@@ -122,4 +138,14 @@ function fmt(c: Record<string, number> | undefined): string {
   if (!c || Object.keys(c).length === 0) return "none yet";
   const words: Record<string, string> = { done: "done", pending: "waiting", running: "in progress", failed: "failed", superseded: "replaced" };
   return Object.entries(c).map(([k, v]) => `${v} ${words[k] ?? k}`).join(", ");
+}
+
+// Today and the last 7 days, from the answers stored on each row (agent inference/configs.usage).
+function usageLine(rows: { day: string; calls: number; input_tokens: number; output_tokens: number }[]): string {
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const sum = (rs: typeof rows) => ({ calls: rs.reduce((a, r) => a + r.calls, 0), tokens: rs.reduce((a, r) => a + r.input_tokens + r.output_tokens, 0) });
+  const t = sum(rows.filter((r) => r.day === today));
+  const w = sum(rows);
+  return `Today: ${t.calls} requests (${t.tokens.toLocaleString()} tokens). Last 7 days: ${w.calls} requests (${w.tokens.toLocaleString()} tokens).`;
 }

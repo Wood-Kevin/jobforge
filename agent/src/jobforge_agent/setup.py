@@ -9,6 +9,8 @@ import sqlite3
 
 import yaml
 
+from jobforge_agent.inference import steps
+
 # A careers link -> (board kind, company id on that board). Only the three reviewed sources.
 _BOARD_URL = [
     ("greenhouse", re.compile(r"(?:boards|job-boards)(?:\.eu)?\.greenhouse\.io/(?:embed/job_board\?for=)?([A-Za-z0-9_-]+)", re.I)),
@@ -79,9 +81,10 @@ def status(conn: sqlite3.Connection) -> dict:
     """Which setup steps are done; the window shows the setup guide until the first three are."""
     employers = conn.execute("SELECT count(*) FROM employers WHERE enabled = 1").fetchone()[0]
     profile = conn.execute("SELECT version FROM search_profiles ORDER BY version DESC LIMIT 1").fetchone()
-    default = conn.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
+    # The model on this PC (the fallback step, SPEC D18): setup step 3 turns it on; ChatGPT is optional, in Settings.
+    local = steps.configured(conn, steps.FALLBACK)
     model = conn.execute("SELECT name, model_id, base_url, enabled, tested_at_ms FROM model_configs WHERE id = ?",
-                         (int(default[0]) if default and default[0].isdigit() else -1,)).fetchone()
+                         (local if local is not None else -1,)).fetchone()
     items = conn.execute("SELECT count(*) FROM experience_items WHERE kind <> 'eligibility'").fetchone()[0]
     facts, facts_verified = conn.execute(
         "SELECT count(*), coalesce(sum(status = 'verified'), 0) FROM experience_items WHERE kind = 'eligibility'").fetchone()

@@ -73,6 +73,8 @@ recs = q(f"SELECT rc.*, j.id AS job_id, j.company, j.title FROM ({LATEST}) le JO
 print("  by recommendation:", dict(Counter(r["recommendation"] for r in recs)))
 print("  by eligibility:", dict(Counter(r["eligibility"] for r in recs)))
 print("  by fit:", dict(Counter(r["fit"] for r in recs)))
+print("  STRETCH from requirements the profile does not show (rules v4, `unshown`; never SKIP):",
+      sum(1 for r in recs if r["fit"] == "STRETCH" and json.loads(r["fit_counts"]).get("unshown")))
 print("  by opportunity:", dict(Counter(r["opportunity"] for r in recs)))
 print("  decisive rule:", dict(Counter(json.loads(r["decisive_reasons"])[0]["name"] for r in recs)))
 print("  recommendations by rule version:", dict(q("SELECT verdict_rule_version, count(*) FROM recommendations GROUP BY 1")))

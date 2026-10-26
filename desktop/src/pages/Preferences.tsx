@@ -1,6 +1,6 @@
 // Preferences (P1.8b): the same plain forms as first-run setup. No JSON, no patterns: the search
 // profile form keeps any tuned patterns it does not show (agent: filtering/simple.py).
-import { CompaniesCard, ModelCard, SearchFormCard } from "../settings";
+import { ChatGPTCard, CompaniesCard, ModelCard, SearchFormCard } from "../settings";
 import { Card, ErrorBox, PageHeader, useAction } from "../ui";
 import { useAccuracyTools, writeAccuracyTools } from "../viewPrefs";
 
@@ -12,6 +12,7 @@ export default function Preferences({ onSetup }: { onSetup: () => void }) {
       <SearchFormCard />
       <CompaniesCard />
       <ModelCard />
+      <ChatGPTCard />
       <AccuracyToolsCard />
     </div>
   );

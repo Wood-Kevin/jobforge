@@ -66,6 +66,8 @@ class EvaluationWorker:
         return r
 
     async def run_once(self) -> str | None:
+        # First, so sync() queues on the matching step's config as it is now (own or fallback, SPEC D18).
+        await self.gate.recheck_due(self.conn)
         try:
             self.sync()
         except Exception as exc:  # visible in the error log; claiming below and posting analysis go on
@@ -131,6 +133,7 @@ class EvaluationWorker:
                         await self.before_call()
                     self.calls += 1
                     result = await self.client.chat(cfg, msgs, fmt)
+                    self.gate.call_ok(cfg)
                     attempts.append({"content": result.content, "finish_reason": result.finish_reason,
                                      "usage": result.usage, "seconds": result.seconds, "model": result.model_reported})
                     if result.finish_reason == "length":
@@ -162,8 +165,10 @@ class EvaluationWorker:
             store.release(self.conn, c, spend_attempt=False, error="agent stopping", now=self.now_ms())
             raise
         except InferenceError as exc:
-            if exc.kind == "unavailable":
-                self.gate.mark_down(cfg, exc.detail)
+            if exc.kind in ("unavailable", "capped"):
+                # A cloud config that is out moves the matching step to its fallback: the next sync()
+                # supersedes this row and queues the job on the fallback config (store._STALE_PENDING).
+                self.gate.mark_down(cfg, exc.detail, capped=exc.kind == "capped")
                 status = store.release(self.conn, c, spend_attempt=False, error=f"deferred: {exc.detail}", now=self.now_ms())
                 self.log.info("evaluation_deferred", evaluation_id=c.evaluation_id, job_id=c.job_id, status=status)
                 return "deferred"

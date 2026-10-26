@@ -27,6 +27,7 @@ from jobforge_agent.db import textpack
 from jobforge_agent.filtering import rules
 from jobforge_agent.filtering.profile import CompiledProfile, compile_profile
 from jobforge_agent.filtering.salary import Salary
+from jobforge_agent.inference import steps
 
 # Keyed by the rules text, not the row id: ids repeat across databases (tests, restores).
 _compiled: dict[str, CompiledProfile] = {}
@@ -48,9 +49,10 @@ def active_profile(conn: sqlite3.Connection) -> ActiveProfile | None:
     return ActiveProfile(row[0], row[1], _compiled[row[2]])
 
 
-def default_model_config_id(conn: sqlite3.Connection) -> int | None:
-    row = conn.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
-    return int(row[0]) if row and row[0].isdigit() else None
+def reading_config_id(conn: sqlite3.Connection) -> int | None:
+    """The config new posting analyses are queued on: the posting-reading step's own config (SPEC D18). While it
+    is a cloud config that is out, the analysis worker runs its rows on the fallback (analysis/store.claim)."""
+    return steps.configured(conn, "e1")
 
 
 # A job whose posting text was dropped but is wanted again: a search profile exists and the current
@@ -93,11 +95,15 @@ def job_view(conn: sqlite3.Connection, job_id: int) -> tuple[rules.JobView, int,
 
 
 def queue_analysis(conn: sqlite3.Connection, job_id: int, raw_id: int, model_config_id: int, now: int) -> bool:
-    """Queue analysis of the job's current posting version; True if a new pending row was created."""
+    """Queue analysis of the job's current posting version; True if a new pending row was created.
+    A posting already read at these versions is not read again, whichever config read it (SPEC D18: a reading
+    the fallback made while the cloud was out stays, and pointing the step at another model does not re-read
+    every posting). Only a failure on another config is tried again on this one."""
     exists = conn.execute(
-        "SELECT 1 FROM posting_analyses WHERE raw_posting_id = ? AND model_config_id = ? AND extraction_prompt_version = ? "
-        "AND segmenter_version = ? AND interpreter_version = ?",
-        (raw_id, model_config_id, EXTRACTION_PROMPT_VERSION, SEGMENTER_VERSION, INTERPRETER_VERSION)).fetchone()
+        "SELECT 1 FROM posting_analyses WHERE raw_posting_id = ? AND extraction_prompt_version = ? "
+        "AND segmenter_version = ? AND interpreter_version = ? "
+        "AND (model_config_id = ? OR status IN ('pending', 'running', 'done'))",
+        (raw_id, EXTRACTION_PROMPT_VERSION, SEGMENTER_VERSION, INTERPRETER_VERSION, model_config_id)).fetchone()
     if exists:
         return False
     conn.execute("UPDATE posting_analyses SET status = 'superseded' WHERE job_id = ? AND status = 'pending'", (job_id,))
@@ -115,7 +121,7 @@ def queue_current_analyses(conn: sqlite3.Connection, now: int) -> int:
     analysis/store.stored_extraction an interpreter-only change needs no model call. Caller holds the
     transaction. Returns how many were queued."""
     profile = active_profile(conn)
-    model_id = default_model_config_id(conn)
+    model_id = reading_config_id(conn)
     if profile is None or model_id is None:
         return 0
     rows = conn.execute(
@@ -191,7 +197,7 @@ def filter_jobs(conn: sqlite3.Connection, job_ids: list[int], now: int, *, emit_
                 textpack.drop(conn, raw[0])
         return None
     stats = FilterStats()
-    model_id = default_model_config_id(conn)
+    model_id = reading_config_id(conn)
     for job_id in job_ids:
         filter_job(conn, job_id, profile, now, stats, model_id, emit_events)
     return stats

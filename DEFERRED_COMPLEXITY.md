@@ -176,13 +176,13 @@ All entries below are PROPOSED with the DRAFT spec (2026-10-21, rev 4) and need 
 - **Trigger:** The first route or UI that changes `model_configs.params`, `model_id` or `base_url`.
 
 ## Recall rows are stored for every uncovered eligibility sentence (P1.6)
-- **What:** The recall scan (D15) stores an `unextracted_eligibility` row for each eligibility-cue sentence the model did not cover, including good news ("We do sponsor visas!", Anthropic) and negations ("No clearance required"). Each row carries the code's reading (`cue_polarity`, class), but E2 does not decide which ones should make eligibility UNKNOWN.
+- **What:** The recall scan (D15) stores an `unextracted_eligibility` row for each eligibility-cue sentence the model did not cover, including good news ("We do sponsor visas!", Company B) and negations ("No clearance required"). Each row carries the code's reading (`cue_polarity`, class), but E2 does not decide which ones should make eligibility UNKNOWN.
 - **Why deferred:** That is an assessment decision (P1.7, 6.5): e.g. a sponsorship sentence matters only if the profile says sponsorship is needed. Dropping rows in E2 would hide model misses, the failure D15 exists for.
 - **Trigger:** P1.7 eligibility rules; the golden-set REVIEW share (Q16) shows how many REVIEWs come from recall rows.
 - **Resolved in P1.7:** E5 decides (ARCHITECTURE 6.5, "Points the rules above leave open"): negated rows are ignored, rows met by a verified fact pass, everything else is UNKNOWN, never a block. The rows stay in E2 unchanged.
 
 ## A type-only interpretation conflict makes a job REVIEW whatever the profile says (P1.7)
-- **What:** 6.5 says any conflicting hard requirement makes eligibility UNKNOWN. In the P1.7 live run, every Vultr posting's state-list residency rule is a `conflict` only because Gemma typed it `work_authorization` (code: `residency`); the verified residency fact meets it, yet the job is REVIEW with a question no profile answer can resolve. `scripts/verify_evaluation.py` prints how many REVIEWs have no other cause.
+- **What:** 6.5 says any conflicting hard requirement makes eligibility UNKNOWN. In the P1.7 live run, every Company U posting's state-list residency rule is a `conflict` only because Gemma typed it `work_authorization` (code: `residency`); the verified residency fact meets it, yet the job is REVIEW with a question no profile answer can resolve. `scripts/verify_evaluation.py` prints how many REVIEWs have no other cause.
 - **Why deferred:** It is Kevin's rule (D7, 6.5) and the safe direction (never a wrong ELIGIBLE). A candidate change: for a conflict whose only disagreement is the eligibility type, check the requirement under both types and treat it as answered only if verified facts meet both; it would still never block. That is a new verdict rule version, decided by Kevin.
 - **Trigger:** Kevin's decision, or the golden-set REVIEW share (Q16) showing these as "obvious" REVIEWs.
 - **Resolved 2026-10-23:** Kevin made v2 active after the measurement. Before that it was **built, not active (P1.7, Kevin asked for it to be built and measured):** `verdict_rules/v2.yaml` (`eligibility.type_only_conflict: check_both`), layer-B cases and a DB test; `VERDICT_RULE_VERSION` stays `v1`. `scripts/compare_verdict_rules.py DATA_DIR v1 v2` recomputes both in a temporary copy (zero model calls) and lists every job whose result changes. Switching is a one-line version change plus a recompute.
@@ -342,7 +342,7 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Candidate changes, not decided:** the E3 prompt stating when `direct` applies; an E4 check that a `direct`
   citation names the requirement's technology; years from qualifying roles only; the years tolerance in
   `verdict_rules` (a shortfall is minor if at most 2 years *or* at most 40%, so 1.83 of "3-5 years" is minor).
-- **Added 2026-10-24 (case F1, HumanSignal):** a COMPETITIVE fit, so APPLY, with zero direct matches. Rule
+- **Added 2026-10-24 (case F1, Company H):** a COMPETITIVE fit, so APPLY, with zero direct matches. Rule
   `assess.fit` asks only for no material gap and at most 2 unknowns, so 5 transferable bridges (Azure to AWS,
   "scheduled scripting" to Python/JavaScript, VPN troubleshooting to container and browser debugging) plus
   the Q2 gap are enough. It is the only such APPLY of 19 today. Candidate, not decided: a minimum direct share
@@ -352,19 +352,19 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   - Q3 (Re:Build, APPLY): "3-5 years ... Microsoft Defender, Purview, and Sentinel" is a minor gap because 1.83
     years of general IT is within the tolerance; the products are the qualifier and none is shown (requirement 1).
     As material: STRETCH.
-  - T1 (Hut 8, APPLY): about 4 months against "2 years or more" is minor. With `years_tolerance_abs: 2` no shortfall
+  - T1 (Company J, APPLY): about 4 months against "2 years or more" is minor. With `years_tolerance_abs: 2` no shortfall
     against a requirement of 2 years or less can be material; the comparison must include the tolerance alone.
-  - Bridgeway (D3, D4): the audit counted the two overclaims as `unknown`, which makes 3 unknowns and REVIEW. The
+  - Company D (D3, D4): the audit counted the two overclaims as `unknown`, which makes 3 unknowns and REVIEW. The
     prompt's own definitions make cited adjacent experience `transferable`, which leaves 1 unknown and APPLY.
     The comparison shows both readings; the expected value stays "not direct".
-  - R1-R2 (DDN, PDI, REVIEW with exactly 3 unknowns): the resume states communication and client-facing work, but
+  - R1-R2 (Company F, Company V, REVIEW with exactly 3 unknowns): the resume states communication and client-facing work, but
     no profile item does, and the resume suggester proposed none (all 179 open inbox suggestions come from
     evaluations, none from the resume). Not a matcher change: the matcher reads snapshot items only (D2) and
     requirement 5 forbids inferring them. Measured as resume-suggestion recall (`RESUME_PROMPT_VERSION`).
 - **Added 2026-10-24 (E2, cases E1-E2): eligibility lines the code does not type go to the matcher.** Across
   current recommendations, 61 lines in 43 jobs (34 of them REVIEW) were typed as eligibility by the model
   (work_authorization 43, travel 12, physical 4, sponsorship 1, license 1) and given no type by E2, so they were
-  matched as experience: 56 unknown, 5 transferable. the confirmed facts never see them. Nash "Technical Support
+  matched as experience: 56 unknown, 5 transferable. the confirmed facts never see them. Company N "Technical Support
   Specialist, US East Coast" (job 108580): "candidates must be located in the US in Eastern timezone" (1558) was
   typed residency and met by his Florida fact, while "Remote in Eastern US (required)" (1556) and "Located in US,
   eastern timezone (remote)" (1565) were not, and with "US Time (Eastern) ... 8A-5P" (1557, a schedule) made 3
@@ -380,8 +380,8 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   and type-only conflicts asking for the fact. Before/after: `scripts/compare_reading_fix.py`, same database copy,
   main's code vs the branch's, zero model calls, stored E3 answers reused; the before run reproduced all 17 stored
   recommendations. Result in `docs/calibration/reading_fix_before_after.txt`: 17 jobs re-read (95 not: text dropped
-  by the 7-day filter). APPLY 4 kept, 2 APPLY -> REVIEW (Bridgeway x2: an on-call duty joined to a SOC 2 line, now
-  asked), STRETCH 3 kept, REVIEW 8 kept; Nash unknown 3 -> 0 (fit INSUFFICIENT -> COMPETITIVE), now waiting on time
+  by the 7-day filter). APPLY 4 kept, 2 APPLY -> REVIEW (Company D x2: an on-call duty joined to a SOC 2 line, now
+  asked), STRETCH 3 kept, REVIEW 8 kept; Company N unknown 3 -> 0 (fit INSUFFICIENT -> COMPETITIVE), now waiting on time
   zone and schedule. Two earlier drafts were rejected by this comparison (round 1: benefit holidays and team prose
   "on-call" raised questions, 3 APPLY -> REVIEW; "Pacific Time Zone business hours" read as residency, a false fail).
   Not measured: golden labels (1 so far), E3 drift on rollout (11-14% baseline), jobs whose text was dropped.
@@ -395,9 +395,9 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Noise baseline, required before any before/after comparison (Kevin, 2026-10-24):** E3 answers move when
   unrelated profile text changes. Measured on the real data when he added one skill (item 55, AI tools) and then
   reworded it, on the 17 jobs re-scored each time: among requirements that cited item 55 in neither run, 24 of 212
-  (11%) changed match type between snapshots 111 and 115 and 27 of 190 (14%) between 113 and 115 (e.g. LiveKit's
-  scripting line direct, transferable, direct; Runlayer 1523 and 1530 direct to transferable; gaps to unknown on
-  Jobgether 1689, 1690, 1693). Between 114 and 115, where only the item's confirmation changed, 0 of 212 changed,
+  (11%) changed match type between snapshots 111 and 115 and 27 of 190 (14%) between 113 and 115 (e.g. Company M's
+  scripting line direct, transferable, direct; Company Q 1523 and 1530 direct to transferable; gaps to unknown on
+  Company K 1689, 1690, 1693). Between 114 and 115, where only the item's confirmation changed, 0 of 212 changed,
   but that is answer reuse, not a determinism result: the confirmation does not change the E3 request, so those
   answers were reused (`reused_from`, no model call). Whether an identical request re-sent to the model gives the
   same answer is not measured; the comparison needs that too (re-run a sample with reuse bypassed), to separate
@@ -418,7 +418,32 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Also dismissed the same day:** Dependabot alert 1 (`glib` < 0.20, moderate), as not used: glib is Tauri's Linux
   (GTK) dependency and JobForge builds only for Windows. Revisit if a Linux build is ever added.
 
-## Over-credit on practices the person lacks (2026-10-25)
+## Over-credit on practices the person lacks (2026-10-25) — partly fixed by E3 `m2-v1` and rules v4
+- **Fixed 2026-10-25 (branch `over-credit`):** E3 prompt `m2-v1` narrows "transferable" to the same task with
+  another tool or setting; rules v4 make many unknowns an `unshown` STRETCH (never SKIP) and tighten the years
+  tolerance to 1 year / 25% (ARCHITECTURE 6.3-6.5). Five models over-credited the same requirements, so the cause
+  was the prompt, not one model. What remains: Gemma still calls some named technologies "direct" (Python and SQL,
+  AWS managed services), so with Gemma the APPLY list barely moves; GPT-5.6-Luna under `m2-v1` was 19 of 25 right and
+  dropped the APPLYs on things the person lacks. Trigger for the rest: SPEC D18 (ChatGPT) or a larger local model.
+- **Before/after on the branch (2026-10-25, 40 real jobs, Gemma, `m2-v1` + v4, app's EvaluationWorker on a copy):**
+  APPLY 13 -> 8, STRETCH 11 -> 25 (19 `unshown`), REVIEW 12 -> 6, SKIP 4 -> 1. Not merged: the APPLY drop is the wrong
+  jobs. The v4 years tolerance exposed a masked defect: E4 counts years only from the items the model cites, and
+  models cite one role, so 0.92-1.0 years were shown where the person's IT roles add up to about 1.9 (four
+  support jobs demoted). v3's 2-year tolerance hid it. Gemma keeps APPLY on three jobs asking for skills the person
+  lacks (it calls "Python and SQL" direct) and lost evidenced SKIPs (now unknowns). Next: years across every item showing the
+  experience, then ship `m2-v1` + v4 with SPEC D18 (GPT-5.6-Luna gave a clean APPLY list under `m2-v1`).
+- **Years count, 2026-10-26 (E3 `m2-v2`, same branch):** the prompt now asks for every item that shows the
+  experience on a years requirement (ARCHITECTURE 6.3). Same 40 jobs with Gemma: APPLY 13 -> 9 (m2-v1: 8); Gemma
+  now cites all three IT roles on two jobs but still only two on three others ("technical support" requirements),
+  so those stay STRETCH on a 0.92-year count. GPT-5.6-Luna on the 7 years jobs: all three roles cited, the three
+  "2+ years" support jobs APPLY, the "3-5 years" operations job STRETCH (correct); it answered one "3+ years" line as
+  unknown (APPLY), a model error. Trigger:
+  Gemma's count is fixed only by a stronger model (SPEC D18 or the 64 GB machine); code adding up all roles was
+  rejected (it cannot tell which roles count).
+- **Rejected and parked: "Things you don't have"** (branch `absences`, commit 505c68e, not merged). A profile list
+  of absences applied in E4 (a new migration): accurate when filled in (Gemma 12 -> 21 of 25, in-sample), but Kevin:
+  "things you don't have is not a realistic fix for users" (nobody can list everything they lack). Could return as
+  an answer to a REVIEW question ("Do you have SQL?") rather than a list to fill in.
 - **What:** with roles now carrying their resume lines (r1-v2), both Gemma and gpt-oss still credit some requirements
   the person confirmed they do not meet: deep SQL, operating cloud managed services, sprint planning (Gemma), audit
   evidence preparation (Gemma). On six requirements the person answered, Gemma was right on 2, gpt-oss on 4, with the
@@ -431,6 +456,52 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Why deferred:** each changes recommendations; six answers are too few to choose between them.
 - **Trigger:** the person labels more requirements (Your call), or reports another job marked APPLY on something
   they lack.
+- **Measured 2026-10-25 (six local models, 17 jobs, 25 labeled requirements):** Qwen3.6 35B-A3B with reasoning off
+  was right on 17 of 25 with 2 over-credits, the same in two runs; Gemma 4 12B 11 with 13 over-credits. On a 12 GB GPU
+  Qwen spills to system memory (about 20 tok/s): E3 about 67 s per job, the resume read 172 s (limit 300), and E1
+  timed out on 4 of 20 postings at the 120 s limit. Not switched: see "Model server on another machine".
+
+## Model server on another machine (2026-10-25)
+- **What:** run LM Studio on a second machine on the home network with more memory (a 64 GB Mac is planned), so a
+  larger model such as Qwen3.6 35B-A3B fits in memory and runs at full speed, and point the model config's `base_url`
+  at it. The agent does not restrict `base_url` to loopback; the window has no field to change it, and the AI model
+  card's setup steps and "nothing is sent" wording assume this PC.
+- **Needs:** a way to set the server address (window or migration); SPEC/ARCHITECTURE note that prompts with profile
+  items then cross the local network as plain HTTP; the same 17-job, 25-label comparison rerun against that server.
+- **Rejected for now:** a free cloud API (Google AI Studio's unpaid tier may use and human-review prompts, and its terms
+  say not to send personal information); a paid cloud tier remains an option for users without a strong machine.
+- **Trigger:** the second machine is available.
+
+## ChatGPT integration: what the first build leaves open (2026-10-26, SPEC D18)
+- **Posting reading on ChatGPT is not ready (measured 2026-10-26):** E1 through GPT-5.6-Luna on 20 of the
+  person's postings, against the stored Gemma readings, app's own prompt, parser and E2 (copy of the data): every
+  quote found (477 of 477), and on the 248 lines both read, the class agreed on 239. But Luna listed 477
+  requirements to Gemma's 313: it takes the posting's duties ("administer Azure Virtual Desktop", "take ownership
+  of assigned support cases") and soft skills ("customer focus", "self-direction") as requirements, which Gemma
+  leaves out. Each one becomes a line to match, so more unknowns and more REVIEW. About 40 s and 1,650 input /
+  2,100 output tokens per posting. Keep posting reading on this PC. Trigger: an E1 prompt revision that tells
+  duties from requirements, measured on the same 20 postings with both models (an E1 change: version bump, and
+  the person's approval).
+- **A real cap was never observed:** the usage-limit codes and their shape come from the docs; the tests use a
+  recorded event of that shape. Trigger: the first `inference_capped` line in agent.jsonl; check the stored error
+  matches `CAP_CODES` and the wait (15 min doubling to 2 h) suits how fast the plan recovers.
+- **Resume suggestions, worst case:** a cloud call that times out (300 s) and then the fallback can outlast the
+  host's 330 s limit for that route; the window then shows a timeout though the agent finishes. Trigger: a report
+  of it; fix by a shorter cloud wait for that route or a background job.
+- **Usage by queue day:** `/v1/model-usage` dates calls by when the row was queued, not when the call ran (rows
+  keep no call time). Close enough for a daily view; trigger: plan usage questions that need exact times.
+- **Data controls unverified:** whether ChatGPT's data controls govern these requests is not in OpenAI's pages; the
+  window says to check them. Trigger: OpenAI documents it.
+
+## Cloud model with an API key (2026-10-25)
+- **What:** an `openai_compatible` config pointing at a paid cloud endpoint (OpenAI, or Gemini's
+  OpenAI-compatible endpoint on its paid tier) with an API key kept like the ChatGPT tokens (DPAPI, `auth\`).
+  The current client already speaks the format; it needs key storage, a key field, and handling for
+  rate-limit answers (429 as `capped`).
+- **Why deferred:** SPEC D18 uses the person's ChatGPT plan instead: no key, no second bill. An API key
+  matters only for people without a plan.
+- **Trigger:** someone the app is shared with has no ChatGPT plan, or plan usage turns out too small for
+  JobForge's volume.
 
 ## Answering a "Needs your input" question in place (2026-10-24; "Yes" part RESOLVED same day)
 - **Resolved (Kevin: "We should be able to answer the questions directly", meaning on "Needs your input"):** each
@@ -457,7 +528,7 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 
 ## Exact copies are analyzed once per copy (2026-10-24)
 - **What:** the list shows exact copies as one row (ARCHITECTURE "Noise control"), but each copy that passes the
-  filter still gets its own E1-E3 model run. Live: Bridgeway's two identical "System Administrator" postings were
+  filter still gets its own E1-E3 model run. Live: Company D's two identical "System Administrator" postings were
   both analyzed.
 - **Why deferred:** reusing an analysis across postings crosses the E1/E3 reuse rules (pinned prompt versions,
   a stored E3 answer reused only for a byte-identical request), so it needs its own design and tests; copies are

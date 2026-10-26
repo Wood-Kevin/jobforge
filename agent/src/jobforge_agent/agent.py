@@ -33,7 +33,9 @@ from jobforge_agent.filtering import rules as filter_rules
 from jobforge_agent.filtering import simple as simple_profile
 from jobforge_agent.filtering.profile import compile_profile, from_scanner_config
 from jobforge_agent.inference import configs as model_configs
-from jobforge_agent.inference.client import InferenceClient, load_config
+from jobforge_agent.inference import chatgpt_auth, steps
+from jobforge_agent.inference.chatgpt_auth import ChatGPTAuth
+from jobforge_agent.inference.client import InferenceClient, InferenceError, load_config
 from jobforge_agent.paths import Paths
 from jobforge_agent.profile import resumes as profile_resumes
 from jobforge_agent.profile import suggest as profile_suggest
@@ -85,6 +87,7 @@ class AgentRuntime:
         self.reader: AgentConnection | None = None
         self.evaluation_conn: AgentConnection | None = None
         self.inference: InferenceClient | None = None
+        self.chatgpt: ChatGPTAuth | None = None  # SPEC D18; tokens in paths.auth
         self.inference_transport = None  # tests inject a fake inference server here
         self.analysis: AnalysisWorker | None = None
         self.evaluation: EvaluationWorker | None = None
@@ -299,7 +302,7 @@ class AgentRuntime:
             if profile is None:
                 self.log.warning("refilter_skipped", reason="no search profile")
                 return
-            model_id = filter_pipeline.default_model_config_id(conn)
+            model_id = filter_pipeline.reading_config_id(conn)
             for i in range(0, len(job_ids), REFILTER_CHUNK):
                 conn.execute("BEGIN IMMEDIATE")
                 try:
@@ -338,7 +341,7 @@ class AgentRuntime:
         if got is None:
             return None
         _, raw_id, closed, kept = got
-        model_id = filter_pipeline.default_model_config_id(self.user)
+        model_id = filter_pipeline.reading_config_id(self.user)
         self.user.execute("BEGIN IMMEDIATE")
         try:
             self.user.execute("INSERT INTO filter_overrides (job_id, note, created_at_ms) VALUES (?, ?, ?)", (job_id, note, now_ms()))
@@ -432,15 +435,33 @@ class AgentRuntime:
         if len(text) > profile_suggest.MAX_TEXT_CHARS:
             raise profile_suggest.SuggestError(f"This resume is too long to read in one go ({len(text):,} characters; "
                                                f"the limit is {profile_suggest.MAX_TEXT_CHARS:,}).")
-        default = self.user.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
-        cfg = load_config(self.user, int(default[0])) if default else None
+        active = steps.active(self.user, "resume")
+        cfg = load_config(self.user, active) if active is not None else None
         if cfg is None or not cfg.enabled:
             raise profile_suggest.SuggestError("Turn on the AI model first (Setup, step 3).")
-        # One resume yields far more output than one posting: longer limits for this call only.
-        cfg = dataclasses.replace(cfg, params={**cfg.params, "timeout_s": max(cfg.timeout_s, profile_suggest.TIMEOUT_S),
-                                               "max_tokens": max(cfg.max_tokens, profile_suggest.MAX_TOKENS)})
-        mode = cfg.structured_output_mode
-        result = await self.inference_client().chat(cfg, profile_suggest.messages(text, mode), profile_suggest.response_format(mode))
+
+        async def ask(cfg):
+            # One resume yields far more output than one posting: longer limits for this call only.
+            cfg = dataclasses.replace(cfg, params={**cfg.params, "timeout_s": max(cfg.timeout_s, profile_suggest.TIMEOUT_S),
+                                                   "max_tokens": max(cfg.max_tokens, profile_suggest.MAX_TOKENS)})
+            mode = cfg.structured_output_mode
+            return cfg, await self.inference_client().chat(cfg, profile_suggest.messages(text, mode),
+                                                           profile_suggest.response_format(mode))
+        try:
+            cfg, result = await ask(cfg)
+        except InferenceError as exc:
+            # A cloud config that is out: this one request goes to the fallback at once (SPEC D18), and the gate
+            # moves the background steps too.
+            fallback = steps.configured(self.user, steps.FALLBACK)
+            if exc.kind not in ("unavailable", "capped") or cfg.provider_kind == "openai_compatible" or fallback in (None, cfg.id):
+                raise
+            if self.analysis is not None:
+                self.analysis.gate.mark_down(cfg, exc.detail, capped=exc.kind == "capped")
+            self.log.warning("resume_suggestions_fallback", model_config_id=cfg.id, error=exc.kind)
+            fb = load_config(self.user, fallback)
+            if fb is None or not fb.enabled:
+                raise
+            cfg, result = await ask(fb)
         if result.finish_reason == "length":
             raise profile_suggest.SuggestError("The model's answer was cut off (the resume is long for this model). "
                                                "Try a shorter resume, or raise max_tokens for the model.")
@@ -455,8 +476,83 @@ class AgentRuntime:
 
     def inference_client(self) -> InferenceClient:
         if self.inference is None:
-            self.inference = InferenceClient(self.inference_transport)
+            self.inference = InferenceClient(self.inference_transport, chatgpt=self.chatgpt_auth())
         return self.inference
+
+    def chatgpt_auth(self) -> ChatGPTAuth:
+        if self.chatgpt is None:
+            # Same transport as model calls, so tests can stand in for auth.openai.com too.
+            self.chatgpt = ChatGPTAuth(self.paths.auth, transport=self.inference_transport)
+        return self.chatgpt
+
+    # ----- ChatGPT and model steps (SPEC D18) -----
+
+    def chatgpt_status(self) -> dict:
+        assert self.reader is not None
+        return {**self.chatgpt_auth().status(), "steps": steps.listing(self.reader),
+                "configs": [c for c in model_configs.listing(self.reader) if c["provider_kind"] == "chatgpt"],
+                "default_model": chatgpt_auth.DEFAULT_MODEL}
+
+    async def chatgpt_sign_in(self) -> str:
+        """User action: start the sign-in; the window opens the returned URL in the system browser."""
+        return await self.chatgpt_auth().start_sign_in()
+
+    def chatgpt_sign_out(self) -> dict:
+        """User action: forget the tokens. Steps on ChatGPT move to the fallback at once (the gate marks the
+        configs out), and stay pointed at ChatGPT for the next sign-in."""
+        assert self.user is not None
+        removed = self.chatgpt_auth().sign_out()
+        if self.analysis is not None:
+            for c in model_configs.listing(self.user):
+                cfg = load_config(self.user, c["id"]) if c["provider_kind"] == "chatgpt" else None
+                if cfg is not None:
+                    self.analysis.gate.mark_down(cfg, "signed_out")
+        self.notify_events()
+        return {"signed_out": removed}
+
+    async def chatgpt_models(self) -> list[dict]:
+        return await self.inference_client().chatgpt_models(chatgpt_auth.RESOURCE)
+
+    async def use_chatgpt_model(self, slug: str) -> dict:
+        """User action: a config for one of the plan's models, tested (one small posting-reading call on the plan)
+        and turned on when the test passes. Does not point any step at it (set_model_step does)."""
+        assert self.user is not None
+        offered = {m["slug"]: m["display_name"] for m in await self.chatgpt_models()}
+        if slug not in offered:
+            raise LookupError(slug)
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            config_id = model_configs.upsert_chatgpt_config(self.user, slug, offered[slug])
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        report = await self.test_model_config(config_id)
+        if report and report["ok"]:
+            self.set_model_config_enabled(config_id, True)
+        return {"model_config_id": config_id, "test": report}
+
+    def set_model_step(self, step: str, config_id: int) -> dict:
+        """User action. Raises LookupError (unknown config) or ValueError (unknown step, config not turned on).
+        Pointing matching at another config queues every passing job for it on the next sync (D18: "be rejudged")."""
+        assert self.user is not None
+        self.user.execute("BEGIN IMMEDIATE")
+        try:
+            steps.set_step(self.user, step, config_id)
+            self.user.execute("INSERT INTO change_events (type, ref, created_at_ms) VALUES ('model_step_changed', ?, ?)",
+                              (json.dumps({"step": step, "model_config_id": config_id}), now_ms()))
+            self.user.execute("COMMIT")
+        except Exception:
+            self.user.execute("ROLLBACK")
+            raise
+        self.log.info("model_step_changed", step=step, model_config_id=config_id)
+        self.notify_events()  # wakes the workers
+        return {"steps": steps.listing(self.user)}
+
+    def model_usage(self, days: int = 7) -> dict:
+        assert self.reader is not None
+        since = now_ms() - days * 86_400_000
+        return {"days": days, "rows": model_configs.usage(self.reader, since)}
 
     def model_configs(self) -> list[dict]:
         assert self.reader is not None
@@ -798,4 +894,6 @@ class AgentRuntime:
         stop_task.cancel()
         await http.aclose()
         await self.inference_client().aclose()
+        if self.chatgpt is not None:
+            await self.chatgpt.close()
         self.paths.ipc.unlink(missing_ok=True)

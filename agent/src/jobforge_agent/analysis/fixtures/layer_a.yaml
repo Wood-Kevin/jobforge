@@ -69,7 +69,7 @@
 
 - id: imp_plus_under_qualifications
   area: importance
-  # Spike reference (Vultr): wording beats the heading; not a conflict when the model agrees.
+  # Spike reference (Company U): wording beats the heading; not a conflict when the model agrees.
   text: "Qualifications:\n- Experience with virtualization, networking, or software development is a plus."
   model: [{quote: "Experience with virtualization, networking, or software development is a plus", importance: preferred}]
   expect: {"Experience with virtualization, networking, or software development is a plus":
@@ -77,7 +77,7 @@
 
 - id: imp_parenthetical_preference
   area: importance
-  # Spike reference (GitLab): "preferably" qualifies the language, not the requirement.
+  # Spike reference (Company X): "preferably" qualifies the language, not the requirement.
   text: "Requirements:\n- Ability to use scripting languages (preferably Ruby or Bash)."
   model: [{quote: "Ability to use scripting languages (preferably Ruby or Bash)"}]
   expect: {"Ability to use scripting languages (preferably Ruby or Bash)": {final_class: negotiable, interpretation_status: confirmed}}
@@ -170,7 +170,7 @@
 
 - id: elig_citizen_model_says_clearance
   area: eligibility
-  # Spike: gpt-oss and qwen-think read GitLab's citizenship line as clearance.
+  # Spike: gpt-oss and qwen-think read Company X's citizenship line as clearance.
   text: "Requirements:\n- Must be a US citizen."
   model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: clearance}]
   expect: {"Must be a US citizen": {final_class: hard, interpretation_status: conflict, eligibility_type: work_authorization,
@@ -197,7 +197,7 @@
 
 - id: elig_reside_model_says_work_authorization
   area: eligibility
-  # Spike: Gemma read both residency blockers (Vultr, Keeper) as work_authorization.
+  # Spike: Gemma read both residency blockers (Company U, Company L) as work_authorization.
   text: "Requirements:\n- Must reside within reasonable commuting distance of our Los Angeles office."
   model: [{quote: "Must reside within reasonable commuting distance of our Los Angeles office", importance: hard,
            eligibility_type: work_authorization}]
@@ -318,7 +318,7 @@
 
 - id: benefits_section_residency_extracted
   area: eligibility
-  # P1.6 live (Lyft): the location rule sits under "Benefits:". It must stay a requirement.
+  # P1.6 live (Company Y): the location rule sits under "Benefits:". It must stay a requirement.
   text: "Benefits:\n- Medical, dental and vision.\n- This role is fully remote; candidates for this role must be based in the US."
   model: [{quote: "candidates for this role must be based in the US", importance: hard, eligibility_type: residency}]
   expect: {"candidates for this role must be based in the US": {final_class: hard, interpretation_status: confirmed,
@@ -326,7 +326,7 @@
 
 - id: compensation_section_residency_missed
   area: recall
-  # P1.6 live (Vultr): the state list sits under "Compensation"; the recall scan must see it.
+  # P1.6 live (Company U): the state list sits under "Compensation"; the recall scan must see it.
   text: "Compensation\n\nThe salary range is $80,000 to $100,000.\n\nWe are currently accepting applications from candidates residing in the following states: Florida, Texas."
   model: []
   recall: [residency]
@@ -340,8 +340,8 @@
 
 - id: secret_as_ordinary_word
   area: recall
-  # P1.6 dry run on 42 real postings: Supabase's "secret weapon" read as a clearance.
-  text: "About Supabase\n\nWe believe our globally distributed team is our secret weapon.\n\nRequirements:\n- Experience with secrets management."
+  # P1.6 dry run on 42 real postings: Company R's "secret weapon" read as a clearance.
+  text: "About Company R\n\nWe believe our globally distributed team is our secret weapon.\n\nRequirements:\n- Experience with secrets management."
   model: []
   recall: []
 
@@ -353,7 +353,7 @@
 
 - id: quote_joins_lead_in_and_bullet
   area: quote
-  # P1.6 live (Vultr, Gemma): lead-in line joined to one of its bullets, across a blank line.
+  # P1.6 live (Company U, Gemma): lead-in line joined to one of its bullets, across a blank line.
   text: "Qualifications\n\nDemonstrated understanding of:\n\n - Load balancing concepts\n\n - Core networking concepts"
   model: [{quote: "Demonstrated understanding of:\n\n - Core networking concepts"}]
   expect: {"Demonstrated understanding of:\n\n - Core networking concepts": {quote_found: true, interpretation_status: confirmed,
@@ -387,7 +387,7 @@
 
 - id: context_rows_ignore_importance_disagreement
   area: subject
-  # P1.6 live (Vultr): a perk the model called required with subject benefit.
+  # P1.6 live (Company U): a perk the model called required with subject benefit.
   text: "Benefits:\n- Increased PTO at 3 year anniversary + Anniversary Bonus each year"
   model: [{quote: "Increased PTO at 3 year anniversary + Anniversary Bonus each year", subject: benefit}]
   expect: {"Increased PTO at 3 year anniversary + Anniversary Bonus each year": {final_class: context, interpretation_status: confirmed,
@@ -395,7 +395,7 @@
 
 - id: bullets_inherit_lead_in_wording
   area: importance
-  # P1.6 live (Bitwarden): a preferred list inside the Requirements section.
+  # P1.6 live (Company Z): a preferred list inside the Requirements section.
   text: "What you bring\n\n- Excellent problem-solving skills\n\nFamiliarity with several of the following areas is preferred:\n\n- NGINX\n\n- SQL\n\nAbility to work remotely."
   model: [{quote: "NGINX", importance: preferred}, {quote: "Excellent problem-solving skills"}, {quote: "Ability to work remotely"}]
   expect:
@@ -403,7 +403,7 @@
     "Excellent problem-solving skills": {final_class: negotiable, interpretation_status: confirmed}
     "Ability to work remotely": {final_class: negotiable, interpretation_status: confirmed}
 
-# ----- P1.7 profile run: location rules the residency lexicon missed (Keeper, real lines) -----
+# ----- P1.7 profile run: location rules the residency lexicon missed (Company L, real lines) -----
 
 - id: elig_local_to_area
   area: eligibility

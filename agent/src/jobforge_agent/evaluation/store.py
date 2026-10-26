@@ -23,6 +23,7 @@ from jobforge_agent.analysis.segment import norm
 from jobforge_agent.evaluation import assess, facts, snapshot, validate
 from jobforge_agent.evaluation import match
 from jobforge_agent.evaluation.match import MAX_INFERRED_CLAIMS
+from jobforge_agent.inference import steps
 from jobforge_agent.inference.client import ModelConfig, load_config, request_body
 from jobforge_agent.evaluation.versions import MATCH_PROMPT_VERSION, VERDICT_RULE_VERSION
 from jobforge_agent.filtering import pipeline as filter_pipeline
@@ -67,14 +68,18 @@ _CANDIDATES = (
     "             AND fr.search_profile_id = ? AND fr.ruleset_version = ? AND fr.verdict = 'pass') "
     "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = pa.job_id)) "
     + _TEXT_KEPT +
-    # A superseded row does not count: reverting the profile to an earlier snapshot must queue it again.
+    # A superseded row does not count: reverting the profile to an earlier snapshot must queue it again. A done
+    # evaluation on the matching step's own config also counts while it runs on the fallback (SPEC D18): a job the
+    # cloud already judged keeps that verdict through an outage instead of being judged again on this PC.
+    # Parameters: snapshot id, active config, own config, prompt version.
     "AND NOT EXISTS (SELECT 1 FROM evaluations e WHERE e.posting_analysis_id = pa.id AND e.profile_snapshot_id = ? "
-    "                AND e.model_config_id = ? AND e.match_prompt_version = ? AND e.status <> 'superseded') "
+    "                AND (e.model_config_id = ? OR (e.model_config_id = ? AND e.status = 'done')) "
+    "                AND e.match_prompt_version = ? AND e.status <> 'superseded') "
     "ORDER BY pa.id")
 # Pending work that can no longer produce a current recommendation: the job closed, its posting has
 # a newer version (whose analysis queues its own evaluation when done), or it evaluates a profile
-# snapshot or model config that is no longer current (a reverted edit; independent P1.7 review).
-# Parameters: current snapshot id, default model config id.
+# snapshot or model config that is no longer current (a reverted edit; independent P1.7 review; the matching
+# step switched to or from its fallback, SPEC D18). Parameters: current snapshot id, active matching config id.
 _STALE_PENDING = (
     "UPDATE evaluations SET status = 'superseded', last_error = 'job closed, posting changed or profile no longer current' "
     "WHERE status = 'pending' AND (profile_snapshot_id <> ? OR model_config_id <> ? "
@@ -82,18 +87,20 @@ _STALE_PENDING = (
     "    JOIN jobs j ON j.id = pa.job_id WHERE pa.id = evaluations.posting_analysis_id))")
 
 # The evaluation a job's recommendation comes from: among its done evaluations of the current
-# posting, the one for the current profile snapshot and model config if there is one (a reverted
-# edit returns to an older, already done evaluation; independent P1.7 review), else the newest.
+# posting, the one for the current profile snapshot and the matching step's own config if there is one,
+# then the one on its active config (the fallback while the own config is out, SPEC D18), else the newest
+# (a reverted edit returns to an older, already done evaluation; independent P1.7 review).
 # Only open jobs that pass the active search profile or have an override (the same rule that
-# queues them). Parameters, in order: current snapshot id, model config id, search profile id,
-# ruleset version. Use latest_done_params().
+# queues them). Parameters, in order: snapshot id, own config, snapshot id, active config, search
+# profile id, ruleset version. Use latest_done_params().
 _LATEST_DONE = (
     "SELECT e.id, e.job_id FROM evaluations e JOIN posting_analyses pa ON pa.id = e.posting_analysis_id "
     "JOIN jobs j ON j.id = e.job_id "
     "WHERE e.status = 'done' AND j.closed_at_ms IS NULL AND pa.raw_posting_id = j.current_raw_posting_id "
     "AND e.id = (SELECT e2.id FROM evaluations e2 JOIN posting_analyses p2 ON p2.id = e2.posting_analysis_id "
     "            WHERE e2.job_id = e.job_id AND e2.status = 'done' AND p2.raw_posting_id = j.current_raw_posting_id "
-    "            ORDER BY (e2.profile_snapshot_id = ? AND e2.model_config_id = ?) DESC, e2.id DESC LIMIT 1) "
+    "            ORDER BY (e2.profile_snapshot_id = ? AND e2.model_config_id = ?) DESC, "
+    "                     (e2.profile_snapshot_id = ? AND e2.model_config_id = ?) DESC, e2.id DESC LIMIT 1) "
     "AND (EXISTS (SELECT 1 FROM filter_results fr WHERE fr.raw_posting_id = j.current_raw_posting_id "
     "             AND fr.search_profile_id = ? AND fr.ruleset_version = ? AND fr.verdict = 'pass') "
     "     OR EXISTS (SELECT 1 FROM filter_overrides fo WHERE fo.job_id = e.job_id))"
@@ -109,8 +116,10 @@ def current_snapshot_id(conn: sqlite3.Connection) -> int | None:
 
 def latest_done_params(conn: sqlite3.Connection, profile) -> tuple:
     sid = current_snapshot_id(conn)
-    cfg = filter_pipeline.default_model_config_id(conn)
-    return (-1 if sid is None else sid, -1 if cfg is None else cfg, profile.id, filter_rules.RULESET_VERSION)
+    sid = -1 if sid is None else sid
+    own, active = steps.configured(conn, "e3"), steps.active(conn, "e3")
+    own, active = -1 if own is None else own, -1 if active is None else active
+    return (sid, own, sid, active, profile.id, filter_rules.RULESET_VERSION)
 
 
 @dataclass
@@ -125,7 +134,12 @@ class SyncResult:
 def sync(conn: sqlite3.Connection, now: int) -> SyncResult:
     out = SyncResult()
     profile = filter_pipeline.active_profile(conn)
-    config_id = filter_pipeline.default_model_config_id(conn)
+    # The matching step's active config: its own, or the fallback while its own (cloud) config is out (SPEC D18).
+    # A switch either way supersedes pending rows on the other config (_STALE_PENDING) and queues every job whose
+    # latest evaluation is not on the active one, so jobs never wait on a cap, and jobs the fallback matched are
+    # matched again on the cloud config once it answers.
+    config_id = steps.active(conn, "e3")
+    own_id = steps.configured(conn, "e3")
     items, completeness = snapshot._current(conn)
     sha = snapshot.digest(items, completeness)
     existing = conn.execute("SELECT id FROM profile_snapshots WHERE sha256 = ?", (sha,)).fetchone()
@@ -133,7 +147,7 @@ def sync(conn: sqlite3.Connection, now: int) -> SyncResult:
     candidates = []
     if profile is not None and config_id is not None:
         probe = sid if sid is not None else -1  # no snapshot yet: every candidate is new
-        candidates = conn.execute(_CANDIDATES, (profile.id, filter_rules.RULESET_VERSION, probe, config_id,
+        candidates = conn.execute(_CANDIDATES, (profile.id, filter_rules.RULESET_VERSION, probe, config_id, own_id,
                                                 MATCH_PROMPT_VERSION)).fetchall()
     stale = conn.execute("SELECT count(*) FROM evaluations e JOIN posting_analyses pa ON pa.id = e.posting_analysis_id "
                          "JOIN jobs j ON j.id = pa.job_id WHERE e.status = 'pending' "
@@ -519,9 +533,15 @@ def job_recommendation(conn: sqlite3.Connection, job_id: int) -> dict | None:
                                                        "transfer_limits": m.transfer_limits, "gap_size": m.gap_size,
                                                        "gap_materiality": m.gap_materiality, "flags": m.flags}})
     pending = conn.execute("SELECT count(*) FROM evaluations WHERE job_id = ? AND status IN ('pending', 'running')", (job_id,)).fetchone()[0]
-    sid, cfg = latest_done_params(conn, profile)[:2]
-    return {"job_id": job_id, "evaluation": ev, "recommendation": _rec_row(rec) if rec else None, "evidence": table,
-            "current": ev["profile_snapshot_id"] == sid and ev["model_config_id"] == cfg,
+    sid, own, _, active = latest_done_params(conn, profile)[:4]
+    # Which AI judged the job (SPEC D18); `fallback`: the model on this PC, while the matching step's own (cloud)
+    # config was out.
+    name, kind = conn.execute("SELECT name, provider_kind FROM model_configs WHERE id = ?", (ev["model_config_id"],)).fetchone()
+    judged_by = {"name": name, "provider_kind": kind,
+                 "fallback": ev["model_config_id"] != own and steps.is_cloud(conn, own)
+                             and ev["model_config_id"] == steps.configured(conn, steps.FALLBACK)}
+    return {"job_id": job_id, "evaluation": ev, "judged_by": judged_by, "recommendation": _rec_row(rec) if rec else None, "evidence": table,
+            "current": ev["profile_snapshot_id"] == sid and ev["model_config_id"] in (own, active),
             "newer_evaluation_pending": bool(pending)}
 
 
@@ -536,14 +556,14 @@ def recommendation_list(conn: sqlite3.Connection, category: str | None, limit: i
     rows = conn.execute(
         "SELECT rc.recommendation, rc.eligibility, rc.fit, rc.opportunity, rc.rank_key, rc.decisive_reasons, rc.fit_counts, j.id AS job_id, "
         "j.title, j.company, j.location_text, rc.evaluation_id, "
-        "(e.profile_snapshot_id = ? AND e.model_config_id = ?) AS current, "
+        "(e.profile_snapshot_id = ? AND e.model_config_id IN (?, ?)) AS current, "
         "EXISTS (SELECT 1 FROM evaluations ep WHERE ep.job_id = j.id AND ep.status IN ('pending', 'running')) AS newer_evaluation_pending "
         "FROM (" + _LATEST_DONE + ") le JOIN evaluations e ON e.id = le.id "
         "JOIN recommendations rc ON rc.evaluation_id = le.id AND rc.search_profile_id = ? AND rc.verdict_rule_version = ? "
         "JOIN jobs j ON j.id = le.job_id WHERE (? IS NULL OR rc.recommendation = ?) "
         "ORDER BY CASE rc.recommendation WHEN 'APPLY' THEN 0 WHEN 'STRETCH' THEN 1 WHEN 'REVIEW' THEN 2 ELSE 3 END, "
         "rc.rank_key DESC, j.id LIMIT ?",
-        (params[0], params[1], *params, profile.id, VERDICT_RULE_VERSION, category, category, limit)).fetchall()
+        (params[0], params[1], params[3], *params, profile.id, VERDICT_RULE_VERSION, category, category, limit)).fetchall()
     return [{**dict(r), "decisive_reasons": json.loads(r["decisive_reasons"]), "fit_counts": json.loads(r["fit_counts"]), "current": bool(r["current"]),
              "newer_evaluation_pending": bool(r["newer_evaluation_pending"])} for r in rows]
 

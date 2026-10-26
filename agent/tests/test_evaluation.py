@@ -15,7 +15,7 @@ from jobforge_agent.analysis.worker import AnalysisWorker
 from jobforge_agent.db.connect import open_connection
 from jobforge_agent.db import recovery
 from jobforge_agent.evaluation import match, store
-from jobforge_agent.evaluation.versions import VERDICT_RULE_VERSION
+from jobforge_agent.evaluation.versions import MATCH_PROMPT_VERSION, VERDICT_RULE_VERSION
 from jobforge_agent.evaluation.worker import EvaluationWorker
 from jobforge_agent.inference.client import InferenceClient
 from jobforge_agent.profile import items as profile_items
@@ -84,7 +84,7 @@ def env(db, paths):
     ids = seed_basics(db)
     db.execute("UPDATE model_configs SET model_id = ?, tested_at_ms = ?, enabled = 1, "
                "params = '{\"max_tokens\": 4000, \"temperature\": 0, \"seed\": 7}' WHERE id = ?", (MODEL, NOW, ids["model"]))
-    db.execute("UPDATE settings SET value = ? WHERE key = 'default_model_config_id'", (str(ids["model"]),))
+    db.execute("UPDATE settings SET value = ? WHERE key LIKE 'model.%'", (str(ids["model"]),))
     db.execute("DELETE FROM experience_items")  # seed_basics adds one; each test builds its own profile
     ids["profile"] = db.execute("INSERT INTO search_profiles (version, rules, created_at_ms) VALUES (1, ?, ?) RETURNING id",
                                 (json.dumps(SEARCH), NOW)).fetchone()[0]
@@ -152,12 +152,12 @@ def test_end_to_end_recommendation_with_evidence_and_no_open_transaction(env, ca
     assert asyncio.run(e.run_once()) == "done"
     (ev,) = evals(env.db)
     assert (ev["status"], ev["attempts"], ev["match_prompt_version"], ev["model_id_reported"], ev["requested_by"]) == (
-        "done", 1, "m1-v1", MODEL, "pipeline")
+        "done", 1, MATCH_PROMPT_VERSION, MODEL, "pipeline")
     ms = matches(env.db, ev["id"])
     citizen = ms["Must be a US citizen"]
     assert (citizen["matched_by"], citizen["match_type"], citizen["basis"], citizen["citations"]) == ("eligibility_fact", "direct", "verified", [fact])
     linux = ms["3+ years of Linux administration experience"]
-    assert (linux["match_type"], linux["gap_materiality"]) == ("gap", "minor")  # 2 years short of 3: within tolerance
+    assert (linux["match_type"], linux["gap_materiality"]) == ("gap", "material")  # 2 years short of 3: beyond v4's 1 year / 25%
     assert "years_short_override" in flags(linux) and json.loads(linux["gap_size"])["years_shown"] == 1.0
     mon = ms["Experience with network monitoring tools"]
     assert (mon["match_type"], mon["basis"], mon["citations"]) == ("direct", "self_reported", [skill])
@@ -172,9 +172,11 @@ def test_end_to_end_recommendation_with_evidence_and_no_open_transaction(env, ca
     rec = dict(env.db.execute("SELECT * FROM recommendations").fetchone())
     assert (rec["evaluation_id"], rec["search_profile_id"], rec["verdict_rule_version"], rec["eligibility"]) == (
         ev["id"], env.ids["profile"], VERDICT_RULE_VERSION, "ELIGIBLE")
-    assert rec["fit"] == "COMPETITIVE" and rec["recommendation"] == "APPLY"  # 1 minor gap, 1 transferable, 0 unknown negotiable
+    assert rec["fit"] == "STRETCH" and rec["recommendation"] == "STRETCH"  # 1 material gap (years), the rest covered
     assert json.loads(rec["fit_counts"])["self_reported_covering"] == 1
-    assert "self-reported" in json.loads(rec["decisive_reasons"])[0]["detail"]
+    # v4: the years shortfall is material, so this is a STRETCH, not the APPLY whose reason names self-reported items
+    # (that note is covered by layer_b.yaml, "APPLY on self-reported items says so").
+    assert json.loads(rec["decisive_reasons"])[0]["detail"] == "1 material gap(s), the rest covered"
 
     # The eligibility row never reached the model; the profile's eligibility facts neither.
     body = json.loads(server.requests[-1].content)
@@ -219,7 +221,7 @@ def test_negotiable_eligibility_row_is_matched_by_code_not_the_model(env):
 
 
 def test_rules_v2_checks_a_type_only_conflict_under_both_readings(env):
-    """Lyft-style "must be based in the US", typed work_authorization by the model (P1.6 live)."""
+    """Company Y-style "must be based in the US", typed work_authorization by the model (P1.6 live)."""
     db, ids = env.db, env.ids
     posting = ("Requirements:\n- Candidates for this role must be based in the US.\n- 1+ years of help desk experience.\n"
                "- Experience with Active Directory.\n- Experience with ticketing systems.")
@@ -402,7 +404,7 @@ def test_match_version_bump_reruns_e4_e6_without_the_model(env, monkeypatch):
     monkeypatch.setattr(store, "MATCH_PROMPT_VERSION", "m1-vtest")  # e.g. an E4 change; same prompt text
     assert e.sync().queued == 1
     assert asyncio.run(e.run_once()) == "done" and server.chat_calls == calls
-    assert [r["match_prompt_version"] for r in evals(env.db)] == ["m1-v1", "m1-vtest"]
+    assert [r["match_prompt_version"] for r in evals(env.db)] == [MATCH_PROMPT_VERSION, "m1-vtest"]
 
 
 def test_changed_item_text_calls_the_model(env):
@@ -601,7 +603,7 @@ def test_match_prompt_changes_require_a_version_bump():
     from test_verdict import req
     text, _ = match.user_message("T", [req(1, min_years=2)], [Item(5, "role", "NOC", "verified", {}, 1.5, "2024-01", None)])
     digest = hashlib.sha256((match.SYSTEM + json.dumps(match.SCHEMA, sort_keys=True) + text).encode()).hexdigest()[:16]
-    assert (MATCH_PROMPT_VERSION, digest) == ("m1-v1", "60aeb05ba172f837")
+    assert (MATCH_PROMPT_VERSION, digest) == ("m2-v2", "869eabb0afec6e56")
 
 
 def test_parse_rejects_bad_ids_and_kinds():
@@ -622,7 +624,7 @@ def test_recommendation_routes(paths):
         owner = open_connection(paths.db, "migration")
         ids = seed_basics(owner)
         owner.execute("UPDATE model_configs SET model_id = ?, tested_at_ms = ?, enabled = 1 WHERE id = ?", (MODEL, NOW, ids["model"]))
-        owner.execute("UPDATE settings SET value = ? WHERE key = 'default_model_config_id'", (str(ids["model"]),))
+        owner.execute("UPDATE settings SET value = ? WHERE key LIKE 'model.%'", (str(ids["model"]),))
         pid = owner.execute("INSERT INTO search_profiles (version, rules, created_at_ms) VALUES (1, ?, ?) RETURNING id",
                             (json.dumps(SEARCH), NOW)).fetchone()[0]
         job, raw = add_job(owner, ids, 7, "NOC Engineer", desc=POSTING)

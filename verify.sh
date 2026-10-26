@@ -262,6 +262,40 @@ if run evaluation; then
     "$PY" "$ROOT/scripts/verify_evaluation.py" "$DATA"
 fi
 
+if run models; then
+  section "MODELS — which model each step uses, ChatGPT fallback, tokens (SPEC D18)"
+  probe "Step settings (model.e1 reading, model.e3 matching, model.resume, model.fallback) and the configs they name" \
+    sql "SELECT s.key, s.value, mc.name, mc.provider_kind, mc.model_id, mc.enabled FROM settings s
+          LEFT JOIN model_configs mc ON mc.id = CAST(s.value AS INTEGER) WHERE s.key LIKE 'model.%' ORDER BY s.key"
+  probe "Rows per step, config and status, last 7 days" \
+    sql "SELECT 'e1' AS step, pa.model_config_id, mc.provider_kind, pa.status, count(*) FROM posting_analyses pa
+          JOIN model_configs mc ON mc.id = pa.model_config_id
+          WHERE pa.created_at_ms > (strftime('%s','now') - 7*86400) * 1000 GROUP BY 2, 4
+          UNION ALL SELECT 'e3', e.model_config_id, mc.provider_kind, e.status, count(*) FROM evaluations e
+          JOIN model_configs mc ON mc.id = e.model_config_id
+          WHERE e.created_at_ms > (strftime('%s','now') - 7*86400) * 1000 GROUP BY 2, 4"
+  probe "Open jobs by the config of their latest done evaluation (the fallback's share while matching is on ChatGPT)" \
+    sql "SELECT e.model_config_id, mc.provider_kind, count(*) FROM evaluations e JOIN model_configs mc ON mc.id = e.model_config_id
+          JOIN jobs j ON j.id = e.job_id WHERE j.closed_at_ms IS NULL AND e.status = 'done'
+          AND e.id = (SELECT max(id) FROM evaluations WHERE job_id = e.job_id AND status = 'done') GROUP BY 1"
+  probe "Pending work on a ChatGPT config (drains to the fallback while ChatGPT is out)" \
+    sql "SELECT 'e1', count(*) FROM posting_analyses pa JOIN model_configs mc ON mc.id = pa.model_config_id
+          WHERE pa.status = 'pending' AND mc.provider_kind = 'chatgpt'
+          UNION ALL SELECT 'e3', count(*) FROM evaluations e JOIN model_configs mc ON mc.id = e.model_config_id
+          WHERE e.status = 'pending' AND mc.provider_kind = 'chatgpt'"
+  probe "Fallback and recovery log lines (model_fallback, inference_capped, model_cloud_retry, model_cloud_back, chatgpt_*)" \
+    bash -c "grep -hE 'model_fallback|inference_capped|model_cloud_retry|model_cloud_back|chatgpt_|analyses_moved_to_fallback|resume_suggestions_fallback' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -20"
+  if [[ -n "$PORT" ]]; then
+    probe "Each config with its steps and the gate's view (out = falling back)" api /v1/model-configs
+    probe "Model calls and tokens per day, config and step, 7 days" api /v1/model-usage
+  fi
+  probe "auth folder ACL (expect one entry: this user)" icacls "$DATA/auth"
+  probe "Token prefixes in the database, backups, logs and run folders (expect none)" \
+    "$PY" "$ROOT/scripts/verify_tokens.py" "$DATA"
+  probe "Tracked token files (expect empty)" \
+    bash -c "cd '$ROOT' && git ls-files | grep -iE 'chatgpt\.bin|host_id|(^|/)auth/' || echo '(no matches)'"
+fi
+
 if run profile; then
   section "PROFILE — verification times, resume round trip, no profile content in logs"
   probe "Verified items without a verification time (expect zero rows; CHECK constraint)" \

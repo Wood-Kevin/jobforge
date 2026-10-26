@@ -934,7 +934,7 @@ cannot reference it and it can never cover a requirement.
 **Gap materiality** (code, thresholds in `verdict_rules/vN.yaml`):
 - Gap on a preferred requirement: minor.
 - Gap on a negotiable requirement: material, except a years shortfall within
-  tolerance (proposed v1: short by at most 2 years or 40% of the ask), which is minor.
+  tolerance (v1-v3: short by at most 2 years or 40% of the ask; v4, 2026-10-25: at most 1 year or 25%), which is minor.
 
 ### 6.4 Pipeline E0-E6
 
@@ -967,7 +967,7 @@ compares it to the model's:
    A "must" inside a Preferred section is a conflict. Downgrading wording inside
    a Requirements section ("X is a plus" under "Qualifications") is not: the
    wording wins and is flagged `wording_overrides_section` (corrected in P1.6;
-   the spike reference labels the Vultr line preferred, and calling every such
+   the spike reference labels the Company U line preferred, and calling every such
    line a conflict would push routine postings toward INSUFFICIENT fit).
 4. **Subject.** Requirement text found in about / benefits / eeo sections, or
    a sentence whose subject is the company or team ("our customers", "we use",
@@ -1003,11 +1003,11 @@ compares it to the model's:
   terminal punctuation, no `field: value` colon). A lexicon heading gets its label; any other
   heading-shaped line after a blank line starts an `unknown` section (except a list lead-in: a
   line ending in ':' with more than 4 words or ending in "of", "with", "in", ...), so text under a heading the
-  lexicon does not know ("Logistics", which in Anthropic's postings holds the visa and office
+  lexicon does not know ("Logistics", which in Company B's postings holds the visa and office
   rules) is never swallowed by the benefits section before it. Inside `eeo` and `privacy` only a
   lexicon heading ends the section (legal notices have their own sub-headings). Labels add
   `privacy` to the list above, because check 7 excludes privacy text. Context labels (about,
-  benefits, eeo, privacy) are given only for unambiguous headings ("Join Vultr" is that
+  benefits, eeo, privacy) are given only for unambiguous headings ("Join Company U" is that
   posting's role description, so it stays `unknown`). Stored in `posting_analyses.sections` as
   `{version, headings, sections: [{label, heading, sentences}]}`; `headings = 0` is the
   low-confidence case. P1.6 dry run on the 42 queued real postings: 8 labels, 0-11 headings
@@ -1025,7 +1025,7 @@ compares it to the model's:
   for check 6 runs on the **quote**, not the sentence, so "5+ years of Linux; must be a US
   citizen" does not give the Linux requirement a work-authorization type. Parenthesised text is
   ignored for modality ("(preferably Ruby or Bash)" qualifies a choice). "Secret" counts as a
-  clearance cue only next to clearance wording (P1.6 dry run: Supabase's "our secret weapon").
+  clearance cue only next to clearance wording (P1.6 dry run: Company R's "our secret weapon").
   `requirements.flags` is a JSON list of `{flag, ...}`: the `conflict` flag carries
   `fields: [{field, model, cue}]`, i.e. both readings of every disagreement; other flags:
   `equivalence`, `years` (`values` = every branch), `years_disagree`, `ability_to_obtain`,
@@ -1036,22 +1036,22 @@ compares it to the model's:
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
   `quote_not_found`, `unextracted_eligibility`.
 - **`interp-v2` (P1.7, from the real profile run):** the residency lexicon also reads "be local to" / "local to the ... area,
-  office, region, metro, city, campus, site" and on-site / in-office attendance with a days-per-week count. Keeper's "be local
+  office, region, metro, city, campus, site" and on-site / in-office attendance with a days-per-week count. Company L's "be local
   to the El Dorado Hills area" and "on-site a minimum of 3 days per week" had reached Kevin as experience questions instead of
   eligibility. Not "data local to each node" or "provide on-site support" (layer-A controls). Precision check over all 13,493
   stored postings: 542 matching sentences, 127 distinct, a sample of 25 all genuine location or attendance conditions.
 - **Benefits and about text can hold eligibility conditions** (P1.6 live, 5 of the first 8
-  real postings: Vultr's state-residency list under "Compensation", Lyft's "must be based in the
+  real postings: Company U's state-residency list under "Compensation", Company Y's "must be based in the
   US" under "Benefits:"). A quote with an eligibility cue in a benefits or about section keeps the
   candidate subject (flag `eligibility_in_context_section`), and the recall scan reads those
   sections. Only EEO and privacy text is exempt. The first P1.6 design (benefits = context,
   not scanned, as D15 said) turned those blockers into `context`: a silent ELIGIBLE.
 - **List lead-in joined to a bullet** (flag `heading_joined_quote`): Gemma quoted
-  "Demonstrated understanding of:" + a later bullet on 7 of 15 items of Vultr's Linux
+  "Demonstrated understanding of:" + a later bullet on 7 of 15 items of Company U's Linux
   Systems Administrator posting despite the prompt rule. Located when the lead-in is its own
   line and the nearest preceding ':' line in the same section; the lead-in's wording is read
   for modality. A bullet under a different lead-in stays unverifiable. Every bullet also
-  inherits its lead-in's wording (E0 records `Sentence.lead`): Bitwarden lists 18 tools under
+  inherits its lead-in's wording (E0 records `Sentence.lead`): Company Z lists 18 tools under
   "Familiarity with several of the following ... is preferred:" inside its requirements section,
   which otherwise read as 18 importance conflicts.
 - **Context rows ignore other disagreements:** when both readings say a line is not about the
@@ -1125,11 +1125,31 @@ compares it to the model's:
   unrelated license (now one name must contain all the other's distinctive words); listings
   showed an older snapshot's recommendation with no label (rows now carry `current` and
   `newer_evaluation_pending`; the last result stays visible while a re-evaluation runs).
-- **E3 prompt `m1-v1`** (`match.py`): ids are prefixed (R1.., P<item id>) so the model cannot cite a
+- **E3 prompt `m2-v1`** (2026-10-25; was `m1-v1`): "transferable" means the SAME task or responsibility done
+  with another tool or in another setting; nearby work, a broader or narrower skill, or a named technology or
+  practice no item states is "unknown" (or "gap" when the profile clearly covers the area), and unsure means
+  unknown. A requirement listing several things is judged by its core, with missing details named in
+  `transfer_limits`. Why: five models (Gemma, Qwen, GPT-6.1 and GPT-5.6-Luna through the ChatGPT plan, a Claude
+  agent) gave related-experience credit for things the person confirmed they lack (SQL from database seed work,
+  SAML from Active Directory); `m1-v1` allowed any "ADJACENT experience". On 25 requirements the person labeled
+  (17 jobs): Gemma 12 -> 17 right (over-credits 12 -> 6), Luna 12 -> 19 (10 -> 3). A first version without the
+  multi-part rule made Luna fail lines like "Entra ID and AD, including SSO, MFA" over their details (7 misses).
+  Rejected: a list of things the person lacks (built on branch `absences`, not merged: a person cannot list
+  everything they lack); a stricter APPLY rule alone (moves the cloud models, not Gemma, whose error is "direct").
+  Gemma still calls some named technologies direct ("Python and SQL"); a stronger model is the remaining fix
+  (SPEC D18). Earlier description of `m1-v1`: ids are prefixed (R1.., P<item id>) so the model cannot cite a
   requirement as an item; the posting's located quote is sent, not the E1 paraphrase; the
   profile list excludes eligibility facts. Inferred claims (at most 5, deduplicated by statement)
   go to the inbox with the requirement ids they were proposed for. Pinned by a prompt hash test;
   schema lint covers this schema too.
+- **E3 prompt `m2-v2`** (2026-10-26): the years rule tells the model that code adds up the cited items' dates,
+  so for a requirement with a minimum number of years it cites EVERY item that shows the experience. Why: E4
+  counts years from cited items only (6.3), and under `m2-v1` models cited the two latest roles and left out the
+  longest, 0.92 of about 1.9 years, which rules v4's 1-year tolerance turned into material gaps. Measured on the
+  person's jobs (2026-10-26): GPT-5.6-Luna cited all three IT roles (three "2+ years" support jobs: 1.83 years, a
+  minor gap, APPLY); Gemma did on two jobs but still cited two roles on three others ("technical support"
+  requirements). Rejected: code adding up every role for a years requirement (code cannot tell which
+  roles are relevant; a long unrelated earlier role would count toward "5 years of HPC administration").
 - **E4** (`validate.py`): citations are inserted through `match_citations` inside a savepoint; an
   id outside the evaluated snapshot fails the FK, the match is validated again without it (flag
   `citation_rejected`), so an inferred claim or an invented id can never cover a requirement.
@@ -1185,7 +1205,11 @@ upgrade or break ties):
   unverifiable > 30% of extracted requirements, or conflicts > 3.
 - STRONG: 0 material gaps, every covered requirement direct, unknown <= 1.
 - COMPETITIVE: 0 material gaps, transferable allowed, unknown <= 2.
-- STRETCH: 1-2 material gaps (`max_stretch_gaps`), the rest covered.
+- STRETCH: 1-2 material gaps (`max_stretch_gaps`), the rest covered. Rules v4 (`fit.many_unknown: stretch`,
+  2026-10-25): once `min_judgeable` requirements are judged, too many unknowns make a STRETCH marked `unshown` in
+  the fit counts instead of INSUFFICIENT ("Some things not shown" in the window), and three or more evidenced
+  material gaps make WEAK before unknowns are counted. Under `m2-v1`, v3 sent 28 of 39 real jobs to REVIEW with no
+  question a person could answer.
 - WEAK: more than `max_stretch_gaps` material gaps on sufficient evidence.
 
 **Opportunity value**: each factor scores favorable / neutral / unfavorable /
@@ -1203,7 +1227,8 @@ words it, and a test pins those strings to `assess.py`.
 3. Eligibility UNKNOWN or fit INSUFFICIENT -> REVIEW, with the specific
    questions that would resolve it.
 4. Fit STRONG or COMPETITIVE -> APPLY.
-5. Fit STRETCH and opportunity LOW -> SKIP ("stretch, low value: <factors>").
+5. Fit STRETCH and opportunity LOW -> SKIP ("stretch, low value: <factors>"), except an `unshown` STRETCH (v4),
+   which is never skipped: SKIP still needs positive evidence (D7; property test runs v1-v4).
 6. Fit STRETCH -> STRETCH.
 
 Self-reported basis is never hidden: an APPLY carried by self-reported items
@@ -1220,7 +1245,7 @@ Exact copies (one employer posting the same job under several ids) show as one r
 title, location, and the description where it is kept; rejected postings keep no text and group on
 title and location). The shown copy is the one with an application, else the oldest. Nothing is
 merged in the database: each posting keeps its own link, closure and analysis. Rejected: merging at
-ingestion (loses a real posting's link and closure) and matching similar text (Voxel's "Tier 2" and
+ingestion (loses a real posting's link and closure) and matching similar text (Company T's "Tier 2" and
 "Tier 3 Support Engineer" share an intro but are different jobs).
 A job you skip leaves the default views (Kevin, 2026-10-24: skipped jobs "sit in the list taking up
 space and will probably get looked at more than once"). Skip, on a list row or the job's header, saves
@@ -1268,7 +1293,7 @@ not intuition.
   `opportunity` section of the search profile is optional and validated at save (Q8 data).
 
 **Measured in the P1.7 live run** (`docs/evidence/p1_7_evaluation_live.txt`): see the evidence
-file for the distribution. Every Vultr posting's state-list residency rule is an E2 `conflict`
+file for the distribution. Every Company U posting's state-list residency rule is an E2 `conflict`
 only because Gemma typed it `work_authorization`; under the rule "any conflicting hard
 requirement -> UNKNOWN" such a job is REVIEW whatever the profile says, a question no profile
 answer resolves. Left as written (it is Kevin's rule); the evidence file counts how many
@@ -1410,6 +1435,173 @@ database (exportable), never in the repo.
 - **Unavailable server.** Health probe gates claims; UI and tray show
   "evaluations paused"; recommendations still recompute (code only); per-call
   timeout 120 s; resumption is automatic (3.4).
+
+### 6.9 Cloud model through Sign in with ChatGPT (SPEC D18; agreed 2026-10-25, built 2026-10-26 on branch `chatgpt`, not released)
+
+**Source.** OpenAI developer docs, "Sign in with ChatGPT" for open-source and locally hosted apps
+(`developers.openai.com/siwc/token-sharing-open-source`), read 2026-10-25. It launched at DevDay on
+2026-09-29 and is a preview. Anything below marked *unverified* is not in those pages and gets measured in
+step 1 before it is relied on.
+
+**Steps and configs.**
+- A `settings` row per step replaces `default_model_config_id`: `model.e1`, `model.e3`, `model.resume`,
+  `model.fallback`. A migration copies the old value into all four, so behavior does not change until a
+  step is pointed elsewhere.
+- Each analysis, evaluation and resume read records the config that ran it, as today.
+- Queues claim per step through that step's *active* config: its own config while available, otherwise
+  `model.fallback`. The health gate (6.8) gains a "capped until" state for cloud configs.
+
+**Provider kind `chatgpt`.** A new column `model_configs.provider_kind` (`openai_compatible` for every
+existing row, or `chatgpt`; CHECK) picks the request format. `provider_label` stays display text.
+- **Request.** `POST https://api.openai.com/v1/responses` with `Authorization: Bearer <access token>`,
+  `store: false`, `stream: true` (both required by the docs).
+  - The same messages go in as `input`, and the same strict schema as `text.format` (`type: json_schema`,
+    `strict: true`). All three output schemas already meet strict mode (every property required,
+    `additionalProperties: false`, checked 2026-10-25).
+  - Reasoning: `reasoning.effort` per config, *unverified* for plan requests.
+- **Answer.** Success only on `response.completed`; the output text is parsed exactly as today.
+  - `response.incomplete` maps to `budget_exhausted`.
+  - `subscription_sharing_usage_limit_exceeded` and `subscription_sharing_usage_unavailable` map to a new
+    `capped` kind. Like `unavailable`, it does not spend an attempt; unlike `unavailable`, it moves the
+    step to the fallback. When the cloud config answers again, evaluations made by the fallback while the
+    cloud was capped or unavailable are queued again on it (superseding, as a profile change does).
+  - A broken stream maps to `unavailable`.
+- **Models.** `GET /v1/models` with the same token. The answer is `models[]` with `slug` and `display_name`
+  (not the usual `data[]` and `id`); entries with `visibility == "list"` are offered. The person picks from
+  that list; nothing is hard-coded.
+- **Stored answers.** Reuse keeps its rule: a byte-identical request body, model id included. A request
+  never reuses another model's answer.
+
+**Sign-in.**
+1. A stable `ext_agent_host_id` (random, stored once) identifies this PC.
+2. The agent starts a one-shot listener at `http://127.0.0.1:<port>/auth/callback`, never `localhost`.
+3. It builds the authorize URL (`auth.openai.com/api/accounts/authorize`, `client_id=dynamic_agent_client`
+   the first time, then the issued `oaiapp_...` id), with PKCE S256, fresh `state` and `nonce`, and
+   `resource=https://api.openai.com/v1`. Scopes: `openid profile email offline_access resource.invoke
+   chatgpt.tokens.use.direct`.
+4. The host opens the URL in the system browser (`open_url` allow-list gains `auth.openai.com`).
+5. On the callback the agent checks `state` and exchanges the code at `/api/accounts/oauth/token`, with no
+   client secret.
+6. It validates the ID token (JWKS signature, issuer, audience, expiry, nonce) and requires the
+   `chatgpt.tokens.use.direct` scope in the grant.
+7. The listener closes after one callback or 5 minutes.
+
+Refresh rotates the access and refresh tokens together. Sign-out deletes the token file and marks the
+config unavailable.
+
+**Token storage.** `auth\chatgpt.bin` holds the token set, encrypted with DPAPI (`CryptProtectData`,
+current user), in a folder restricted like `run\`. Written atomically.
+- Rejected: Windows Credential Manager, whose 2.5 KB blob limit is too small for an ID token plus a
+  refresh token.
+- Rejected: a database column; the database is not encrypted and is copied into backups.
+
+**What is sent (shown before sign-in).**
+
+| Step | What goes to OpenAI |
+|---|---|
+| E1 | Posting title and text |
+| E3 | Requirement lines and profile items |
+| Resume suggestions | Resume text |
+
+Eligibility facts are never sent: they are matched by code (6.4). The person's ChatGPT data controls
+probably govern these requests; that is *unverified*, so the window says to check them in ChatGPT
+settings.
+
+**Usage.** Each call's `usage` is already stored in the raw response. `/v1/model-usage` sums calls and
+tokens per day per config, and Status shows today and the last 7 days. How plan usage counts against the
+weekly allowance is not published. The first week of use is the measurement, and the person can set a
+per-app weekly cap in ChatGPT settings.
+
+**Window.**
+- The AI model card offers "This PC (LM Studio)" and "ChatGPT (your plan)".
+  - Sign in / Sign out, then a model list from `/v1/models`.
+  - Per step: Cloud or This PC.
+  - The plain-words list of what is sent.
+- The job page says which AI judged the job; when it was the fallback, "judged on this PC while ChatGPT was
+  unavailable".
+
+**Step 1 results (spike, 2026-10-25, one personal Plus account).**
+- **Sign-in:** works as documented.
+  - The callback carries `client_id` (an `oaiapp_...` id) and `scope`; the code exchange returned HTTP 200
+    with `access_token`, `refresh_token`, `id_token`, `expires_in` 3600, `scope`, and an undocumented
+    `earliest_refresh_at`, which the refresh logic must respect.
+  - The ID token's `nonce` matched. The plan-usage scope was granted.
+- **Models:** `/v1/models` answered `{"models": [...]}` with 7 listed slugs (GPT-5.6 and GPT-6 families).
+- **Request:** one E3 request (same messages, strict `json_schema` as `text.format`, `store: false`,
+  `stream: true`) on `gpt-6.1-sol` completed in 25-38 s.
+  - About 2,000 input and 1,150-1,580 output tokens.
+  - The answer parsed with the app's own E3 parser and E4-E6.
+  - Stream events: `response.output_text.delta` (about 1,100), `response.metadata`, `response.completed`
+    with `usage`. The `usage` block also carries a per-item `attribution` map.
+- **Reasoning:** `reasoning.effort: "none"` is rejected (HTTP 400, "Supported values are: 'low', 'medium',
+  'high', 'xhigh', and 'max'"). The default spent about 118 reasoning tokens, `low` 96, `high` 516; the
+  verdict was the same at each setting.
+- **Errors:** a bad token gets HTTP 401 `invalid_api_key` before any stream, so it must map to "signed
+  out", not `capped`. The usage-limit error was not observed (it cannot be forced from a test account).
+
+**Build steps (after AGREED).**
+1. **Spike:** sign in on a test account, then one E3 request from the 17-job set.
+   - Measure: strict schema honored? reasoning effort accepted? latency, `usage`, and the error shape
+     when signed out.
+   - Stop and report if structured output is refused.
+2. **Configs:** step configs, migration, claims by active config, fallback and `capped`, with tests (cap
+   then fallback; recovery; no attempt spent).
+3. **Sign-in and storage:** tokens and refresh, with tests (state mismatch, missing scope, expired token
+   refreshed once, token absent from logs).
+4. **Client:** Responses streaming for `chatgpt`, with tests on recorded streams (completed, incomplete,
+   usage limit, broken stream).
+5. **Window:** model card, job-page attribution, usage on Status.
+6. **Accuracy check:** the cloud model on the same 17 jobs and 25 labeled requirements (Qwen3.6 17/25,
+   Gemma 11/25), plus E1 on 20 postings. The person approves before any step's default changes.
+7. **Close-out:** `verify.sh` probes for the SPEC D18 rows, docs and release.
+
+**As built (2026-10-26).** Steps 2-5 and the `verify.sh models` section. Where the build differs from the plan
+above, this list is the current design:
+- **Code.** Migration 0011 (`provider_kind`, the four `model.*` settings; `default_model_config_id` removed),
+  `inference/steps.py` (configured and active config per step), `inference/chatgpt_auth.py` (sign-in, DPAPI
+  tokens, refresh), `inference/client.py` (Responses streaming for `chatgpt`), `HealthGate` in
+  `analysis/worker.py` (capped state, `steps.OUT`), routes `/v1/chatgpt*`, `/v1/model-steps`, `/v1/model-usage`,
+  the window's ChatGPT card (Preferences), the "Judged with ..." line on a job, ChatGPT problems and usage on
+  Status. Tests: `tests/test_chatgpt.py`.
+- **"Is it out" lives in memory.** `steps.OUT` (config id -> reason), written only by the health gate and cleared
+  when it is created. After a restart every config counts as available until a probe or a call says otherwise.
+  Rejected: a settings row the gate writes (the evaluation connection may not write settings, and a stale "out"
+  after a restart would hold work on the fallback for no reason).
+- **Fallback, matching.** `evaluation/store.sync` queues on the step's active config. While the own (cloud) config
+  is out, its pending rows are superseded and jobs are queued on the fallback; a job that already has a done
+  evaluation on the own config is not queued (it keeps the cloud's verdict through the outage), and the job
+  page prefers the own config's evaluation, then the active one's. When the cloud answers again, jobs the
+  fallback judged are queued on it (Kevin's choice).
+- **Fallback, posting reading.** Pending analyses of an out cloud config are handed to the fallback
+  (`analysis/store.move_pending`), and that reading stays. A posting already read at the current E1/E2 versions
+  is not read again on another config (`filtering/pipeline.queue_analysis`; before D18 a new default model re-read
+  every posting); a failure on another config is tried again.
+- **Fallback, resume suggestions.** One request: on `capped` or `unavailable` from a cloud config it is sent again
+  at once to the fallback.
+- **Cap timing.** OpenAI does not publish when a cap clears. A capped config is not probed (`/v1/models` answers
+  while capped): after 15 minutes it counts as available again and the next real call tells; each cap in a row
+  doubles the wait, up to 2 hours; a call that works resets it.
+- **ID token.** Issuer (`https://auth.openai.com`), audience (the issued `oaiapp_...` id, in a list), expiry and
+  nonce are checked; the JWKS signature is not. The token comes straight from the token endpoint over TLS, which
+  OpenID Connect Core 3.1.3.7 (item 6) accepts in place of the signature; checking it would add a JWT and crypto
+  dependency for no added assurance. Measured on the step-1 token: issuer and audience as above.
+- **Browser.** No change to the host's `open_url`: it already opens any `https` URL without credentials
+  (ARCHITECTURE 8), which includes `auth.openai.com`. The host allows `/v1/chatgpt/use-model` 330 s (it makes one
+  test call on the plan).
+- **Defaults.** Signing in changes no step. The ChatGPT card preselects `gpt-5.6-luna` and the person turns on a
+  model and chooses ChatGPT per step; the accuracy check (step 6) is still owed before any default changes.
+- **Usage.** `/v1/model-usage` counts calls and tokens from the answers stored on analysis and evaluation rows,
+  by the day the row was queued; reused answers are not calls. Resume suggestions keep no rows and are not counted
+  (their log line has the config).
+- **Request settings.** ChatGPT configs: `max_tokens` 16,000 (sent as `max_output_tokens`; reasoning counts
+  against it) and a 300 s wait; no `reasoning.effort` unless the config sets one ("none" is never sent).
+- **Live run (2026-10-26, a copy of the person's data, the agent's own routes and workers in-process).**
+  Sign-in tokens from step 1 refreshed; `/v1/chatgpt/models` listed 8 models; `use-model` tested `gpt-5.6-luna`
+  in 4.4 s; pointing matching at it queued 43 jobs, all done on the plan in 28.5 minutes (about 40 s each), 42
+  calls (one reused answer), about 97,000 input and 88,000 output tokens, no failures. Verdicts (E3 `m2-v2`,
+  rules v4), against the stored Gemma verdicts (`m1-v1`, v3): APPLY 13 -> 9, STRETCH 20 -> 24, REVIEW 5 -> 10,
+  SKIP 5 -> 0. Posting reading through Luna on 20 postings: DEFERRED, "ChatGPT integration: what the first
+  build leaves open". Not run live: the sign-in flow from the window, a real cap, and the sign-out drill.
 
 ---
 
@@ -1610,7 +1802,7 @@ postings, DB encryption, retention pruning.
 - ~~Q27 Spike reference labels~~ Resolved 2026-10-21 (Kevin): provisionally
   accepted for testing; the misses are reviewed independently before any
   golden-set use (6.7). Still open within that review: is "Location: Remote,
-  US (West Coast)" (Huntress) a residency requirement or a shift statement?
+  US (West Coast)" (Company I) a residency requirement or a shift statement?
 - ~~Q5 Docker setup~~ Obsolete (rev 4: no Docker).
 - ~~Q6 What counts as verified~~ 2026-10-21 default: Kevin's click in the UI only; optional evidence note, not required.
 - ~~Q7 Resume formats~~ 2026-10-21 default: Markdown, plain text, DOCX and PDF (text extracted, original bytes kept), per A6.
@@ -1656,9 +1848,9 @@ every miss: `spikes/p1_0/results/eval/REPORT.md`; raw outputs per model in
 `spikes/p1_0/results/eval/<model>__<mode>/`.
 
 *Material.* 6 representative postings the existing scanner kept on
-2026-10-21 (GitLab U.S. Government Support Engineer, Axonius SkillBridge
-Technical Support Engineer, Vultr Linux Systems Administrator, Huntress SOC
-Analyst, Keeper Security IT Support Tier 2, Tailscale Windows Engineer), plus
+2026-10-21 (Company X U.S. Government Support Engineer, Company C SkillBridge
+Technical Support Engineer, Company U Linux Systems Administrator, Company I SOC
+Analyst, Company L IT Support Tier 2, Company S Windows Engineer), plus
 the 22 interpretation snippets of 6.6 layer A. **Reference labels were written
 by Claude from the posting text before any model output existed; they are not
 the golden set** and should be reviewed by him. 32 probes (expected
@@ -1684,12 +1876,12 @@ Decision-critical probes (hard blockers and the one negation):
 
 | Probe | gemma fast | gpt-oss fast | qwen3-30b fast | qwen3-30b think |
 |---|---|---|---|---|
-| GitLab "must be a United States Citizen" | hard / work_authorization | hard / **clearance** | hard / work_authorization | hard / **clearance** |
-| Axonius "Active-duty ... DoD SkillBridge" | **MISSED** | hard / work_authorization | hard / work_authorization | hard / none |
-| Vultr "residing in the following states" | hard / **work_authorization** | hard / residency | hard / residency | hard / residency |
-| Keeper "reside within reasonable commuting distance" | hard / **work_authorization** | hard / **work_authorization** | hard / **none** | hard / **work_authorization** |
-| Keeper "lift up to 50 pounds" | hard / physical | **required** / none | **required** / none | hard / physical |
-| Tailscale "Prior Go expertise is not a requirement" | negated | **MISSED** | **MISSED** | **MISSED** |
+| Company X "must be a United States Citizen" | hard / work_authorization | hard / **clearance** | hard / work_authorization | hard / **clearance** |
+| Company C "Active-duty ... DoD SkillBridge" | **MISSED** | hard / work_authorization | hard / work_authorization | hard / none |
+| Company U "residing in the following states" | hard / **work_authorization** | hard / residency | hard / residency | hard / residency |
+| Company L "reside within reasonable commuting distance" | hard / **work_authorization** | hard / **work_authorization** | hard / **none** | hard / **work_authorization** |
+| Company L "lift up to 50 pounds" | hard / physical | **required** / none | **required** / none | hard / physical |
+| Company S "Prior Go expertise is not a requirement" | negated | **MISSED** | **MISSED** | **MISSED** |
 
 What the evidence says (n = 6 postings, one run each; differences of one to
 three probes between models are not meaningful):

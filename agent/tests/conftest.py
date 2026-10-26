@@ -18,6 +18,16 @@ def no_built_in_list(monkeypatch):
     monkeypatch.setenv("JOBFORGE_BUILT_IN_LIST", "0")
 
 
+@pytest.fixture(autouse=True)
+def no_config_out():
+    """inference/steps.OUT is process-wide (the health gate's view of which configs are out): each test starts
+    with none, as an agent does."""
+    from jobforge_agent.inference import steps
+    steps.OUT.clear()
+    yield
+    steps.OUT.clear()
+
+
 @pytest.fixture
 def paths(tmp_path) -> Paths:
     p = Paths(tmp_path / "jf")
