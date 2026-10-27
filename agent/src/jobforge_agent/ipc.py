@@ -337,6 +337,63 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
     async def disable_model_config(config_id: int):
         return _config_toggle(config_id, False)
 
+    # ----- ChatGPT and model steps (SPEC D18) -----
+
+    def _model_error(exc: InferenceError):
+        return JSONResponse({"error": f"ChatGPT did not answer ({exc.kind}: {exc.detail})", "kind": exc.kind}, status_code=503)
+
+    @app.get("/v1/chatgpt")
+    async def chatgpt_status():
+        return runtime.chatgpt_status()
+
+    @app.post("/v1/chatgpt/sign-in")
+    async def chatgpt_sign_in():
+        return {"authorize_url": await runtime.chatgpt_sign_in()}
+
+    @app.post("/v1/chatgpt/sign-out")
+    async def chatgpt_sign_out():
+        return runtime.chatgpt_sign_out()
+
+    @app.get("/v1/chatgpt/models")
+    async def chatgpt_models():
+        try:
+            return await runtime.chatgpt_models()
+        except InferenceError as exc:
+            return _model_error(exc)
+
+    @app.post("/v1/chatgpt/use-model")
+    async def use_chatgpt_model(request: Request):
+        body = await _body(request)
+        if not isinstance(body, dict) or not isinstance(body.get("slug"), str):
+            return JSONResponse({"error": "expected {\"slug\": \"<model>\"}"}, status_code=422)
+        try:
+            return await runtime.use_chatgpt_model(body["slug"])
+        except LookupError:
+            return JSONResponse({"error": "that model is not offered by your ChatGPT plan"}, status_code=404)
+        except InferenceError as exc:
+            return _model_error(exc)
+
+    @app.get("/v1/model-steps")
+    async def model_steps():
+        return runtime.chatgpt_status()["steps"]
+
+    @app.put("/v1/model-steps")
+    async def set_model_step(request: Request):
+        body = await _body(request)
+        if not isinstance(body, dict) or not isinstance(body.get("step"), str) or not isinstance(body.get("model_config_id"), int):
+            return JSONResponse({"error": "expected {\"step\": \"e1|e3|resume|fallback\", \"model_config_id\": <id>}"},
+                                status_code=422)
+        try:
+            return runtime.set_model_step(body["step"], body["model_config_id"])
+        except LookupError:
+            return JSONResponse({"error": "unknown model config"}, status_code=404)
+        except ValueError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=409)
+
+    @app.get("/v1/model-usage")
+    async def model_usage(days: int = 7):
+        return runtime.model_usage(max(1, min(days, 90)))
+
     @app.get("/v1/analysis/status")
     async def analysis_status():
         return runtime.analysis_status()

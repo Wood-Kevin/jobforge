@@ -13,7 +13,7 @@ Setup
 
 Acceptance (ARCHITECTURE 9, P1.8 row)
 1. Screenshots of dashboard and a real job detail: p1_8_dashboard.png (agent, recommendation counts, queues, filter,
-   per-source polls/304 share/budget/bytes, employers needing attention with poll-now); job detail of Vultr "Server
+   per-source polls/304 share/budget/bytes, employers needing attention with poll-now); job detail of Company U "Server
    Onboarding Specialist" (APPLY: ELIGIBLE / COMPETITIVE / HIGH, six opportunity factors with detail, decisive reason, the
    evidence table citing snapshot items, the sanitized posting with a live "Privacy Policy" link), kept outside the repo.
 2. New posting appears in the open window without reload: window on Jobs > All open (p1_8_live_before.png). A synthetic

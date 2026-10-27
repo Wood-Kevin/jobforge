@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { openUrl } from "./agent";
 import { getDraft, setDraft } from "./draft";
-import { api, type EmployerAdd, type SearchForm as Form } from "./api";
+import { api, type EmployerAdd, type ModelStep, type SearchForm as Form } from "./api";
 import { Card, ConfirmButton, ErrorBox, age, useAction, useLive } from "./ui";
 
 
@@ -222,7 +222,8 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
   const cfgs = useLive(api.modelConfigs, [], ["model_config_tested", "model_config_enabled", "model_config_disabled"]);
   const act = useAction();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  const c = (cfgs.data ?? []).find((x) => x.default) ?? cfgs.data?.[0];
+  // The model on this PC: the fallback step's config (SPEC D18), which every step uses unless handed to ChatGPT.
+  const c = (cfgs.data ?? []).find((x) => x.steps.includes("fallback")) ?? cfgs.data?.find((x) => x.provider_kind === "openai_compatible");
   if (!c) return <Card title="AI model"><ErrorBox error={cfgs.error} /><p className="muted">Loading...</p></Card>;
   const check = () => act.run(async () => {
     setResult({ ok: true, text: "Checking... the first check loads the model and can take a minute." });
@@ -238,8 +239,8 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
   });
   return (
     <Card title="AI model">
-      <p className="muted">JobForge reads each posting with a model running on this PC in LM Studio ({c.model_id}). Nothing is sent
-        anywhere else.</p>
+      <p className="muted">JobForge reads each posting with a model running on this PC in LM Studio ({c.model_id}). Unless you
+        choose ChatGPT in Preferences, nothing is sent anywhere else.</p>
       {/* Setting up LM Studio, step by step (UX redesign step 5): open until the model works, then folded away. */}
       <details className="checklist" open={!c.enabled}>
         <summary>How to set up LM Studio</summary>
@@ -268,4 +269,100 @@ function friendlyModelError(err: string, model: string): string {
     return `LM Studio is running but the model ${model} is not loaded. Download and load it in LM Studio, then check again.`;
   if (/context/i.test(err)) return "The model's context length is too small. Load it with at least 16,000 tokens of context.";
   return `The model did not pass the check: ${err}`;
+}
+
+// ----- ChatGPT (SPEC D18) -----
+
+const STEP_LABELS: [ModelStep, string, string][] = [
+  ["e3", "Matching you to jobs", "Requirement lines and your profile items"],
+  ["e1", "Reading postings", "Each posting's title and text"],
+  ["resume", "Resume suggestions", "Your resume's text, when you ask for suggestions"],
+];
+
+/** Optional: the person's ChatGPT plan for some steps, with the model on this PC as the fallback. Sign-in happens
+ * in the system browser (the agent's loopback callback); this card only starts it and watches for the result. */
+export function ChatGPTCard() {
+  const st = useLive(api.chatgpt, [], ["model_step_changed", "model_config_enabled", "model_config_disabled", "model_config_tested"]);
+  const act = useAction();
+  const [models, setModels] = useState<{ slug: string; display_name: string }[] | null>(null);
+  const [pick, setPick] = useState<string>("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const s = st.data;
+  const waiting = s?.sign_in.state === "waiting";
+  useEffect(() => {
+    if (!waiting) return;
+    const t = window.setInterval(st.reload, 2000);
+    return () => window.clearInterval(t);
+  }, [waiting, st.reload]);
+  useEffect(() => {
+    if (!s?.signed_in || models) return;
+    act.run(async () => {
+      const m = await api.chatgptModels();
+      setModels(m);
+      const used = s.configs.find((c) => c.enabled)?.model_id;
+      setPick(used ?? (m.some((x) => x.slug === s.default_model) ? s.default_model : m[0]?.slug ?? ""));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s?.signed_in]);
+  if (!s) return <Card title="ChatGPT (optional)"><ErrorBox error={st.error} /><p className="muted">Loading...</p></Card>;
+  const cloud = s.configs.find((c) => c.enabled && c.model_id === pick) ?? s.configs.find((c) => c.enabled);
+  const out = s.configs.find((c) => c.out && Object.values(s.steps).includes(c.id));
+  const local = s.steps.fallback;
+  const signIn = () => act.run(async () => {
+    setMsg(null);
+    const r = await api.chatgptSignIn();
+    await openUrl(r.authorize_url);
+    st.reload();
+  });
+  const useModel = () => act.run(async () => {
+    setMsg({ ok: true, text: "Checking the model with one small request on your plan..." });
+    const r = await api.useChatgptModel(pick);
+    setMsg(r.test.ok ? { ok: true, text: `Working (answered in ${r.test.seconds ?? "?"} s). Choose below which steps use it.` }
+      : { ok: false, text: `The model did not pass the check: ${r.test.error ?? "no reason given"}` });
+    st.reload();
+  });
+  const setStep = (step: ModelStep, id: number) => act.run(async () => { await api.setModelStep(step, id); st.reload(); });
+  return (
+    <Card title="ChatGPT (optional)">
+      <p className="muted">Use your ChatGPT plan instead of the model on this PC: it judges jobs more accurately. It counts against your
+        plan's usage, and JobForge goes back to the model on this PC by itself while your plan is at its limit or ChatGPT can't be reached.</p>
+      {!s.signed_in ? (<>
+        <details className="checklist" open>
+          <summary>What is sent to OpenAI</summary>
+          <ul className="compact">{STEP_LABELS.map(([k, label, what]) => <li key={k}><strong>{label}:</strong> {what}.</li>)}</ul>
+          <p className="muted">Only for the steps you choose. Your answers about citizenship, clearance, location and similar are never
+            sent: JobForge checks those itself. Whether OpenAI may keep or learn from these requests follows your ChatGPT data
+            controls; check them in ChatGPT's settings.</p>
+        </details>
+        <div className="row"><button className="primary" disabled={act.busy || waiting} onClick={signIn}>Sign in with ChatGPT</button>
+          {waiting && <span className="muted">Finish signing in in your browser...</span>}</div>
+        {s.sign_in.state === "failed" && <p className="error">Sign-in didn't finish: {s.sign_in.error}</p>}
+      </>) : (<>
+        <div className="row"><span>Signed in{s.email ? <> as <strong>{s.email}</strong></> : ""}.</span><span className="spacer" />
+          <ConfirmButton label="Sign out" disabled={act.busy} onConfirm={() => act.run(async () => { await api.chatgptSignOut(); setModels(null); st.reload(); })} /></div>
+        {out && <p className="warn">{out.out === "capped" ? "Your ChatGPT plan is at its usage limit" : "ChatGPT isn't answering right now"}:
+          JobForge is using the model on this PC until it answers again, then checks those jobs again with ChatGPT.</p>}
+        <div className="row">
+          <label>Model <select value={pick} onChange={(e) => setPick(e.target.value)}>
+            {(models ?? []).map((m) => <option key={m.slug} value={m.slug}>{m.display_name}{m.slug === s.default_model ? " (suggested)" : ""}</option>)}
+          </select></label>
+          <button disabled={act.busy || !pick || s.configs.some((c) => c.enabled && c.model_id === pick)} onClick={useModel}>Check and turn on</button>
+        </div>
+        <table><tbody>{STEP_LABELS.map(([k, label, what]) => {
+          const current = s.steps[k];
+          const onCloud = s.configs.some((c) => c.id === current);
+          return (
+            <tr key={k}><td>{label}<div className="muted">{what}</div></td>
+              <td><label className="choice"><input type="radio" name={`step-${k}`} checked={!onCloud} disabled={act.busy || local === null}
+                onChange={() => local !== null && setStep(k, local)} />This PC</label>
+                <label className="choice"><input type="radio" name={`step-${k}`} checked={onCloud} disabled={act.busy || !cloud}
+                  onChange={() => cloud && setStep(k, cloud.id)} />ChatGPT</label></td></tr>);
+        })}</tbody></table>
+        {!cloud && <p className="muted">Check and turn on a model first.</p>}
+        <p className="muted">Moving matching to another model checks every job you have again (one request each on your plan).</p>
+      </>)}
+      {msg && <p className={msg.ok ? "ok-text" : "error"}>{msg.text}</p>}
+      <ErrorBox error={act.error ?? st.error} />
+    </Card>
+  );
 }

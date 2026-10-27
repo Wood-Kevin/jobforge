@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evidenceSentence, factorText, fitSegments, fmtSalary, headline, opportunityLabel, plain, whyLine } from "./labels";
+import { FIT_TEXT, evidenceSentence, factorText, fitLabel, fitSegments, fitText, fmtSalary, headline, opportunityLabel, plain, whyLine } from "./labels";
 
 describe("factorText", () => {
   it("tells a posting that doesn't say apart from a preference you haven't set", () => {
@@ -36,6 +36,16 @@ describe("factorText", () => {
       .toBe("Worth a try: 2 requirements match directly, 1 relies on related experience, 1 is an important gap and 1 is unanswered.");
     expect(headline("APPLY", { direct: 2, self_reported_covering: 1 })).toContain("haven't confirmed");
     expect(headline("REVIEW", c)).toBeNull();
+  });
+});
+
+describe("fit labels", () => {
+  it("names a STRETCH from requirements the profile doesn't show apart from one with gaps (rules v4)", () => {
+    expect(fitLabel("STRETCH")).toBe("One or two gaps");
+    expect(fitLabel("STRETCH", { unshown: true })).toBe("Some things not shown");
+    expect(fitText("STRETCH", { unshown: true })).toContain("aren't in your profile");
+    expect(fitText("STRETCH", {})).toBe(FIT_TEXT.STRETCH);
+    expect(fitLabel("STRONG", { unshown: true })).toBe("Strong fit");
   });
 });
 

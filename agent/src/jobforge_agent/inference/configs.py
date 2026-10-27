@@ -13,6 +13,7 @@ import sqlite3
 from jobforge_agent.analysis import extract
 from jobforge_agent.analysis.interpret import interpret
 from jobforge_agent.analysis.segment import segment
+from jobforge_agent.inference import steps
 from jobforge_agent.inference.client import InferenceClient, InferenceError, ModelConfig
 
 # Synthetic: no personal data, stable across versions.
@@ -25,14 +26,15 @@ class ConfigError(Exception):
 
 
 def listing(conn: sqlite3.Connection) -> list[dict]:
-    default = conn.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
+    used = steps.listing(conn)
     rows = []
-    for r in conn.execute("SELECT id, name, provider_label, base_url, model_id, params, structured_output_mode, enabled, "
-                          "tested_at_ms FROM model_configs ORDER BY id"):
+    for r in conn.execute("SELECT id, name, provider_label, provider_kind, base_url, model_id, params, structured_output_mode, "
+                          "enabled, tested_at_ms FROM model_configs ORDER BY id"):
         d = dict(r)
         d["params"] = json.loads(d["params"])
         d["enabled"] = bool(d["enabled"])
-        d["default"] = default is not None and default[0] == str(d["id"])
+        d["steps"] = [s for s, cid in used.items() if cid == d["id"]]
+        d["out"] = steps.OUT.get(d["id"])
         rows.append(d)
     return rows
 
@@ -41,7 +43,7 @@ async def run_test(client: InferenceClient, cfg: ModelConfig) -> dict:
     """The model call. No database access here, so no transaction can span it."""
     report: dict = {"model_config_id": cfg.id, "model_id": cfg.model_id, "listed": None, "ok": False}
     try:
-        models = await client.list_models(cfg.base_url)
+        models = await client.models(cfg)
     except InferenceError as exc:
         report["error"] = str(exc)
         return report
@@ -87,3 +89,40 @@ def set_enabled(conn: sqlite3.Connection, config_id: int, enabled: bool) -> None
     if enabled and row[0] is None:
         raise ConfigError("run the config test first (POST /v1/model-configs/{id}/test)")
     conn.execute("UPDATE model_configs SET enabled = ? WHERE id = ?", (int(enabled), config_id))
+
+
+# ChatGPT configs (SPEC D18). The plan's models are reasoning models: a larger output limit than the local 4,000
+# (reasoning tokens count against it; step 1 measured 1,150-1,580 output tokens per E3 call) and a longer wait.
+CHATGPT_PARAMS = {"max_tokens": 16000, "timeout_s": 300}
+
+
+def upsert_chatgpt_config(conn: sqlite3.Connection, slug: str, display_name: str) -> int:
+    """The config row for one of the plan's models, created on first use (caller holds the transaction)."""
+    from jobforge_agent.inference.chatgpt_auth import RESOURCE
+    row = conn.execute("SELECT id FROM model_configs WHERE provider_kind = 'chatgpt' AND model_id = ?", (slug,)).fetchone()
+    if row:
+        return row[0]
+    return conn.execute(
+        "INSERT INTO model_configs (name, provider_label, provider_kind, base_url, model_id, params, structured_output_mode, "
+        "enabled) VALUES (?, 'ChatGPT', 'chatgpt', ?, ?, ?, 'json_schema', 0) RETURNING id",
+        (f"{display_name} (ChatGPT)", RESOURCE, slug, json.dumps(CHATGPT_PARAMS))).fetchone()[0]
+
+
+_USAGE = (
+    "SELECT date(t.created_at_ms / 1000, 'unixepoch', 'localtime') AS day, t.model_config_id, ? AS step, count(a.value) AS calls, "
+    "coalesce(sum(json_extract(a.value, '$.usage.prompt_tokens')), 0) AS input_tokens, "
+    "coalesce(sum(json_extract(a.value, '$.usage.completion_tokens')), 0) AS output_tokens "
+    "FROM {table} t, json_each(t.raw_response, '$.attempts') a "
+    # A reused E1 answer carries the original's attempts (analysis/worker._reuse): not a call.
+    "WHERE t.raw_response IS NOT NULL AND json_extract(t.raw_response, '$.reused_from_analysis') IS NULL "
+    "AND t.created_at_ms >= ? GROUP BY day, t.model_config_id")
+
+
+def usage(conn: sqlite3.Connection, since_ms: int) -> list[dict]:
+    """Model calls and tokens per day (local time, by when the work was queued), config and step, from the answers
+    stored on each row (reused answers made no call and are not counted). Resume suggestions keep no rows, so they
+    are not in it; their log line has the config."""
+    rows = []
+    for table, step in (("posting_analyses", "e1"), ("evaluations", "e3")):
+        rows += [dict(r) for r in conn.execute(_USAGE.format(table=table), (step, since_ms))]
+    return sorted(rows, key=lambda r: (r["day"], r["step"], r["model_config_id"]))

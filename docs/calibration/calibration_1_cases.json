@@ -71,7 +71,7 @@
      "quote": "Excellent communication and customer service skills.",
      "observed": {"match_type": "unknown", "fit": "INSUFFICIENT", "unknown": 3, "recommendation": "REVIEW"},
      "expected": {"rule": "as R1"}},
-    {"id": "E1", "kind": "eligibility_untyped", "job_id": 108580, "requirement_ids": [1556, 1565], "added": "2026-10-24, the Nash screenshot",
+    {"id": "E1", "kind": "eligibility_untyped", "job_id": 108580, "requirement_ids": [1556, 1565], "added": "2026-10-24, the Company N screenshot",
      "quote": "Remote in Eastern US (required) / Located in US, eastern timezone (remote)",
      "observed": {"model_eligibility_type": "work_authorization", "eligibility_type": null, "match_type": "unknown", "recommendation": "REVIEW"},
      "expected": {"rule": "checked against the residency fact (Florida, confirmed) like requirement 1558 on the same posting, which the code typed residency and found met"}},
@@ -101,9 +101,9 @@
       {"from_snapshot": 114, "to_snapshot": 115, "change": "item 55 confirmed only (identical request)", "compared": 212, "changed": 0,
        "note": "answers were reused (reused_from, no model call), so this does not measure determinism; a re-sent identical request is not yet measured"}
     ],
-    "examples": [{"job": "Livekit", "note": "scripting requirement direct, transferable, direct across 111, 113, 115"},
-                 {"job": "Runlayer", "requirement_ids": [1523, 1530], "note": "direct to transferable"},
-                 {"job": "Jobgether", "requirement_ids": [1689, 1690, 1693], "note": "gap to unknown"}],
+    "examples": [{"job": "Company M", "note": "scripting requirement direct, transferable, direct across 111, 113, 115"},
+                 {"job": "Company Q", "requirement_ids": [1523, 1530], "note": "direct to transferable"},
+                 {"job": "Company K", "requirement_ids": [1689, 1690, 1693], "note": "gap to unknown"}],
     "rule": "report this flip rate next to every before/after result; a case counts as fixed only if it holds across at least two unrelated-context variations"
   },
   "borderline_not_a_case": [

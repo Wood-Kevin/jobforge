@@ -123,3 +123,35 @@ def dir_acl_entries(path: Path) -> list[str]:
         if line and not line.startswith("Successfully processed"):
             entries.append(line)
     return entries
+
+
+class _DataBlob(ctypes.Structure):
+    _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
+
+
+_crypt32 = ctypes.WinDLL("crypt32", use_last_error=True)
+for _fn in (_crypt32.CryptProtectData, _crypt32.CryptUnprotectData):
+    _fn.argtypes = [ctypes.POINTER(_DataBlob), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                    wintypes.DWORD, ctypes.POINTER(_DataBlob)]
+    _fn.restype = wintypes.BOOL
+_CRYPTPROTECT_UI_FORBIDDEN = 0x1
+
+
+def _dpapi(fn, data: bytes) -> bytes:
+    buf = ctypes.create_string_buffer(data, len(data))
+    src, out = _DataBlob(len(data), ctypes.cast(buf, ctypes.POINTER(ctypes.c_char))), _DataBlob()
+    if not fn(ctypes.byref(src), None, None, None, None, _CRYPTPROTECT_UI_FORBIDDEN, ctypes.byref(out)):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        return ctypes.string_at(out.pbData, out.cbData)
+    finally:
+        _kernel32.LocalFree(out.pbData)
+
+
+def dpapi_protect(data: bytes) -> bytes:
+    """Encrypt for the current Windows user (DPAPI, CryptProtectData). Only this user on this PC can decrypt."""
+    return _dpapi(_crypt32.CryptProtectData, data)
+
+
+def dpapi_unprotect(data: bytes) -> bytes:
+    return _dpapi(_crypt32.CryptUnprotectData, data)

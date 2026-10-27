@@ -203,3 +203,47 @@
 - name: a certification gap confirmed by a complete cert list counts
   negotiable: {direct: 5, gap_cert_list: 3}
   expect: {fit: WEAK, recommendation: SKIP, rule: 2}
+
+# ----- rules v4 (2026-10-25): many unknowns make an unshown STRETCH, never a SKIP -----
+
+- name: v3 many unknowns with enough judged -> REVIEW
+  rules: v3
+  negotiable: {direct: 4, unknown: 4}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW, rule: 3}
+
+- name: v4 many unknowns with enough judged -> STRETCH, not REVIEW
+  rules: v4
+  negotiable: {direct: 4, unknown: 4}
+  expect: {fit: STRETCH, recommendation: STRETCH, rule: 6, detail_contains: "not shown in the profile"}
+
+- name: v4 many unknowns and LOW opportunity -> STRETCH, never SKIP
+  rules: v4
+  negotiable: {direct: 4, unknown: 4}
+  job: {work_mode: onsite, posted_days_ago: 60}
+  expect: {fit: STRETCH, opportunity: LOW, recommendation: STRETCH, rule: 6}
+
+- name: v4 one material gap and LOW opportunity still -> SKIP (rule 5 unchanged)
+  rules: v4
+  negotiable: {direct: 3, gap_material: 1}
+  job: {work_mode: onsite, posted_days_ago: 60}
+  expect: {fit: STRETCH, opportunity: LOW, recommendation: SKIP, rule: 5}
+
+- name: v4 three evidenced material gaps beat many unknowns -> WEAK
+  rules: v4
+  negotiable: {direct: 2, gap_material: 3, unknown: 4}
+  expect: {fit: WEAK, recommendation: SKIP, rule: 2}
+
+- name: v3 three material gaps among many unknowns -> REVIEW
+  rules: v3
+  negotiable: {direct: 2, gap_material: 3, unknown: 4}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW}
+
+- name: v4 too little judged stays REVIEW
+  rules: v4
+  negotiable: {direct: 2, unknown: 5}
+  expect: {fit: INSUFFICIENT, recommendation: REVIEW, rule: 3}
+
+- name: v4 one material gap and many unknowns -> STRETCH
+  rules: v4
+  negotiable: {direct: 4, gap_material: 1, unknown: 3}
+  expect: {fit: STRETCH, recommendation: STRETCH, rule: 6}

@@ -394,7 +394,7 @@ def test_model_config_test_then_enable_then_analysis_reads(paths):
 
     async def check(client, runtime):
         configs = (await client.get("/v1/model-configs", headers=AUTH)).json()
-        default = [c for c in configs if c["default"]][0]
+        default = [c for c in configs if "e1" in c["steps"]][0]
         assert default["model_id"] == MODEL and default["enabled"] is False and default["tested_at_ms"] is None
         cid = default["id"]
         assert (await client.post(f"/v1/model-configs/{cid}/enable", headers=AUTH)).status_code == 409
@@ -430,7 +430,7 @@ def test_failed_model_test_leaves_the_config_untested(paths):
     bad = {"requirements": [item("Must hold a TS/SCI clearance", importance="hard", eligibility_type="clearance")]}  # not in the snippet
 
     async def check(client, runtime):
-        cid = [c for c in (await client.get("/v1/model-configs", headers=AUTH)).json() if c["default"]][0]["id"]
+        cid = [c for c in (await client.get("/v1/model-configs", headers=AUTH)).json() if "e1" in c["steps"]][0]["id"]
         report = (await client.post(f"/v1/model-configs/{cid}/test", headers=AUTH)).json()
         assert report["ok"] is False and "quote" in report["error"]
         assert (await client.post(f"/v1/model-configs/{cid}/enable", headers=AUTH)).status_code == 409

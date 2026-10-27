@@ -1,0 +1,38 @@
+# Verdict rules v4 (2026-10-25; Kevin: "fix the over credit issue", "Go ahead with step 1, including the years
+# tolerance"). Ships with E3 prompt m2-v1, which narrows "transferable" to the same task with another tool or
+# setting: a named technology or practice the profile does not state is now "unknown" instead of related
+# experience. Two changes from v3, everything else equal:
+#
+# - fit.many_unknown: stretch. v1-v3 made a job with too many unknown requirements INSUFFICIENT (REVIEW, "needs
+#   your input"). Under m2-v1 most jobs have several, and 28 of 39 real jobs went to REVIEW with no question a
+#   person could answer. Now, once enough requirements are judged (min_judgeable), too many unknowns make the fit
+#   STRETCH, marked `unshown` in the fit counts: shown as "Some requirements not shown in your profile", and never
+#   a SKIP (rule 5 skips only a STRETCH without the mark), so D7 holds: SKIP still needs positive evidence. Three or
+#   more evidenced material gaps make WEAK before the unknown count is looked at (v1-v3 checked unknowns first).
+# - gap.years_tolerance_abs 2 -> 1 and years_tolerance_share 0.40 -> 0.25: under v3, 1.9 years against "3-5 years"
+#   was 1.1 short, within 2 years, so a minor gap; the person reads such a role as out of reach (an operations job, 2026-10-25).
+#   Now a shortfall counts as minor only within 1 year or 25% of the years asked.
+
+gap:
+  years_tolerance_abs: 1
+  years_tolerance_share: 0.25
+
+fit:
+  min_judgeable: 3
+  max_uncertain_share: 0.30
+  max_conflicts: 3
+  strong_max_unknown: 1
+  competitive_max_unknown: 2
+  max_stretch_gaps: 2
+  stretch_max_unknown: 2
+  many_unknown: stretch
+
+opportunity:
+  low_min_unfavorable: 2
+  high_min_favorable: 3
+  unknown_min_unknown: 4
+  age_favorable_days: 7
+  age_unfavorable_days: 30
+
+eligibility:
+  type_only_conflict: check_both

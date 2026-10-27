@@ -26,6 +26,7 @@ from jobforge_agent import logs
 from jobforge_agent.analysis import extract, store
 from jobforge_agent.analysis.interpret import interpret
 from jobforge_agent.analysis.segment import segment
+from jobforge_agent.inference import steps
 from jobforge_agent.inference.client import InferenceClient, InferenceError, ModelConfig, load_config
 
 IDLE_POLL_S = 10.0
@@ -37,29 +38,40 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
+CAPPED_BACKOFF_S = (900.0, 7200.0)  # a plan cap clears on OpenAI's schedule (unpublished): try again after 15 min, up to 2 h
+
+
 @dataclass
 class GateState:
     up: bool | None = None
     reason: str | None = None
     next_check_ms: int = 0
     backoff_s: float = DOWN_BACKOFF_S[0]
+    capped: bool = False
+    cap_backoff_s: float = CAPPED_BACKOFF_S[0]  # doubles per cap in a row; reset by a call that works (call_ok)
 
 
 class HealthGate:
-    """Is a config's server answering and does it list the model? Cached between probes."""
+    """Is a config's server answering and does it list the model? Cached between probes.
+
+    Also the only writer of inference/steps.OUT (SPEC D18): a config that is down or capped is in it, so a step
+    whose own config is a cloud config runs on the fallback meanwhile. A capped config is not probed until its
+    backoff ends (`/v1/models` answers while the plan is capped, so only a real call can tell); then it counts as
+    available again, and the next call either works or caps it again with a doubled backoff."""
 
     def __init__(self, client: InferenceClient, now_ms: Callable[[], int] = _now_ms):
         self.client = client
         self.now_ms = now_ms
         self.states: dict[int, GateState] = {}
         self.log = logs.get("inference")
+        steps.OUT.clear()  # one gate per agent: nothing is out until a probe or a call says so
 
     async def available(self, cfg: ModelConfig) -> bool:
         st = self.states.setdefault(cfg.id, GateState())
         if st.up is not None and self.now_ms() < st.next_check_ms:
             return st.up
         try:
-            models = await self.client.list_models(cfg.base_url)
+            models = await self.client.models(cfg)
         except InferenceError as exc:
             self.mark_down(cfg, exc.detail)
             return False
@@ -68,25 +80,60 @@ class HealthGate:
             return False
         if st.up is not True:
             self.log.info("inference_available", model_config_id=cfg.id, models_listed=len(models))
-        st.up, st.reason, st.backoff_s = True, None, DOWN_BACKOFF_S[0]
+        if steps.OUT.pop(cfg.id, None) is not None and cfg.provider_kind != "openai_compatible":
+            self.log.info("model_cloud_back", model_config_id=cfg.id)
+        st.up, st.reason, st.backoff_s, st.capped = True, None, DOWN_BACKOFF_S[0], False
         st.next_check_ms = self.now_ms() + int(UP_RECHECK_S * 1000)
         return True
 
-    def mark_down(self, cfg: ModelConfig, reason: str) -> None:
+    def mark_down(self, cfg: ModelConfig, reason: str, capped: bool = False) -> None:
         st = self.states.setdefault(cfg.id, GateState())
-        if st.up is not False or st.reason != reason:
-            self.log.warning("inference_unavailable", model_config_id=cfg.id, reason=reason, retry_in_s=st.backoff_s)
+        if capped:
+            st.backoff_s = st.cap_backoff_s
+            st.cap_backoff_s = min(st.cap_backoff_s * 2, CAPPED_BACKOFF_S[1])
+            self.log.warning("inference_capped", model_config_id=cfg.id, reason=reason[:200], retry_in_s=st.backoff_s)
+        elif st.up is not False or st.reason != reason:
+            self.log.warning("inference_unavailable", model_config_id=cfg.id, reason=reason[:200], retry_in_s=st.backoff_s)
         else:
             st.backoff_s = min(st.backoff_s * 2, DOWN_BACKOFF_S[1])
-        st.up, st.reason = False, reason
+        if cfg.id not in steps.OUT and cfg.provider_kind != "openai_compatible":
+            # The steps on this config now run on the fallback (verify.sh: D18 "cap falls back to local").
+            self.log.warning("model_fallback", model_config_id=cfg.id, reason="capped" if capped else reason[:200])
+        steps.OUT[cfg.id] = "capped" if capped else reason[:200]
+        st.up, st.reason, st.capped = False, reason, capped
         st.next_check_ms = self.now_ms() + int(st.backoff_s * 1000)
+
+    def call_ok(self, cfg: ModelConfig) -> None:
+        """A model call worked: a later cap starts again from the shortest wait."""
+        st = self.states.get(cfg.id)
+        if st is not None:
+            st.cap_backoff_s = CAPPED_BACKOFF_S[0]
+
+    async def recheck_due(self, conn: sqlite3.Connection) -> None:
+        """Probe out configs whose wait is over, whether or not work is queued on them: while a cloud config is out
+        its work moves to the fallback, so nothing else would ever probe it again."""
+        now = self.now_ms()
+        for cid in [c for c in steps.OUT if self.states.get(c) and self.states[c].next_check_ms <= now]:
+            cfg = load_config(conn, cid)
+            if cfg is None or not cfg.enabled:
+                steps.OUT.pop(cid, None)
+                continue
+            st = self.states[cid]
+            if st.capped:
+                # No probe can tell a cap has cleared: count it as available and let the next call tell.
+                steps.OUT.pop(cid, None)
+                st.up, st.next_check_ms = None, 0
+                self.log.info("model_cloud_retry", model_config_id=cid, after="capped")
+                continue
+            await self.available(cfg)
 
     def next_check_ms(self) -> int | None:
         downs = [s.next_check_ms for s in self.states.values() if s.up is False]
         return min(downs) if downs else None
 
     def snapshot(self) -> dict:
-        return {str(k): {"up": v.up, "reason": v.reason, "next_check_ms": v.next_check_ms} for k, v in self.states.items()}
+        return {str(k): {"up": v.up, "reason": v.reason, "next_check_ms": v.next_check_ms, "capped": v.capped}
+                for k, v in self.states.items()}
 
 
 class AnalysisWorker:
@@ -150,9 +197,20 @@ class AnalysisWorker:
             # Visible, not silent: work exists but its model config is not enabled (test it first).
             self.log.warning("analysis_waiting", pending=waiting, reason="model_config_not_enabled")
         self._waiting_logged = waiting
+        await self.gate.recheck_due(self.conn)
         for config_id in ready:
             cfg = load_config(self.conn, config_id)
-            if cfg is None or not await self.gate.available(cfg):
+            if cfg is None:
+                continue
+            if not await self.gate.available(cfg):
+                # A cloud config that is out hands its waiting postings to the fallback (SPEC D18), which
+                # claims them on a later iteration; a local config that is down simply waits.
+                fallback = steps.active(self.conn, "e1") if cfg.id == steps.configured(self.conn, "e1") else None
+                if cfg.provider_kind != "openai_compatible" and fallback not in (None, cfg.id):
+                    moved = store.move_pending(self.conn, cfg.id, fallback)
+                    if moved:
+                        self.log.info("analyses_moved_to_fallback", count=moved, from_config=cfg.id, to_config=fallback)
+                        return "moved"
                 continue
             c = store.claim(self.conn, cfg.id, self.now_ms(), lease_ms=int(cfg.timeout_s * 2 * 1000) + 60_000)
             if c is None:
@@ -176,6 +234,7 @@ class AnalysisWorker:
                     await self.before_call()
                 self.calls += 1
                 result = await self.client.chat(cfg, msgs, fmt)
+                self.gate.call_ok(cfg)
                 attempts.append({"content": result.content, "finish_reason": result.finish_reason,
                                  "usage": result.usage, "seconds": result.seconds, "model": result.model_reported})
                 if result.finish_reason == "length":
@@ -193,8 +252,8 @@ class AnalysisWorker:
             store.release(self.conn, c, spend_attempt=False, error="agent stopping", now=self.now_ms())
             raise
         except InferenceError as exc:
-            if exc.kind == "unavailable":
-                self.gate.mark_down(cfg, exc.detail)
+            if exc.kind in ("unavailable", "capped"):
+                self.gate.mark_down(cfg, exc.detail, capped=exc.kind == "capped")
                 status = store.release(self.conn, c, spend_attempt=False, error=f"deferred: {exc.detail}", now=self.now_ms())
                 self.log.info("analysis_deferred", analysis_id=c.analysis_id, job_id=c.job_id, status=status)
                 return "deferred"

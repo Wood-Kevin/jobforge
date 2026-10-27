@@ -25,7 +25,7 @@ CONTEXT_SECTIONS = {"about": "company", "benefits": "benefit", "eeo": "company",
 # Legal boilerplate: its eligibility words ("regardless of citizenship", "work eligibility" in a
 # privacy notice) never condition the candidate. Only these are skipped by the recall scan and
 # override an eligibility cue. Benefits and about text are NOT exempt: real postings put
-# residency rules there (P1.6 live: Vultr's state list under "Compensation", Lyft's "must be
+# residency rules there (P1.6 live: Company U's state list under "Compensation", Company Y's "must be
 # based in the US" under "Benefits:").
 LEGAL_SECTIONS = {"eeo", "privacy"}
 RECALL_EXCLUDED = LEGAL_SECTIONS
@@ -152,7 +152,7 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
     scope = _scope(seg.text, body[0].start, body[-1].end, start, end)
     if not lead and body[0].lead is not None and seg.sentences[body[0].lead].start < start:
         # A bullet under "Familiarity with several of the following is preferred:" carries
-        # the lead-in's wording (P1.6 live: Bitwarden, 18 bullets).
+        # the lead-in's wording (P1.6 live: Company Z, 18 bullets).
         lead = seg.sentences[body[0].lead].text
     if lead:  # "Must have experience with:" + a bullet: the lead-in's wording counts too
         scope = f"{lead} {scope}"

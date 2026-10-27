@@ -1,7 +1,7 @@
 # Verdict rules v3: the thresholds of v2, unchanged. What changes is E5's fact checking (facts.py): the
 # availability check (hours, shifts, weekends, holidays, on-call) and residency time zones read from the
 # person's time_zone or from "Eastern US" / "eastern timezone" wording (Evaluation calibration 1, cases
-# E1-E2, the Nash case 2026-10-24). A version of its own so v2 and v3 compare side by side on the
+# E1-E2, the Company N case 2026-10-24). A version of its own so v2 and v3 compare side by side on the
 # same evaluations (scripts/compare_reading_fix.py). Not active until Kevin approves.
 #
 # Verdict rules v2: v1 plus one eligibility rule. Built and measured in P1.7; made the active version by

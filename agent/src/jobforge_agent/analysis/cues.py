@@ -23,8 +23,8 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
     ("clearance", r"\bclearances?\b|\btop secret\b|\b(active|current|interim|dod|final) secret\b"
                   r"|\bsecret\b(?=[^.]{0,25}\b(clearance|level|or (higher|above)|eligib\w*|sci)\b)"
                   r"|\bts ?/ ?sci\b|\bts-sci\b|\bsci\b|\bpolygraph\b|\bpublic trust\b"),
-    # interp-v3: hours, shifts and on-call (Nash "Friday - Tuesday, 8A - 5P", DDN "24x7x365 ... weekends and
-    # holidays", PDI "on-call rotation"), matched against the availability fact. Before residency: a line with
+    # interp-v3: hours, shifts and on-call (Company N "Friday - Tuesday, 8A - 5P", Company F "24x7x365 ... weekends and
+    # holidays", Company V "on-call rotation"), matched against the availability fact. Before residency: a line with
     # both hours and a zone ("9-5 Eastern", "Pacific Time Zone business hours", "Pacific time zone alignment")
     # is about hours. "Holidays" only as work ("weekends and holidays", "cover holidays"), not "10 paid
     # holidays". Not used by the recall scan (interpret.RECALL_SKIPS): unextracted sentences that mention
@@ -38,7 +38,7 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
     ("residency", r"\breside\b|\bresiding\b|\bresidency\b|\bresident of\b|\bcommut(e|ing|able) distance\b|\bcommutable\b"
                   r"|\bmust (live|be located|be based)\b|\b(live|located|based) within\b|\bwithin \d+ miles\b"
                   r"|\b(candidates|applicants) (located|based|residing|living) in\b"
-                  # interp-v2 (P1.7 profile run, Keeper): "be local to the El Dorado Hills area" and
+                  # interp-v2 (P1.7 profile run, Company L): "be local to the El Dorado Hills area" and
                   # "on-site a minimum of 3 days per week" were read as experience. "Local to" counts only
                   # for a person ("be local to") or a place ("local to the ... area/office"), not "data
                   # local to each node"; on-site/in-office counts only with a days-per-week attendance,
@@ -46,7 +46,7 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
                   r"|\bbe local to\b|\blocal to (the |our )?[\w .,'-]{1,40}\b(area|office|region|metro|city|campus|site)\b"
                   r"|\b(on-?site|in[- ]office|in the office|in person)\b[^.;]{0,30}?\b(\d|one|two|three|four|five)\s*(\+\s*)?"
                   r"(days?|x)\s*(a|per|each|every)\s*week\b"
-                  # interp-v3 (the Nash case, 2026-10-24): "Remote in Eastern US (required)" and "Located in US,
+                  # interp-v3 (the Company N case, 2026-10-24): "Remote in Eastern US (required)" and "Located in US,
                   # eastern timezone (remote)" went to the matcher as experience. A time zone next to a zone word,
                   # "remote in/within <region>", and a line that starts with "located/based in" count. Not
                   # "work across time zones" (a collaboration line) and not "our office is located in".

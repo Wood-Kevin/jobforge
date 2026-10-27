@@ -68,12 +68,13 @@ def cmd_run(paths: Paths) -> int:
     from jobforge_agent.agent import AgentRuntime  # heavy imports only when running
 
     paths.ensure()
-    sid = winutil.restrict_dir_to_user(paths.run)
-    entries = winutil.dir_acl_entries(paths.run)
-    if len(entries) != 1:
-        # The token file must never sit in a folder anyone else can read (ARCHITECTURE 5).
-        print(f"refusing to start: {paths.run} ACL is not user-only after restricting to {sid}: {entries}", file=sys.stderr)
-        return EXIT_ERROR
+    for folder in (paths.run, paths.auth):
+        sid = winutil.restrict_dir_to_user(folder)
+        entries = winutil.dir_acl_entries(folder)
+        if len(entries) != 1:
+            # The IPC token and the ChatGPT tokens must never sit in a folder anyone else can read (ARCHITECTURE 5, 6.9).
+            print(f"refusing to start: {folder} ACL is not user-only after restricting to {sid}: {entries}", file=sys.stderr)
+            return EXIT_ERROR
     lock = InstanceLock(paths.lock)
     if not lock.try_acquire():
         print("another JobForge agent is already running for this user", file=sys.stderr)
@@ -223,6 +224,7 @@ def cmd_golden(paths: Paths, args: list[str]) -> int:
     the agent and never changes anything; the interpretation suite also calls the model."""
     from jobforge_agent.db.connect import open_connection
     from jobforge_agent.evaluation import golden
+    from jobforge_agent.inference import steps
     from jobforge_agent.inference.client import InferenceClient, load_config
 
     if not paths.db.exists():
@@ -243,8 +245,7 @@ def cmd_golden(paths: Paths, args: list[str]) -> int:
         if "--config" in args:
             config_id = int(args[args.index("--config") + 1])
         else:
-            row = conn.execute("SELECT value FROM settings WHERE key = 'default_model_config_id'").fetchone()
-            config_id = int(row[0]) if row else 0
+            config_id = steps.configured(conn, "e1") or 0  # the suite measures posting reading
         cfg = load_config(conn, config_id)
     finally:
         conn.close()

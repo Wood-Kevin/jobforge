@@ -95,7 +95,7 @@ def test_pass_writes_verdict_and_queues_one_analysis_with_event(ctx):
     assert (r["verdict"], r["raw_posting_id"], r["ruleset_version"]) == ("pass", raw, rules.RULESET_VERSION)
     assert json.loads(r["reasons"])["primary"] is None
     assert analyses(db, job) == [(raw, "pending")] and stats.queued == 1
-    default_model = db.execute("SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'default_model_config_id'").fetchone()[0]
+    default_model = db.execute("SELECT CAST(value AS INTEGER) FROM settings WHERE key = 'model.e1'").fetchone()[0]
     assert db.execute("SELECT model_config_id FROM posting_analyses WHERE job_id = ?", (job,)).fetchone()[0] == default_model
     assert db.execute("SELECT count(*) FROM change_events WHERE type = 'job_queued_for_analysis' AND job_id = ?", (job,)).fetchone()[0] == 1
 
@@ -166,7 +166,7 @@ def test_override_queues_a_rejected_job(ctx):
 def test_no_default_model_counts_skips_instead_of_failing(ctx):
     db, disc, ids = ctx
     add_profile(db)
-    db.execute("DELETE FROM settings WHERE key = 'default_model_config_id'")
+    db.execute("DELETE FROM settings WHERE key LIKE 'model.%'")
     job, _ = add_job(db, ids, 2, "NOC Analyst")
     stats = filt(disc, [job])
     assert stats.skipped_no_model == 1 and analyses(db, job) == []

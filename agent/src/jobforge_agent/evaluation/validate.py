@@ -12,7 +12,7 @@ again without it, so "covered only by an inferred claim" ends as unknown (6.6 la
   years they show (date intervals merged, so overlapping roles are not double-counted). Fewer than
   the minimum turns a model "direct"/"transferable" into a gap.
 - Materiality: a gap on a preferred requirement is minor; on a negotiable one it is material
-  unless it is a years shortfall within tolerance (verdict rules: 2 years or 40%).
+  unless it is a years shortfall within tolerance (verdict rules; v4: 1 year or 25%).
 - basis: verified if a cited item is verified, else self_reported; none without citations.
 """
 from __future__ import annotations
@@ -137,6 +137,8 @@ def model_match(req: Req, m, snap: Snapshot, completeness: dict, rules: dict, no
                 flags.append({"flag": "absence_not_evidence", "why": "certification not in profile and cert list not marked complete"})
 
     gap_size = None
+    # Only the cited items count, so a model that cites one role of several under-counts years; the E3
+    # prompt (m2-v2) asks for every item that shows the experience (test_v4_years_count_only_what_the_model_cites).
     if req.min_years is not None and mt in ("direct", "transferable", "gap") and items:
         have = years_shown(items, now_ms)
         if have is None:

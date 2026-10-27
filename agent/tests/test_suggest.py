@@ -81,7 +81,7 @@ def test_suggest_route_fills_the_inbox_and_accept_keeps_dates(paths):
         # Model not turned on yet: a plain sentence, no model call.
         r = await client.post(f"/v1/resumes/{rid}/suggest-items", headers=AUTH)
         assert r.status_code == 422 and "Turn on the AI model" in r.json()["error"] and server.chat_calls == 0
-        cid = [c for c in (await client.get("/v1/model-configs", headers=AUTH)).json() if c["default"]][0]["id"]
+        cid = [c for c in (await client.get("/v1/model-configs", headers=AUTH)).json() if "resume" in c["steps"]][0]["id"]
         assert (await client.post(f"/v1/model-configs/{cid}/test", headers=AUTH)).json()["ok"] is True
         await client.post(f"/v1/model-configs/{cid}/enable", headers=AUTH)
 

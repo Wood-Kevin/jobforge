@@ -46,6 +46,8 @@ export type Recommendation = { recommendation: Category; eligibility: string; fi
   fit_counts: Record<string, unknown> & { rule: string }; opportunity_factors: { factor: string; value: string; detail: string }[];
   decisive_reasons: Reason[]; computed_at_ms: number };
 export type Evaluation = { job_id: number; evaluation: { id: number; profile_snapshot_id: number; model_id_reported: string | null; match_prompt_version: string; created_at_ms: number };
+  // Which AI judged the job; fallback: the model on this PC, while ChatGPT was unavailable (SPEC D18).
+  judged_by: { name: string; provider_kind: string; fallback: boolean };
   recommendation: Recommendation | null; evidence: EvidenceRow[]; current: boolean; newer_evaluation_pending: boolean;
   cited_items: Record<string, { kind: string; statement: string; status: string }> };
 export type Application = { id: number; job_id: number; status: string; notes: string | null; created_at_ms: number;
@@ -78,7 +80,14 @@ export type ReviewGroup = { kind: string; type: string | null; example: string; 
 // A line your confirmed fact was checked against that still can't decide the job (the AI and JobForge read it
 // differently, or only JobForge's scan found it): no fact you add settles it (views.py _reading_problem).
 export type ReadingProblem = { outcome: "met" | "fails" | "unanswered"; quote: string; status: string; origin: string };
-export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; enabled: boolean; tested_at_ms: number | null; default: boolean };
+// steps: the model steps that use this config (e1 reading postings, e3 matching, resume, fallback; SPEC D18);
+// out: why the agent's health gate has it out of use right now ("capped", "signed_out", ...), or null.
+export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; provider_kind: "openai_compatible" | "chatgpt";
+  enabled: boolean; tested_at_ms: number | null; steps: string[]; out: string | null };
+export type ModelStep = "e1" | "e3" | "resume" | "fallback";
+export type ChatGPTStatus = { signed_in: boolean; email: string | null; sign_in: { state: "idle" | "waiting" | "done" | "failed"; error: string | null };
+  steps: Record<ModelStep, number | null>; configs: ModelConfig[]; default_model: string };
+export type ModelUsage = { days: number; rows: { day: string; model_config_id: number; step: "e1" | "e3"; calls: number; input_tokens: number; output_tokens: number }[] };
 export type ApplicationRow = { id: number; job_id: number; status: string; notes: string | null; title: string; company: string; job_closed: boolean; last_change_ms: number };
 
 export type SetupStatus = {
@@ -148,4 +157,11 @@ export const api = {
   testModelConfig: (id: number) => agentCall<{ ok: boolean; error?: string; seconds?: number }>("POST", `/v1/model-configs/${id}/test`),
   enableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/enable`),
   disableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/disable`),
+  chatgpt: () => agentCall<ChatGPTStatus>("GET", "/v1/chatgpt"),
+  chatgptSignIn: () => agentCall<{ authorize_url: string }>("POST", "/v1/chatgpt/sign-in"),
+  chatgptSignOut: () => agentCall<{ signed_out: boolean }>("POST", "/v1/chatgpt/sign-out"),
+  chatgptModels: () => agentCall<{ slug: string; display_name: string }[]>("GET", "/v1/chatgpt/models"),
+  useChatgptModel: (slug: string) => agentCall<{ model_config_id: number; test: { ok: boolean; error?: string; seconds?: number } }>("POST", "/v1/chatgpt/use-model", { slug }),
+  setModelStep: (step: ModelStep, model_config_id: number) => agentCall<{ steps: Record<ModelStep, number | null> }>("PUT", "/v1/model-steps", { step, model_config_id }),
+  modelUsage: () => agentCall<ModelUsage>("GET", "/v1/model-usage"),
 };

@@ -91,12 +91,12 @@ def test_segment_offsets_point_into_the_normalized_text():
     ("What we are looking for", "requirements"), ("Preferred Qualifications", "preferred"), ("Nice to have", "preferred"),
     ("Strong candidates may also have", "preferred"), ("It would be great if you had", "preferred"),
     ("What We Offer", "benefits"), ("United States Salary Range", "benefits"), ("US pay range", "benefits"),
-    ("Annual Salary:", "benefits"), ("How GitLab Supports Full-Time Employees", "benefits"), ("Vultr Cares", "benefits"),
-    ("About Tailscale", "about"), ("WHO WE ARE", "about"), ("About the team", "about"),
+    ("Annual Salary:", "benefits"), ("How Company X Supports Full-Time Employees", "benefits"), ("Acme Cares", "benefits"),
+    ("About Acme", "about"), ("WHO WE ARE", "about"), ("About the team", "about"),
     ("Equal Opportunity Employer", "eeo"), ("Inclusion & Privacy", "eeo"),
-    ("Voluntary Diversity and Equal Opportunity Information", "eeo"), ("Keeper Candidate Privacy Notice", "privacy"),
-    # Not in the lexicon: these become `unknown` sections (Join Vultr is that posting's role description).
-    ("Join Vultr", None), ("Logistics", None), ("Timezones & Logistics", None),
+    ("Voluntary Diversity and Equal Opportunity Information", "eeo"), ("Company L Candidate Privacy Notice", "privacy"),
+    # Not in the lexicon: these become `unknown` sections (Join Company U is that posting's role description).
+    ("Join Company U", None), ("Logistics", None), ("Timezones & Logistics", None),
 ])
 def test_heading_lexicon_on_real_headings(heading, label):
     """Headings seen in the 42 queued real postings of the P1.4 evidence database."""
@@ -126,7 +126,7 @@ def test_years(text, want):
 
 
 @pytest.mark.parametrize("quote,want", [
-    # Evaluation calibration 1, cases E1-E2 (the Nash case, 2026-10-24): these went to the matcher as experience.
+    # Evaluation calibration 1, cases E1-E2 (the Company N case, 2026-10-24): these went to the matcher as experience.
     ("Remote in Eastern US (required)", ["residency"]),
     ("Located in US, eastern timezone (remote)", ["residency"]),
     ("US Time (Eastern): Friday - Tuesday, 8A - 5P", ["availability"]),
@@ -149,7 +149,7 @@ def test_interp_v3_eligibility_cues(quote, want):
 
 
 def test_recall_scan_does_not_raise_hours_from_prose():
-    """Before/after round 1: Cogent's "our ticketing, on-call, and incident communication setup" became an
+    """Before/after round 1: Company W's "our ticketing, on-call, and incident communication setup" became an
     eligibility question and turned an APPLY into REVIEW."""
     seg = segment("Requirements\nWe run our ticketing, on-call, and incident communication setup on Pylon.\n")
     assert interpret(seg, []) == []

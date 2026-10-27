@@ -50,6 +50,34 @@ def _tx(conn: sqlite3.Connection, fn):
     return result
 
 
+def move_pending(conn: sqlite3.Connection, from_id: int, to_id: int) -> int:
+    """Hand a cloud config's pending analyses to the fallback config while the cloud is out (SPEC D18: postings
+    never wait on a cap; the fallback's reading then stays). Where the fallback already has a row for the same
+    posting and versions, the pending one is superseded instead, and that row is queued again if it had failed
+    or was superseded (a done one is the reading). Returns how many rows were handed over."""
+    def go():
+        moved = 0
+        for aid, raw_id, ep, sv, iv in conn.execute(
+                "SELECT id, raw_posting_id, extraction_prompt_version, segmenter_version, interpreter_version "
+                "FROM posting_analyses WHERE status = 'pending' AND model_config_id = ? ORDER BY id", (from_id,)).fetchall():
+            other = conn.execute(
+                "SELECT id, status FROM posting_analyses WHERE raw_posting_id = ? AND model_config_id = ? "
+                "AND extraction_prompt_version = ? AND segmenter_version = ? AND interpreter_version = ?",
+                (raw_id, to_id, ep, sv, iv)).fetchone()
+            if other is None:
+                conn.execute("UPDATE posting_analyses SET model_config_id = ? WHERE id = ?", (to_id, aid))
+            else:
+                # Superseded first: one pending analysis per job (unique index).
+                conn.execute("UPDATE posting_analyses SET status = 'superseded', "
+                             "last_error = 'cloud model out: the fallback model has this posting version' WHERE id = ?", (aid,))
+                if other[1] in ("failed", "superseded"):
+                    conn.execute("UPDATE posting_analyses SET status = 'pending', attempts = 0, last_error = NULL, "
+                                 "lease_until_ms = NULL WHERE id = ?", (other[0],))
+            moved += 1
+        return moved
+    return _tx(conn, go)
+
+
 def claim(conn: sqlite3.Connection, model_config_id: int, now: int, lease_ms: int) -> Claim | None:
     """Claim the oldest pending analysis for one config (BEGIN IMMEDIATE + UPDATE ... RETURNING)."""
     def go():

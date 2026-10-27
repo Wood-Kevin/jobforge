@@ -7,7 +7,7 @@
 // There is no "No" answer: recording an absence would change how matching treats the requirement, which
 // waits for Evaluation calibration 1 (DEFERRED_COMPLEXITY.md).
 // A line the model read as an eligibility condition but the code did not type (`unrecognized`) is not an
-// experience question (Nash, 2026-10-24): it offers the fact form instead (residency, hours and
+// experience question (Company N, 2026-10-24): it offers the fact form instead (residency, hours and
 // availability, travel...; guessed from the wording, changeable) and says the job updates only once the
 // reading fix (cases E1-E2) is approved.
 import { useState } from "react";
@@ -28,7 +28,7 @@ const CONDITION: Record<string, string> = {
   availability: "your hours and availability",
 };
 
-// Which fact a misread line is most likely about. The model's own type is often wrong for these (Nash's
+// Which fact a misread line is most likely about. The model's own type is often wrong for these (Company N's
 // location lines were typed work_authorization), so the wording decides first.
 const HOURS = /on-?call|weekends?|holidays?|\bshifts?\b|shift work|24\s*[x/]\s*7|overnight|business hours|working hours|\b\d{1,2}\s*(a|p)\.?m?\.?\s*[-–]/i;
 const PLACE = /located|based in|resid|time ?zone|\b(eastern|central|mountain|pacific)\b|remote in/i;

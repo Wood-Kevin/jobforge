@@ -5,7 +5,7 @@
 import { useMemo, useState, type MouseEvent, type ReactNode } from "react";
 import { openUrl } from "../agent";
 import { api, type Category, type EvidenceRow, type JobDetail as Detail } from "../api";
-import { ELIGIBILITY_TEXT, FIT_TEXT, OPPORTUNITY_SHORT, OPPORTUNITY_TEXT, VERDICT_TITLE, evidenceSentence, factorText, fitLabel, fitSegments, fmtSalary, matchNote, plain } from "../labels";
+import { ELIGIBILITY_TEXT, OPPORTUNITY_SHORT, OPPORTUNITY_TEXT, VERDICT_TITLE, evidenceSentence, factorText, fitLabel, fitSegments, fitText, fmtSalary, matchNote, plain } from "../labels";
 import { useAccuracyTools } from "../viewPrefs";
 import { sanitizePosting } from "../sanitize";
 import { Answer } from "./Answer";
@@ -41,7 +41,7 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
   const rows = ev?.evidence.filter((r) => r.class !== "context" && r.class !== "negated") ?? [];
   // Required experience only, as the fit counts and the headline count it: lines settled by your eligibility
   // facts (where you live, hours) are the "Location, hours and other checks" section, not experience
-  // (UX redesign step 2: Nash's "What you have (9)" listed four location lines beside five skills).
+  // (UX redesign step 2: Company N's "What you have (9)" listed four location lines beside five skills).
   const required = rows.filter((r) => r.match && r.class !== "preferred" && r.match.matched_by !== "eligibility_fact");
   const have = required.filter((r) => ["direct", "transferable"].includes(r.match!.match_type));
   const missing = required.filter((r) => r.match!.match_type === "gap" || r.match!.match_type === "unknown");
@@ -113,9 +113,10 @@ function DetailBody({ d, reload }: { d: Detail; reload: () => void }) {
             </div>)}
           <div className="tiles">
             <Tile value={rec.eligibility} title={plain(rec.eligibility)} text={ELIGIBILITY_TEXT[rec.eligibility]} />
-            <Tile value={rec.fit} title={fitLabel(rec.fit)} text={FIT_TEXT[rec.fit]} />
+            <Tile value={rec.fit} title={fitLabel(rec.fit, rec.fit_counts)} text={fitText(rec.fit, rec.fit_counts)} />
             <Tile value={rec.opportunity} title={OPPORTUNITY_SHORT[rec.opportunity] ?? plain(rec.opportunity)} text={OPPORTUNITY_TEXT[rec.opportunity]} />
           </div>
+          {ev?.judged_by && <p className="muted">{judgedBy(ev.judged_by)}</p>}
         </section>
       ) : (
         <Card title="Recommendation"><p className="muted">{waiting(d)}</p></Card>
@@ -375,4 +376,10 @@ function waiting(d: Detail): string {
   if (d.analysis.status === "pending" || d.analysis.status === "running") return "Waiting for the AI model to read this posting.";
   if (d.analysis.status === "failed") return "The AI model couldn't read this posting.";
   return "Read; matching it against your experience next.";
+}
+
+// Which AI judged the job (SPEC D18). The fallback case says why, so a weaker local verdict isn't taken for ChatGPT's.
+function judgedBy(j: { name: string; provider_kind: string; fallback: boolean }): string {
+  if (j.fallback) return "Judged on this PC while ChatGPT was unavailable. JobForge checks it again with ChatGPT once it answers.";
+  return j.provider_kind === "chatgpt" ? `Judged with ChatGPT (${j.name.replace(/ \(ChatGPT\)$/, "")}).` : "Judged on this PC.";
 }

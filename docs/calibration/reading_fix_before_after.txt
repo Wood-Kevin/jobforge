@@ -17,19 +17,19 @@ lines whose type or result changed (matched-by:result):
 
 per job (only jobs with a change):
 
-  job 33279 Bridgeway Benefit Technologies | System Administrator
+  job 33279 Company D | System Administrator
     APPLY/ELIGIBLE/COMPETITIVE  ->  REVIEW/UNKNOWN/COMPETITIVE   unknown 0 -> 0
     [- model:transferable -> availability fact:unknown] Comfort operating in a SOC 2 / HIPAA-regulated environment, executing access reviews and producing a
     [- model:unknown -> residency fact:unknown] Candidates in the Eastern time zone are preferred.
     new question: Can you work this schedule? "Comfort operating in a SOC 2 / HIPAA-regulated environment, executing access reviews and producing audit evidence, and w"
 
-  job 33280 Bridgeway Benefit Technologies | System Administrator
+  job 33280 Company D | System Administrator
     APPLY/ELIGIBLE/COMPETITIVE  ->  REVIEW/UNKNOWN/COMPETITIVE   unknown 0 -> 0
     [- model:transferable -> availability fact:unknown] Comfort operating in a SOC 2 / HIPAA-regulated environment, executing access reviews and producing a
     [- model:unknown -> residency fact:unknown] Candidates in the Eastern time zone are preferred.
     new question: Can you work this schedule? "Comfort operating in a SOC 2 / HIPAA-regulated environment, executing access reviews and producing audit evidence, and w"
 
-  job 108580 Nash | Technical Support Specialist , US East Coast
+  job 108580 Company N | Technical Support Specialist , US East Coast
     REVIEW/ELIGIBLE/INSUFFICIENT  ->  REVIEW/UNKNOWN/COMPETITIVE   unknown 3 -> 0
     [- model:unknown -> residency fact:unknown] Remote in Eastern US (required)
     [- model:unknown -> availability fact:unknown] US Time (Eastern): Friday - Tuesday, 8A - 5P
@@ -40,14 +40,14 @@ per job (only jobs with a change):
     new question: Which time zone do you live in? The posting asks for eastern time: "Remote in Eastern US (required)". Add your time zone to your residency fact.
     new question: Which time zone do you live in? The posting asks for eastern time: "candidates must be located in the US in Eastern timezone". Add your time zone to y
 
-  job 118082 Jobgether | Customer Support Engineer
+  job 118082 Company K | Customer Support Engineer
     REVIEW/ELIGIBLE/INSUFFICIENT  ->  REVIEW/UNKNOWN/INSUFFICIENT   unknown 5 -> 4
     [- model:unknown -> availability fact:unknown] Ability to support customers and collaborate with colleagues during Pacific Time Zone business hours
     [- None:None -> availability fact:unknown] Opportunity to work remotely within the United States, with a focus on Pacific Time Zone alignment.
     new question: Can you work this schedule? "Ability to support customers and collaborate with colleagues during Pacific Time Zone business hours." Add your hours and
     new question: Can you work this schedule? "Opportunity to work remotely within the United States, with a focus on Pacific Time Zone alignment." Add your hours and a
 
-  job 121239 Jobgether | System Administrator I
+  job 121239 Company K | System Administrator I
     REVIEW/ELIGIBLE/INSUFFICIENT  ->  REVIEW/UNKNOWN/INSUFFICIENT   unknown 12 -> 11
     [- None:None -> residency fact:gap] based in India
     [- model:unknown -> availability fact:unknown] Ability to work full-time, 40 hours per week, Monday through Friday, from 8:30 a.m. to 5:30 p.m. Eas

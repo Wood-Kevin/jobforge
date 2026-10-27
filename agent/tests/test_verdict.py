@@ -264,7 +264,7 @@ def _random_case(rng: random.Random):
     return reqs, matches, job
 
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3", "v4"])
 def test_skip_only_from_positive_evidence(version):
     rng = random.Random(7)
     rules = assess.load_rules(version)
@@ -292,6 +292,7 @@ def test_skip_only_from_positive_evidence(version):
             assert a.fit in ("WEAK", "STRETCH") and a.fit_counts["judgeable"] >= RULES["fit"]["min_judgeable"]
             if rule == 5:
                 assert a.opportunity == "LOW"
+                assert not a.fit_counts.get("unshown")  # v4: a STRETCH from unknowns is never skipped
     assert seen["SKIP"] > 50  # the generator actually reaches SKIP
 
 
@@ -303,3 +304,24 @@ def test_on_call_never_lowers_opportunity_value():
     from jobforge_agent.evaluation.assess import JobFacts
     assert {f.name for f in dataclasses.fields(JobFacts)} == {"title", "posted_at", "outcome"}
 
+
+
+def test_v4_years_tolerance_is_one_year_or_a_quarter():
+    v3, v4 = assess.load_rules("v3"), assess.load_rules("v4")
+    short = {"years_needed": 3, "years_short": 1.1}  # 1.9 years against "3-5 years" (a real job, 2026-10-25)
+    assert validate.materiality(req(1, min_years=3), short, v3) == "minor"
+    assert validate.materiality(req(1, min_years=3), short, v4) == "material"
+    assert validate.materiality(req(1, min_years=2), {"years_needed": 2, "years_short": 0.1}, v4) == "minor"
+    assert validate.materiality(req(1, min_years=10), {"years_needed": 10, "years_short": 2.5}, v4) == "minor"  # 25%
+    assert validate.materiality(req(1, min_years=5), {"years_needed": 5, "years_short": 3.1}, v4) == "material"
+
+
+def test_v4_years_count_only_what_the_model_cites():
+    # E4 counts years from the cited items only, so v4's tighter tolerance depends on E3 citing every item
+    # that shows the experience (prompt m2-v2). Under m2-v1 the model cited the two latest roles and left
+    # out the longest one: 0.92 of about 1.9 real years, a material gap on "2+ years" (a real job, 2026-10-26).
+    v4, r = assess.load_rules("v4"), req(1, min_years=2)
+    one = validate.model_match(r, _m("direct", cited=("P2",)), SNAP, {}, v4, NOW)
+    both = validate.model_match(r, _m("direct", cited=("P1", "P2")), SNAP, {}, v4, NOW)
+    assert (one.gap_size["years_shown"], one.gap_materiality) == (0.33, "material")
+    assert (both.gap_size["years_shown"], both.gap_materiality) == (1.25, "minor")

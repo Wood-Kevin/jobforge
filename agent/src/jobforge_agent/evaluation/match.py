@@ -1,4 +1,4 @@
-"""E3: the model matches posting requirements to profile items (ARCHITECTURE 6.3, 6.4; prompt m1-v1).
+"""E3: the model matches posting requirements to profile items (ARCHITECTURE 6.3, 6.4; prompt m2-v2).
 
 Input: the requirements E2 left for fit (negotiable or preferred, confirmed or conflict, no
 eligibility type: those are matched by code in facts.py) and the snapshot's non-eligibility
@@ -65,15 +65,23 @@ SCHEMA = {
 SYSTEM = """You compare a job posting's requirements with a candidate's profile. You do not decide whether the candidate should apply; code does that from your answer.
 
 For EVERY requirement R<n> return exactly one match:
-- "direct": one or more profile items P<id> show this experience itself. Cite them.
-- "transferable": cited items show ADJACENT experience that would carry over. Cite them, say in "bridge" what transfers, and in "transfer_limits" what does not.
+- "direct": one or more profile items P<id> show this experience itself, or the same thing under another name (the posting's "or similar" counts). Cite them.
+- "transferable": cited items show the SAME task or responsibility, done with a different tool or in a different setting, so the candidate would only need to learn the new tool or setting. Cite them, say in "bridge" which task is the same, and in "transfer_limits" what is new.
 - "gap": the profile shows the experience is absent or too short (e.g. 2 years against 5). Say why in "gap_detail"; cite the items that show the shortfall, if any.
 - "unknown": the profile says nothing either way. Absence from the profile is NOT a gap unless the profile clearly covers the area and lacks this.
+
+What is NOT transferable (answer "unknown", or "gap" when the profile clearly covers the area and lacks it):
+- Working near the area, alongside people who do it, or with something that touches it. Running backups is not designing a disaster recovery program; using Linux is not kernel development.
+- A broader or narrower skill than the one asked. General troubleshooting is not a named protocol or language; following a process is not running or improving it.
+- A requirement that names a specific technology, protocol, language, framework or practice that no item states, or states an equivalent of.
+When unsure between "transferable" and "unknown", answer "unknown".
+
+Requirements that list several things ("A and B, including C and D"): judge the core of the requirement, which is usually what comes first. If items show the core, answer "direct" (or "transferable" by the rule above) and name the parts the profile does not show in "transfer_limits"; do not answer "gap" or "unknown" because a listed detail is missing. If items do not show the core, judge the requirement as a whole by the rules above.
 
 Rules:
 - Cite ONLY ids from the PROFILE list, exactly as written (P12). Never cite a requirement id. Never invent an id.
 - Use only what an item states. Do not assume experience that no item states.
-- Years: count only the time the cited items state (years or dates). Do not round up.
+- Years: code adds up the dates and years of the items you cite. For a requirement with a minimum number of years, cite EVERY item that shows this experience, not only the most recent role. Do not cite an item that does not show it.
 - Keep "bridge", "transfer_limits" and "gap_detail" to one short sentence each; null when not used.
 - "inferred_claims" (optional, at most 5): experience that is probably true given the profile but not stated by any item, e.g. a role that almost certainly involved a tool. These are suggestions for the candidate to confirm; they never count as a match. Return [] if none.
 
