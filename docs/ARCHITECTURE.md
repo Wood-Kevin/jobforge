@@ -1034,7 +1034,24 @@ compares it to the model's:
   `years_about_others`, `model_eligibility_hint_only`, `model_hard_without_eligibility_type`,
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
-  `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`.
+  `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`,
+  `duty_names_tools`.
+- **`interp-v6` (2026-10-27): a duty done with named tools keeps them.** A line that `interp-v4` would set aside as a
+  duty is instead `preferred`, flag `duty_names_tools`, when its scope has a tool word (`cues.TOOL_USE`: using,
+  utilizing, leveraging, use, "tools like", administer / administration / administrator; not "using them") and the
+  model's quote, which keeps the posting's capitals, names something after its first word (`cues.TOOL_NAME`).
+  Preferred, not negotiable: the posting says the job uses the tools, not that it requires them, and E2 reads an
+  uncertain requirement as the more permissive class. Like a duty, the reading under a duties heading gives way to
+  the same words under Requirements (`also_listed_as_duty`). Why: set aside with the duty, the tools were never
+  matched; an Azure administrator posting whose requirements never name Azure lost Azure, AVD, Entra ID and
+  PowerShell. Rejected: any capitalized word (company, team and acronym names: Acme, Engineering, SLA, the
+  "not in your profile" noise `interp-v4` removed) and a lexicon of tools (stale, and posting reading never sees
+  the profile). Not caught: a tool with no tool word ("queue in Zendesk", "AWS network architectures", "in DCIM").
+  Measured (copy of the person's data, Gemma matching): Gemma's readings, 3 of 29 duties kept, one verdict moved
+  (a support engineer job, STRETCH -> APPLY: the new line changed the E3 request and Gemma re-judged an untouched
+  years line from a material to a minor gap, the run-to-run variation in DEFERRED, not the kept line, which is a
+  transferable preferred); Luna's readings of 20 postings, 9 of 88 kept, no verdict changed, 7 of the 10 kept
+  lines matched direct or transferable, 2 not in the profile (Azure Virtual Desktop, Palantir Foundry).
 - **`interp-v5` (2026-10-27): parts of one line are one requirement.** Model rows from the same posting sentence
   (`interpret.merge_split_lines`) are merged into one when each is a confirmed, unambiguous, experience row of the
   same class (negotiable or preferred) with no eligibility type and no duty flag, no `;` separates them, and at

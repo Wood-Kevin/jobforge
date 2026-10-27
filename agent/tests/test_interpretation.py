@@ -160,6 +160,7 @@ def test_recall_scan_does_not_raise_hours_from_prose():
 # ----- interp-v4: duties under a duties heading are context; seg-v2 headings -----
 
 DUTIES = ("Key Responsibilities:\n- Administer Azure Virtual Desktop host pools and session hosts.\n"
+          "- Maintain runbooks and troubleshooting guides for the support team.\n"
           "- Support a 24x7x365 operation, including shift work, weekends, and holidays as required.\n"
           "- Leverage your experience administering Intune to manage endpoints.\n"
           # Lines like these, from real postings, were set aside before the JOB_CONDITION and "looking for" guards
@@ -178,7 +179,7 @@ def _read(text, quote, years=None):
 
 
 def test_interp_v4_a_task_under_a_duties_heading_is_context():
-    r = _read(DUTIES.split("\n\nRequirements")[0], "Administer Azure Virtual Desktop host pools and session hosts.")
+    r = _read(DUTIES.split("\n\nRequirements")[0], "Maintain runbooks and troubleshooting guides for the support team.")
     assert (r.final_class, r.interpretation_status) == ("context", "confirmed")
     assert any(f["flag"] == "duty_by_section" for f in r.flags)
 
@@ -252,3 +253,49 @@ def test_interp_v5_the_same_quote_twice_is_one_requirement():
 ])
 def test_interp_v5_parts_that_stay_separate(parts, years):
     assert len(_rows(*parts, years=years)) == 2
+
+
+# ----- interp-v6: a duty done with named tools keeps the tools -----
+
+TOOL_DUTIES = ("Responsibilities:\n- Investigate application behavior using Go, TypeScript, and SQL.\n"
+               "- Develop and maintain automation using Terraform, Ansible, Python.\n"
+               "- Administer Azure Virtual Desktop host pools and session hosts.\n"
+               "- Communicate findings using clear, structured updates.\n"
+               "- Partner cross-functionally with Engineering, Customer Success, and Account teams.\n"
+               "- Respond to customer inquiries regarding Acme products and services.\n"
+               "- Automate recurring administrative tasks.\n"
+               "- Validate findings produced by AI-assisted systems before using them to resolve a case.")
+
+
+@pytest.mark.parametrize("quote", [
+    "Investigate application behavior using Go, TypeScript, and SQL",
+    "Develop and maintain automation using Terraform, Ansible, Python",
+    "Administer Azure Virtual Desktop host pools and session hosts",
+])
+def test_interp_v6_a_duty_done_with_named_tools_keeps_them_as_a_nice_to_have(quote):
+    r = _read(TOOL_DUTIES, quote)
+    assert (r.final_class, r.interpretation_status) == ("preferred", "confirmed")
+    assert any(f["flag"] == "duty_names_tools" for f in r.flags) and not any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+@pytest.mark.parametrize("quote", [
+    # A tool word with nothing named (lowercase prose).
+    "Communicate findings using clear, structured updates",
+    # Names, but of teams and the company, with no tool word.
+    "Partner cross-functionally with Engineering, Customer Success, and Account teams",
+    "Respond to customer inquiries regarding Acme products and services",
+    # "administrative" is not administering something.
+    "Automate recurring administrative tasks",
+    # "using them" points back at the findings, not at a tool.
+    "Validate findings produced by AI-assisted systems before using them to resolve a case",
+])
+def test_interp_v6_other_duties_are_still_set_aside(quote):
+    r = _read(TOOL_DUTIES, quote)
+    assert r.final_class == "context" and any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+def test_interp_v6_named_tools_outside_a_duties_heading_are_unchanged():
+    # A company's stack under About stays context (layer A fixture); the rule reads only duties.
+    r = _read("About the team:\nOur stack is managed using Terraform, Ansible, Datadog.",
+              "Our stack is managed using Terraform, Ansible, Datadog")
+    assert r.final_class == "context" and not any(f["flag"] == "duty_names_tools" for f in r.flags)

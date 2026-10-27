@@ -255,6 +255,11 @@ if run analysis; then
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
           AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
           AND r.flags LIKE '%duty_by_section%' GROUP BY 1, 2"
+  probe "Duties kept for the tools they name in current analyses (interp-v6: duty_names_tools), by class and model config" \
+    sql "SELECT r.final_class, pa.model_config_id, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND r.flags LIKE '%duty_names_tools%' GROUP BY 1, 2"
   probe "Merged split lines in current analyses (interp-v5: merged_split_line), by model config" \
     sql "SELECT pa.model_config_id, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
