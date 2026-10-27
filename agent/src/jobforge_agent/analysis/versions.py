@@ -4,5 +4,6 @@ so new analyses are created instead of old ones being silently reinterpreted."""
 
 EXTRACTION_PROMPT_VERSION = "e1-v1"
 SEGMENTER_VERSION = "seg-v2"  # 2026-10-27: "Position Responsibilities", "Duties and Responsibilities", "Required:", "Required Skills and Qualifications"
-INTERPRETER_VERSION = "interp-v4"  # 2026-10-27: a line under a duties heading that asks nothing of the candidate and states no condition is context
+INTERPRETER_VERSION = "interp-v5"  # 2026-10-27: same-class parts of one sentence listed separately are merged into one requirement
+# interp-v4 2026-10-27: a line under a duties heading that asks nothing of the candidate and states no condition is context
 # interp-v3 2026-10-24 (calibration E1-E2): availability type, zone/remote-region residency cues, "authorization to work"

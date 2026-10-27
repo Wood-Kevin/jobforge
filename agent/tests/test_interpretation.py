@@ -211,3 +211,44 @@ def test_interp_v4_the_same_words_under_requirements_are_a_requirement():
 ])
 def test_seg_v2_headings(heading, label):
     assert heading_label(heading) == label
+
+
+# ----- interp-v5: parts of one line listed separately are one requirement -----
+
+SPLIT = ("Requirements:\n- Linux familiarity and basic GCP or AWS IAM.\n"
+         "- PowerShell scripting experience; familiarity with Terraform.\n"
+         "- 3+ years in IT operations, including 1+ years at a startup.\n"
+         "- Must be authorized to work in the US and comfortable with Jira.\n"
+         "- Python scripting is required, Go is a plus.")
+
+
+def _rows(*parts, years=None):
+    items = [ModelItem(q, q, imp, "affirmative", "candidate", "none", (years or {}).get(q)) for q, imp in parts]
+    return [r for r in interpret(segment(SPLIT), items) if r.origin == "model"]
+
+
+def test_interp_v5_parts_of_one_line_become_one_requirement():
+    (r,) = _rows(("Linux familiarity", "required"), ("basic GCP or AWS IAM", "required"))
+    assert r.jd_quote == "Linux familiarity and basic GCP or AWS IAM" and r.final_class == "negotiable"
+    assert next(f for f in r.flags if f["flag"] == "merged_split_line")["parts"] == ["Linux familiarity", "basic GCP or AWS IAM"]
+
+
+def test_interp_v5_the_same_quote_twice_is_one_requirement():
+    q = "3+ years in IT operations, including 1+ years at a startup"
+    rows = _rows((q, "required"), (q, "required"), years={q: 3})
+    assert len(rows) == 1 and rows[0].min_years == 3
+
+
+@pytest.mark.parametrize("parts,years", [
+    # A semicolon lists separate requirements.
+    ((("PowerShell scripting experience", "required"), ("familiarity with Terraform", "required")), None),
+    # Two parts each with their own years.
+    ((("3+ years in IT operations", "required"), ("1+ years at a startup", "required")),
+     {"3+ years in IT operations": 3, "1+ years at a startup": 1}),
+    # A condition of the job is checked on its own.
+    ((("Must be authorized to work in the US", "required"), ("comfortable with Jira", "required")), None),
+    # A required part and a nice-to-have part.
+    ((("Python scripting is required", "required"), ("Go is a plus", "preferred")), None),
+])
+def test_interp_v5_parts_that_stay_separate(parts, years):
+    assert len(_rows(*parts, years=years)) == 2

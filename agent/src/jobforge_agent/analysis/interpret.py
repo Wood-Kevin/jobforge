@@ -375,6 +375,70 @@ def _recall_row(seg: Segmented, s: Sentence, missing: list[str]) -> Requirement:
                        spans=[(s.start, s.end)])
 
 
+MERGEABLE = ("negotiable", "preferred")
+
+
+def merge_split_lines(seg: Segmented, rows: list[Requirement]) -> list[Requirement]:
+    """interp-v5: parts of one posting sentence that a model listed separately ("Linux familiarity" and "basic GCP or
+    AWS IAM" from "Linux familiarity and basic GCP or AWS IAM") become one requirement, as most models read them and
+    as E3 judges a multi-part line (by its core, the rest in transfer_limits). GPT-5.6-Luna split 50 lines more than
+    Gemma's 8 on 20 real postings (2026-10-27), each part one more line to match. Merged only when every part is a
+    confirmed, unambiguous, same-class experience line with no eligibility type, no part but one names years, and no
+    ';' separates them (a semicolon lists separate requirements). The merged quote is the parts with the posting's
+    own text between them, so it stays a contiguous span (quote_found); the parts are kept in the flag."""
+    def mergeable(r: Requirement) -> bool:
+        return (r.origin == "model" and r.quote_found and r.quote_occurrences == 1 and len(r.spans) == 1
+                and r.interpretation_status == "confirmed" and r.final_class in MERGEABLE and r.eligibility_type is None
+                and not any(f["flag"] in ("heading_joined_quote", "duty_by_section") for f in r.flags))
+    groups: dict[tuple[int, str], list[Requirement]] = {}
+    for r in rows:
+        if mergeable(r):
+            sent = seg.sentences_overlapping(*r.spans[0])
+            if len(sent) == 1:
+                groups.setdefault((sent[0].index, r.final_class), []).append(r)
+    drop: set[int] = set()
+    merged: dict[int, Requirement] = {}
+    for parts in groups.values():
+        parts.sort(key=lambda r: r.spans[0])
+        # The same span listed twice is one requirement, whatever else it names (Luna repeated a "3-5 years" line).
+        seen: dict[tuple[int, int], Requirement] = {}
+        for r in list(parts):
+            if r.spans[0] in seen:
+                drop.add(id(r))
+                parts.remove(r)
+            else:
+                seen[r.spans[0]] = r
+        runs, run = [], [parts[0]]
+        for r in parts[1:]:
+            gap = seg.text[run[-1].spans[0][1]:r.spans[0][0]]
+            if ";" in gap:
+                runs.append(run)
+                run = [r]
+            else:
+                run.append(r)
+        runs.append(run)
+        for run in runs:
+            if len(run) < 2 or sum(r.min_years is not None for r in run) > 1:
+                continue
+            quote, end = run[0].jd_quote, run[0].spans[0][1]
+            for r in run[1:]:
+                start, stop = r.spans[0]
+                if start >= end:  # a later part; one that overlaps (a duplicate) adds nothing
+                    quote += seg.text[end:start] + r.jd_quote
+                    end = stop
+                elif stop > end:
+                    quote += seg.text[end:stop]
+                    end = stop
+            first = run[0]
+            years = next((r.min_years for r in run if r.min_years is not None), None)
+            merged[id(first)] = Requirement(
+                **{**first.__dict__, "text": "; ".join(dict.fromkeys(r.text for r in run)), "jd_quote": quote,
+                   "min_years": years, "spans": [(first.spans[0][0], end)],
+                   "flags": first.flags + [{"flag": "merged_split_line", "parts": [r.jd_quote for r in run]}]})
+            drop.update(id(r) for r in run[1:])
+    return [merged.get(id(r), r) for r in rows if id(r) not in drop]
+
+
 def interpret(seg: Segmented, items: list[ModelItem]) -> list[Requirement]:
-    extracted = [interpret_item(seg, it) for it in items]
+    extracted = merge_split_lines(seg, [interpret_item(seg, it) for it in items])
     return extracted + recall_scan(seg, extracted)
