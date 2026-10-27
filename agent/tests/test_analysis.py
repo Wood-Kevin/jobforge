@@ -471,6 +471,20 @@ def test_a_new_interpreter_version_rereads_the_stored_e1_answer_without_a_model_
     assert "reused_from_analysis" in logged(caplog, capsys)
 
 
+def test_a_new_segmenter_version_also_rereads_the_stored_e1_answer(env):
+    # E1 sees only the title and text, never the segmentation (seg-v2, 2026-10-27: heading lexicon additions).
+    db, ids, make = env
+    first = queue(db, ids)
+    server = FakeServer(("ok", GOOD))
+    assert asyncio.run(make(server).run_once()) == "done"
+    again = db.execute(
+        "INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
+        "interpreter_version, created_at_ms) VALUES (?, ?, ?, ?, 'seg-next', 'interp-next', ?) RETURNING id",
+        (ids["raw7"], ids["job7"], ids["model"], EXTRACTION_PROMPT_VERSION, NOW)).fetchone()[0]
+    assert asyncio.run(make(server).run_once()) == "done" and server.chat_calls == 1
+    assert json.loads(row(db, again)["raw_response"])["reused_from_analysis"] == first
+
+
 def test_a_new_e1_prompt_version_does_not_reuse_the_old_answer(env):
     db, ids, make = env
     queue(db, ids)

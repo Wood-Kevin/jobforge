@@ -103,14 +103,16 @@ def claim(conn: sqlite3.Connection, model_config_id: int, now: int, lease_ms: in
 
 
 def stored_extraction(conn: sqlite3.Connection, analysis_id: int) -> tuple[int, dict, str | None] | None:
-    """A finished analysis of the same posting by the same model config, E1 prompt and segmenter, whose E1
-    answer can be read again: (its id, raw_response, model reported). E1's output depends only on those and
-    the posting text, so an interpreter-only change (interp-v3) re-runs E2 on it without a model call.
-    Rejected: re-running E1 on every posting for an E2 change (one model call per job, and E1's own drift)."""
+    """A finished analysis of the same posting by the same model config and E1 prompt, whose E1 answer can be read
+    again: (its id, raw_response, model reported). E1 sees only the title and posting text, so its answer depends
+    only on those, the model and the prompt: a segmenter or interpreter change (seg-v2, interp-v4) re-runs E0/E2 on
+    it without a model call. Until seg-v2 the segmenter version had to match too, though E1 never reads the
+    segmentation. Rejected: re-running E1 on every posting for an E0/E2 change (one model call per job, and E1's
+    own drift)."""
     row = conn.execute(
         "SELECT o.id, o.raw_response, o.model_id_reported FROM posting_analyses a JOIN posting_analyses o "
         "ON o.raw_posting_id = a.raw_posting_id AND o.model_config_id = a.model_config_id "
-        "AND o.extraction_prompt_version = a.extraction_prompt_version AND o.segmenter_version = a.segmenter_version "
+        "AND o.extraction_prompt_version = a.extraction_prompt_version "
         "WHERE a.id = ? AND o.id <> a.id AND o.status = 'done' AND o.raw_response IS NOT NULL ORDER BY o.id DESC LIMIT 1",
         (analysis_id,)).fetchone()
     if row is None:

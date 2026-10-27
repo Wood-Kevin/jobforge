@@ -153,3 +153,61 @@ def test_recall_scan_does_not_raise_hours_from_prose():
     eligibility question and turned an APPLY into REVIEW."""
     seg = segment("Requirements\nWe run our ticketing, on-call, and incident communication setup on Pylon.\n")
     assert interpret(seg, []) == []
+
+
+
+
+# ----- interp-v4: duties under a duties heading are context; seg-v2 headings -----
+
+DUTIES = ("Key Responsibilities:\n- Administer Azure Virtual Desktop host pools and session hosts.\n"
+          "- Support a 24x7x365 operation, including shift work, weekends, and holidays as required.\n"
+          "- Leverage your experience administering Intune to manage endpoints.\n"
+          # Lines like these, from real postings, were set aside before the JOB_CONDITION and "looking for" guards
+          # (2026-10-27 measurement on 20 postings): a location, a schedule, a requirement worded as "we're looking for".
+          "- Remote Global - Non U.S.\n"
+          "- Dedicated support hire in the United States.\n"
+          "- Work a hybrid or remote schedule depending on proximity to an office; travel as needed.\n"
+          "- We're looking for people that went into the internals of OLAP databases.\n\n"
+          "Requirements:\n- 2+ years supporting Windows endpoints.\n- Administer Azure Virtual Desktop host pools and session hosts.")
+
+
+def _read(text, quote, years=None):
+    (r,) = [x for x in interpret(segment(text), [ModelItem(quote, quote, "required", "affirmative", "candidate", "none", years)])
+            if x.origin == "model"]
+    return r
+
+
+def test_interp_v4_a_task_under_a_duties_heading_is_context():
+    r = _read(DUTIES.split("\n\nRequirements")[0], "Administer Azure Virtual Desktop host pools and session hosts.")
+    assert (r.final_class, r.interpretation_status) == ("context", "confirmed")
+    assert any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+@pytest.mark.parametrize("quote", [
+    # A condition worded as a task: still checked against the availability fact (the recall scan skips hours).
+    "Support a 24x7x365 operation, including shift work, weekends, and holidays as required.",
+    # A line under the duties heading that asks for prior experience.
+    "Leverage your experience administering Intune to manage endpoints.",
+    "Remote Global - Non U.S.",
+    "Dedicated support hire in the United States.",
+    "Work a hybrid or remote schedule depending on proximity to an office; travel as needed.",
+    "We're looking for people that went into the internals of OLAP databases.",
+])
+def test_interp_v4_a_condition_or_a_qualification_under_a_duties_heading_stays(quote):
+    r = _read(DUTIES, quote)
+    assert r.final_class in ("hard", "negotiable") and not any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+def test_interp_v4_the_same_words_under_requirements_are_a_requirement():
+    r = _read(DUTIES, "Administer Azure Virtual Desktop host pools and session hosts.")
+    assert (r.final_class, r.interpretation_status, r.section_label) == ("negotiable", "confirmed", "requirements")
+    assert {"also_listed_as_duty", "ambiguous_location"} <= {f["flag"] for f in r.flags}
+
+
+@pytest.mark.parametrize("heading,label", [
+    ("Position Responsibilities", "responsibilities"), ("Duties and Responsibilities", "responsibilities"),
+    ("Essential Functions", "responsibilities"), ("Required:", "requirements"),
+    ("Required Skills and Qualifications", "requirements"),
+])
+def test_seg_v2_headings(heading, label):
+    assert heading_label(heading) == label

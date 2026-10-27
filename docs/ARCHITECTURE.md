@@ -1034,7 +1034,26 @@ compares it to the model's:
   `years_about_others`, `model_eligibility_hint_only`, `model_hard_without_eligibility_type`,
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
-  `quote_not_found`, `unextracted_eligibility`.
+  `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`.
+- **`interp-v4` / `seg-v2` (2026-10-27): duties are context.** A line under a duties heading (section
+  `responsibilities`) is `context`, flag `duty_by_section`, when it asks nothing the candidate must already have
+  (`cues.ASKS_OF_CANDIDATE`: experience, knowledge, skills, ability, "we're looking for", ...), names no years,
+  and states no condition of the job (no eligibility type and no `cues.JOB_CONDITION` word: remote, hybrid,
+  office, U.S., travel, schedule, shifts, on-call, ...). The same words also listed under Requirements are read
+  there (`also_listed_as_duty`). `seg-v2` adds "Position / Job / Role Responsibilities", "Duties and
+  Responsibilities", "Essential Functions", "Required:" and "Required Skills and Qualifications". Why:
+  GPT-5.6-Luna reads a posting's duties as requirements (477 lines on 20 postings against Gemma's 313), each one
+  more "not in your profile". Rejected, both measured on the same 20 postings with both models: telling E1 to
+  leave duties out (it also dropped conditions worded as tasks, "support a 24x7x365 operation", and real skills;
+  the recall scan skips hours, so a dropped schedule is lost) and a `duty` subject in E1 (listing every duty ran
+  Gemma past its 4,000-token output on 2 of 20 postings). Code decides, the E1 prompt is unchanged, and a
+  stored E1 answer is re-read with no model call (`analysis/store.stored_extraction` no longer requires the same
+  segmenter version: E1 never sees the segmentation). Measured (copy of the person's data, Luna matching):
+  with Gemma's readings, 17 of 297 lines on the 20 postings become context and 5 of 46 jobs are matched again
+  (one verdict changes: a support job STRETCH -> APPLY after its "investigate ... using Go, TypeScript and SQL"
+  duty became context). With Luna's readings, 91 of 495 lines become context, "not in your profile" lines fall
+  (one job 18 -> 12, another 10 -> 4) and the 20 jobs go APPLY 3 -> 5, STRETCH 14 -> 11, SKIP 0 -> 1. Limit: a
+  duty that names the tools it needs carries a requirement the rule sets aside.
 - **`interp-v2` (P1.7, from the real profile run):** the residency lexicon also reads "be local to" / "local to the ... area,
   office, region, metro, city, campus, site" and on-site / in-office attendance with a days-per-week count. Company L's "be local
   to the El Dorado Hills area" and "on-site a minimum of 3 days per week" had reached Kevin as experience questions instead of

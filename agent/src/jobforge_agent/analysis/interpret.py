@@ -222,7 +222,14 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
             flags.append({"flag": "years_disagree", "model": item.min_years, "cue": found_years})
             min_years = min(found_years)
 
-    if not candidate:
+    # A duty of the role (interp-v4): a line under a duties heading that asks nothing the candidate must already have
+    # and states no condition of the job. Context, not a requirement to match: GPT-5.6-Luna listed such lines as
+    # requirements (2026-10-26: 97 of its 477 lines on 20 postings), each one more "not in your profile".
+    duty = (candidate and section == "responsibilities" and not types and not found_years
+            and not cues.ASKS_OF_CANDIDATE.search(scope) and not cues.JOB_CONDITION.search(scope))
+    if duty:
+        flags.append({"flag": "duty_by_section"})
+    if not candidate or duty:
         final = "context"
     elif is_negated:
         final = "negated"
@@ -305,12 +312,19 @@ def interpret_item(seg: Segmented, item: ModelItem) -> Requirement:
                            final_class=_model_only_class(item), interpretation_status="unverifiable",
                            flags=[{"flag": "quote_not_found"}])
     readings = [_read(seg, item, quote, s, e) for s, e in spans]
-    chosen = readings[0]
     flags_extra: list[dict] = []
+    # The same words under Requirements and under a duties heading: the duty reading (interp-v4) does not make the
+    # location ambiguous; the line is asked of the candidate where it is listed as a requirement.
+    sections = [r.section for r in readings]
+    asked = [r for r in readings if not any(f["flag"] == "duty_by_section" for f in r.flags)]
+    if asked and len(asked) < len(readings):
+        readings = asked
+        flags_extra.append({"flag": "also_listed_as_duty"})
+    chosen = readings[0]
     status = chosen.status
-    if len({r.section for r in readings}) > 1:
+    if len(set(sections)) > 1:
         agree = len({(r.final_class, r.status, r.eligibility_type) for r in readings}) == 1
-        flags_extra.append({"flag": "ambiguous_location", "sections": [r.section for r in readings], "readings_agree": agree})
+        flags_extra.append({"flag": "ambiguous_location", "sections": sections, "readings_agree": agree})
         if agree:
             chosen = min(readings, key=lambda r: SECTION_RANK.index(r.section))
             status = chosen.status

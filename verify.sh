@@ -250,6 +250,11 @@ if run analysis; then
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
           AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
           AND r.model_eligibility_type NOT IN ('none') AND r.eligibility_type IS NULL GROUP BY 1"
+  probe "Lines set aside as duties in current analyses (interp-v4: duty_by_section), by section and model config" \
+    sql "SELECT r.section_label, pa.model_config_id, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND r.flags LIKE '%duty_by_section%' GROUP BY 1, 2"
   probe "Requirement lines typed availability in current analyses, by class (interp-v3)" \
     sql "SELECT r.final_class, r.interpretation_status, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
           JOIN jobs j ON j.id = pa.job_id WHERE r.eligibility_type = 'availability' AND pa.raw_posting_id = j.current_raw_posting_id
