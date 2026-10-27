@@ -132,7 +132,14 @@ def years(text: str) -> list[float]:
 # code reads it as a requirement (interpret._read). Prior experience, knowledge, skill or ability words.
 ASKS_OF_CANDIDATE = re.compile(
     r"\b(experience[ds]?|knowledge|understanding|familiar(ity)?|proficien(t|cy)|expert(ise)?|skill(s|ed)?|ability to|able to"
-    r"|comfortable (with|in|using)|background in|certifi(ed|cation)|degree|must|required|essential|you have|you bring|you've)\b")
+    r"|comfortable (with|in|using)|background in|certifi(ed|cation)|degree|must|required|essential|you have|you bring|you've"
+    r"|looking for|we need you|we want you)\b")
+# Words of a job condition the eligibility lexicon may not type ("Remote Global - Non U.S.", "a hybrid schedule
+# depending on proximity to an office"): a line with one is never set aside as a duty (interp-v4).
+JOB_CONDITION = re.compile(
+    r"\b(remote|hybrid|on-?site|in[- ]office|offices?|u\.?s\.?|united states|based in|located|locations?|relocat\w*|travel\w*"
+    r"|schedules?|shifts?|hours|time ?zones?|weekends?|holidays|on-?call|overnight|visas?|sponsor\w*|authoriz\w*|citizen\w*"
+    r"|clearance|licen[cs]e\w*|lift\w*)\b")
 EEO = re.compile(
     r"\b(regardless of|without regard to|discriminat\w*|equal (employment )?opportunit\w*|affirmative action|protected (veteran )?(class|status)"
     r"|e-?verify|reasonable accommodations?|veteran status|genetic information|sexual orientation|gender identity|national origin)\b")

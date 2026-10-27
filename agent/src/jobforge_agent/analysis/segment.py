@@ -30,12 +30,12 @@ _HEADINGS: list[tuple[str, str]] = [
                   r"|pluses|it would be great if you (had|have)|strong candidates may also( have)?|extra credit"
                   r"|desired (skills|qualifications|experience)|additional (preferred )?qualifications|ways to stand out"),
     ("requirements", r"(minimum |basic |required |key |core )?(requirements|qualifications)( and (qualifications|requirements|experience))?"
-                     r"|requirement|required (skills|experience)|what you('ll| will)? (need|bring)( to [\w .&'-]+)?|what we('re| are) looking for"
+                     r"|requirement|required|required (skills|experience|qualifications)( and (skills|experience|qualifications))?|what you('ll| will)? (need|bring)( to [\w .&'-]+)?|what we('re| are) looking for"
                      r"|who you are|you (are|have|bring)|about you|you may be a good fit if you( have)?|you might be a good fit if you( have)?"
                      r"|skills( and | & )(experience|qualifications)|experience|(technical |required )?skills|must[- ]haves?"
                      r"|your (background|experience|skills)|(the )?ideal candidate|what makes you a (great|good) fit"
                      r"|what you should have|is this role a fit"),
-    ("responsibilities", r"(key |core |primary )?responsibilities|what you('ll| will) do|what you('ll| will) be (doing|responsible for)"
+    ("responsibilities", r"(key |core |primary |position |job |role )?responsibilities|(essential |key )?(duties|functions)( (and|&) responsibilities)?|what you('ll| will) do|what you('ll| will) be (doing|responsible for)"
                          r"|in this role,? you will|you will|the role|about the (role|job|position|opportunity)|about this (role|job|position)"
                          r"|an overview of this role|(job|role|position) (summary|overview|description)|overview|the opportunity"
                          r"|your impact|day[- ]to[- ]day|(job )?description|what to expect|representative projects"),

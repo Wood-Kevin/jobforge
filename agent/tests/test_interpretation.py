@@ -155,40 +155,59 @@ def test_recall_scan_does_not_raise_hours_from_prose():
     assert interpret(seg, []) == []
 
 
-# ----- interp-v4: duties (E1 e1-v2) -----
 
-DUTIES = ("Responsibilities:\n- Administer Azure Virtual Desktop host pools and session hosts.\n"
+
+# ----- interp-v4: duties under a duties heading are context; seg-v2 headings -----
+
+DUTIES = ("Key Responsibilities:\n- Administer Azure Virtual Desktop host pools and session hosts.\n"
           "- Support a 24x7x365 operation, including shift work, weekends, and holidays as required.\n"
-          "- Leverage your experience administering Intune to manage endpoints.\n\n"
-          "Requirements:\n- 2+ years supporting Windows endpoints.")
+          "- Leverage your experience administering Intune to manage endpoints.\n"
+          # Lines like these, from real postings, were set aside before the JOB_CONDITION and "looking for" guards
+          # (2026-10-27 measurement on 20 postings): a location, a schedule, a requirement worded as "we're looking for".
+          "- Remote Global - Non U.S.\n"
+          "- Dedicated support hire in the United States.\n"
+          "- Work a hybrid or remote schedule depending on proximity to an office; travel as needed.\n"
+          "- We're looking for people that went into the internals of OLAP databases.\n\n"
+          "Requirements:\n- 2+ years supporting Windows endpoints.\n- Administer Azure Virtual Desktop host pools and session hosts.")
 
 
-@pytest.mark.parametrize("quote,want_class,want_flag", [
-    # A task of the role: context, not matched against the profile.
-    ("Administer Azure Virtual Desktop host pools and session hosts.", "context", "duty"),
-    # A condition worded as a task stays a requirement, checked against the availability fact like any other
-    # (the recall scan skips hours, so dropping it would lose it).
-    ("Support a 24x7x365 operation, including shift work, weekends, and holidays as required.", "hard", "duty_with_condition"),
-    # A "duty" that asks for prior experience is a requirement: code overrules the label.
-    ("Leverage your experience administering Intune to manage endpoints.", "negotiable", "duty_asks_of_candidate"),
-])
-def test_interp_v4_duty_is_context_unless_code_reads_a_condition_or_a_qualification(quote, want_class, want_flag):
-    def read(subject):
-        (r,) = [x for x in interpret(segment(DUTIES), [ModelItem(quote, quote, "required", "affirmative", subject, "none", None)])
-                if x.origin == "model"]
-        return r
-    r = read("duty")
-    assert r.final_class == want_class and any(f["flag"] == want_flag for f in r.flags), r.flags
-    if want_flag != "duty":  # kept: read exactly as the same line labelled "candidate" (class and status)
-        c = read("candidate")
-        assert (r.final_class, r.interpretation_status) == (c.final_class, c.interpretation_status)
-    else:
-        assert r.interpretation_status == "confirmed"  # code agrees it is not about the candidate: no conflict
-
-
-def test_interp_v4_candidate_lines_are_unchanged():
-    q = "2+ years supporting Windows endpoints."
-    (r,) = [x for x in interpret(segment(DUTIES), [ModelItem(q, q, "required", "affirmative", "candidate", "none", 2)])
+def _read(text, quote, years=None):
+    (r,) = [x for x in interpret(segment(text), [ModelItem(quote, quote, "required", "affirmative", "candidate", "none", years)])
             if x.origin == "model"]
-    assert (r.final_class, r.interpretation_status) == ("negotiable", "confirmed")
-    assert not any(f["flag"].startswith("duty") for f in r.flags)
+    return r
+
+
+def test_interp_v4_a_task_under_a_duties_heading_is_context():
+    r = _read(DUTIES.split("\n\nRequirements")[0], "Administer Azure Virtual Desktop host pools and session hosts.")
+    assert (r.final_class, r.interpretation_status) == ("context", "confirmed")
+    assert any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+@pytest.mark.parametrize("quote", [
+    # A condition worded as a task: still checked against the availability fact (the recall scan skips hours).
+    "Support a 24x7x365 operation, including shift work, weekends, and holidays as required.",
+    # A line under the duties heading that asks for prior experience.
+    "Leverage your experience administering Intune to manage endpoints.",
+    "Remote Global - Non U.S.",
+    "Dedicated support hire in the United States.",
+    "Work a hybrid or remote schedule depending on proximity to an office; travel as needed.",
+    "We're looking for people that went into the internals of OLAP databases.",
+])
+def test_interp_v4_a_condition_or_a_qualification_under_a_duties_heading_stays(quote):
+    r = _read(DUTIES, quote)
+    assert r.final_class in ("hard", "negotiable") and not any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+def test_interp_v4_the_same_words_under_requirements_are_a_requirement():
+    r = _read(DUTIES, "Administer Azure Virtual Desktop host pools and session hosts.")
+    assert (r.final_class, r.interpretation_status, r.section_label) == ("negotiable", "confirmed", "requirements")
+    assert {"also_listed_as_duty", "ambiguous_location"} <= {f["flag"] for f in r.flags}
+
+
+@pytest.mark.parametrize("heading,label", [
+    ("Position Responsibilities", "responsibilities"), ("Duties and Responsibilities", "responsibilities"),
+    ("Essential Functions", "responsibilities"), ("Required:", "requirements"),
+    ("Required Skills and Qualifications", "requirements"),
+])
+def test_seg_v2_headings(heading, label):
+    assert heading_label(heading) == label

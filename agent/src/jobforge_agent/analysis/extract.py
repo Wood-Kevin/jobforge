@@ -1,9 +1,4 @@
-"""E1: the extraction prompt and its output schema (ARCHITECTURE 6.4, 6.8). Prompt version e1-v2.
-
-e1-v2 (2026-10-27): subject "duty" for the role's tasks, and one item per bullet (no splitting). GPT-5.6-Luna
-listed duties as candidate requirements (477 lines on 20 postings against Gemma's 313), each one a line to match.
-Asking models to leave duties out dropped conditions of the job worded as tasks ("support a 24x7x365 operation")
-and real skills (measured twice); labelling them keeps every line and lets code decide (interpret._read).
+"""E1: the extraction prompt and its output schema (ARCHITECTURE 6.4, 6.8). Prompt version e1-v1.
 
 Derived from spike prompt e1-draft-2 (spikes/p1_0/extract_spike.py), which Gemma 4 12B answered
 with valid JSON on 6/6 postings and verbatim quotes on 97/97 items. Changes from the draft, each
@@ -30,7 +25,7 @@ IMPORTANCE = ("hard", "required", "preferred")
 # Never "required" here: sharing it with importance made three models label ~95% of items
 # negated (spike P1.0b draft 1). The schema lint test pins "no enum value in two fields".
 POLARITY = ("affirmative", "negated")
-SUBJECT = ("candidate", "duty", "company", "team", "benefit")
+SUBJECT = ("candidate", "company", "team", "benefit")
 # The model's type list is fixed with prompt e1-v1, not taken from the E2 lexicon: E2 can learn a type
 # (availability, interp-v3) without changing the E1 schema, its pinned hash, or re-running E1 on every
 # posting. The model never names the newer types; E2 assigns them from the text.
@@ -65,12 +60,11 @@ SCHEMA = {
 
 SYSTEM = """You extract candidate requirements from a job posting.
 Rules:
-- One item per distinct requirement or qualification the posting states about the CANDIDATE, and one per duty of the role (labelled "duty", below).
-- One item per bullet or sentence: when a line lists several skills ("Linux familiarity and basic GCP or AWS IAM"), keep it as ONE item; do not split it.
+- One item per distinct requirement or qualification the posting states about the CANDIDATE.
 - jd_quote: copy a short contiguous span EXACTLY as it appears in the posting (same words, same order). Do not paraphrase, merge, or fix typos. Quote the bullet or sentence itself; never join a list heading or lead-in line to it.
 - importance: "hard" only for eligibility conditions stated as mandatory (work authorization, sponsorship, holding a clearance, a legally required license, where you must live, travel or physical demands, a required program status such as active duty or enrolled student). "required" for other must-haves. "preferred" for nice-to-haves, pluses, bonuses.
 - polarity: "affirmative" for anything the posting asks for or prefers; "negated" only when the posting says something is NOT required (e.g. "no degree required").
-- subject: "candidate" for what the applicant must already have, know, be or accept (experience, skills, knowledge, certifications, education, and conditions such as location, hours, shifts, on-call, travel, authorization); "duty" for a task the person will perform in the role ("Administer Azure Virtual Desktop", "Escalate issues to tier 2", "Maintain documentation"), wherever it appears; "company"/"team" for statements describing the company, product, customers, or stack; "benefit" for perks.
+- subject: "candidate" for requirements on the applicant; "company"/"team" for statements describing the company, product, customers, or stack; "benefit" for perks.
 - eligibility_type: the eligibility category, or "none".
 - min_years: minimum years of experience if stated for this item, else null.
 Return JSON only."""
@@ -101,7 +95,7 @@ class _Item(BaseModel):
     jd_quote: str
     importance: Literal["hard", "required", "preferred"]
     polarity: Literal["affirmative", "negated"]
-    subject: Literal["candidate", "duty", "company", "team", "benefit"]
+    subject: Literal["candidate", "company", "team", "benefit"]
     eligibility_type: Literal[ELIGIBILITY]  # type: ignore[valid-type]
     min_years: float | None
 
