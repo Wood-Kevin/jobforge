@@ -1034,7 +1034,18 @@ compares it to the model's:
   `years_about_others`, `model_eligibility_hint_only`, `model_hard_without_eligibility_type`,
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
-  `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`.
+  `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`.
+- **`interp-v5` (2026-10-27): parts of one line are one requirement.** Model rows from the same posting sentence
+  (`interpret.merge_split_lines`) are merged into one when each is a confirmed, unambiguous, experience row of the
+  same class (negotiable or preferred) with no eligibility type and no duty flag, no `;` separates them, and at
+  most one names years. The merged quote is the parts with the posting's own text between them (a contiguous
+  span); the parts are kept in `merged_split_line`. The same span listed twice is one row. Why: GPT-5.6-Luna
+  split 50 more lines than Gemma's 8 on 20 real postings ("Linux familiarity" and "basic GCP or AWS IAM"), each
+  part one more line to match, while E3 already judges a multi-part line by its core (`m2-v1`). Kept apart: a
+  required part and a nice-to-have part, parts across a semicolon, parts each with their own years, a condition
+  of the job. Measured (copy of the person's data, Gemma matching): Gemma's readings, no verdict changed (2 of 46
+  jobs re-matched); Luna's readings of 20 postings, no verdict changed, requirement lines 300 -> 269, lines not
+  in the profile 91 -> 68 (one job 9 -> 3, another 11 -> 6).
 - **`interp-v4` / `seg-v2` (2026-10-27): duties are context.** A line under a duties heading (section
   `responsibilities`) is `context`, flag `duty_by_section`, when it asks nothing the candidate must already have
   (`cues.ASKS_OF_CANDIDATE`: experience, knowledge, skills, ability, "we're looking for", ...), names no years,

@@ -484,8 +484,8 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   the person's approval).
   **Addressed 2026-10-27 in code, not the prompt** (`interp-v4`, ARCHITECTURE 6.4): duties under a duties heading
   are context. With Luna's readings of the 20 postings, 91 lines set aside, all duties on review. Still open:
-  Luna splits a line that lists several skills and keeps attitude lines ("you show more than you tell") under
-  Requirements, about 100 more lines than Gemma on the 20; and a duty that names the tools it needs ("investigate
+  Luna keeps attitude lines ("you show more than you tell") under Requirements (its split lines are merged since
+  `interp-v5`, ARCHITECTURE 6.4: 300 -> 269 lines on the 20); and a duty that names the tools it needs ("investigate
   ... using Go, TypeScript and SQL") is set aside with them. Trigger: the person moves posting reading to ChatGPT
   and finds REVIEW questions about attitude lines, or a job marked APPLY that asks for tools only in its duties.
 - **A real cap was never observed:** the usage-limit codes and their shape come from the docs; the tests use a
