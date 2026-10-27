@@ -153,3 +153,42 @@ def test_recall_scan_does_not_raise_hours_from_prose():
     eligibility question and turned an APPLY into REVIEW."""
     seg = segment("Requirements\nWe run our ticketing, on-call, and incident communication setup on Pylon.\n")
     assert interpret(seg, []) == []
+
+
+# ----- interp-v4: duties (E1 e1-v2) -----
+
+DUTIES = ("Responsibilities:\n- Administer Azure Virtual Desktop host pools and session hosts.\n"
+          "- Support a 24x7x365 operation, including shift work, weekends, and holidays as required.\n"
+          "- Leverage your experience administering Intune to manage endpoints.\n\n"
+          "Requirements:\n- 2+ years supporting Windows endpoints.")
+
+
+@pytest.mark.parametrize("quote,want_class,want_flag", [
+    # A task of the role: context, not matched against the profile.
+    ("Administer Azure Virtual Desktop host pools and session hosts.", "context", "duty"),
+    # A condition worded as a task stays a requirement, checked against the availability fact like any other
+    # (the recall scan skips hours, so dropping it would lose it).
+    ("Support a 24x7x365 operation, including shift work, weekends, and holidays as required.", "hard", "duty_with_condition"),
+    # A "duty" that asks for prior experience is a requirement: code overrules the label.
+    ("Leverage your experience administering Intune to manage endpoints.", "negotiable", "duty_asks_of_candidate"),
+])
+def test_interp_v4_duty_is_context_unless_code_reads_a_condition_or_a_qualification(quote, want_class, want_flag):
+    def read(subject):
+        (r,) = [x for x in interpret(segment(DUTIES), [ModelItem(quote, quote, "required", "affirmative", subject, "none", None)])
+                if x.origin == "model"]
+        return r
+    r = read("duty")
+    assert r.final_class == want_class and any(f["flag"] == want_flag for f in r.flags), r.flags
+    if want_flag != "duty":  # kept: read exactly as the same line labelled "candidate" (class and status)
+        c = read("candidate")
+        assert (r.final_class, r.interpretation_status) == (c.final_class, c.interpretation_status)
+    else:
+        assert r.interpretation_status == "confirmed"  # code agrees it is not about the candidate: no conflict
+
+
+def test_interp_v4_candidate_lines_are_unchanged():
+    q = "2+ years supporting Windows endpoints."
+    (r,) = [x for x in interpret(segment(DUTIES), [ModelItem(q, q, "required", "affirmative", "candidate", "none", 2)])
+            if x.origin == "model"]
+    assert (r.final_class, r.interpretation_status) == ("negotiable", "confirmed")
+    assert not any(f["flag"].startswith("duty") for f in r.flags)

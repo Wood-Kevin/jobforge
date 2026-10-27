@@ -43,7 +43,7 @@ class ModelItem:
     jd_quote: str
     importance: str          # hard / required / preferred
     polarity: str            # affirmative / negated
-    subject: str             # candidate / company / team / benefit
+    subject: str             # candidate / duty / company / team / benefit
     eligibility_type: str    # one of cues.ELIGIBILITY_TYPES or "none"
     min_years: float | None
 
@@ -181,9 +181,24 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
     # Check 4: subject.
     cue_subject, subj_flags = _subject(sentence, section, bool(types))
     flags += subj_flags
-    model_candidate, cue_candidate = item.subject == "candidate", cue_subject == "candidate"
+    model_subject = item.subject
+    if model_subject == "duty":
+        # A task of the role (E1 e1-v2), which is not matched against the profile, unless code reads a condition of
+        # the job in it (shifts, on-call, travel: the recall scan skips hours, so a lost one would be lost for good)
+        # or a qualification ("experience administering ..."). Code decides either way, so no conflict.
+        if types:
+            model_subject = "candidate"
+            flags.append({"flag": "duty_with_condition"})
+        elif cues.ASKS_OF_CANDIDATE.search(scope) or cues.YEARS.search(scope):
+            model_subject = "candidate"
+            flags.append({"flag": "duty_asks_of_candidate"})
+        else:
+            flags.append({"flag": "duty"})
+    model_candidate, cue_candidate = model_subject == "candidate", cue_subject == "candidate"
     candidate = model_candidate and cue_candidate
-    if model_candidate != cue_candidate:
+    if item.subject == "duty" and not model_candidate:
+        pass  # a duty: context, whatever the subject cue (it has no notion of duties)
+    elif model_candidate != cue_candidate:
         conflicts.append({"field": "subject", "model": item.subject, "cue": cue_subject})
         if elig and section not in RECALL_EXCLUDED and not any(f["flag"] in ("eeo_text", "privacy_text") for f in subj_flags):
             # An eligibility condition is not waved away as context on a disputed subject: it

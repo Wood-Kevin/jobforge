@@ -128,6 +128,11 @@ def years(text: str) -> list[float]:
 
 
 # ----- check 4: subject -----
+# A line the model labelled a duty (a task of the role, E1 e1-v2) that still asks something of the candidate:
+# code reads it as a requirement (interpret._read). Prior experience, knowledge, skill or ability words.
+ASKS_OF_CANDIDATE = re.compile(
+    r"\b(experience[ds]?|knowledge|understanding|familiar(ity)?|proficien(t|cy)|expert(ise)?|skill(s|ed)?|ability to|able to"
+    r"|comfortable (with|in|using)|background in|certifi(ed|cation)|degree|must|required|essential|you have|you bring|you've)\b")
 EEO = re.compile(
     r"\b(regardless of|without regard to|discriminat\w*|equal (employment )?opportunit\w*|affirmative action|protected (veteran )?(class|status)"
     r"|e-?verify|reasonable accommodations?|veteran status|genetic information|sexual orientation|gender identity|national origin)\b")

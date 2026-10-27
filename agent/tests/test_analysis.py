@@ -446,7 +446,7 @@ def test_prompt_changes_require_a_version_bump():
     from jobforge_agent.analysis.versions import EXTRACTION_PROMPT_VERSION
     digest = hashlib.sha256((extract.SYSTEM + json.dumps(extract.SCHEMA, sort_keys=True)
                              + extract.user_message("T", "X")).encode()).hexdigest()[:16]
-    assert (EXTRACTION_PROMPT_VERSION, digest) == ("e1-v1", "4fb42bf9ca058f7e")
+    assert (EXTRACTION_PROMPT_VERSION, digest) == ("e1-v2", "183cbe2e7bf6e6e8")
 
 
 # ----- an interpreter-only version change reuses the stored E1 answer (interp-v3, 2026-10-24) -----
