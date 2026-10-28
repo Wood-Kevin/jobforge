@@ -151,6 +151,10 @@ TOOL_USE = re.compile(
 # A capitalized word that is not the quote's first: "Go", "TypeScript", "SQL", "Azure". Lowercase prose ("using clear,
 # structured communication") never counts.
 TOOL_NAME = re.compile(r"(?<=\s)[(\"']?[A-Z][A-Za-z0-9+#./-]*")
+# A step of the hiring process, not a qualification (interp-v7): "Successful completion of a background check". No profile
+# fact answers it, so matched it was always "not in your profile" and counted against the fit. Read on the quote, so a
+# requirement sharing the sentence keeps its class.
+HIRING_STEP = re.compile(r"\bbackground (checks?|investigations?|screen(ing|s)?)\b")
 EEO = re.compile(
     r"\b(regardless of|without regard to|discriminat\w*|equal (employment )?opportunit\w*|affirmative action|protected (veteran )?(class|status)"
     r"|e-?verify|reasonable accommodations?|veteran status|genetic information|sexual orientation|gender identity|national origin)\b")

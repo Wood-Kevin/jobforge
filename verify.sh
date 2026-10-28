@@ -260,6 +260,11 @@ if run analysis; then
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
           AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
           AND r.flags LIKE '%duty_names_tools%' GROUP BY 1, 2"
+  probe "Background checks set aside as hiring steps in current analyses (interp-v7: hiring_step), by class" \
+    sql "SELECT r.final_class, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND r.flags LIKE '%hiring_step%' GROUP BY 1"
   probe "Merged split lines in current analyses (interp-v5: merged_split_line), by model config" \
     sql "SELECT pa.model_config_id, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL

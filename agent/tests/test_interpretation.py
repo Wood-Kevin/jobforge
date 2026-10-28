@@ -299,3 +299,35 @@ def test_interp_v6_named_tools_outside_a_duties_heading_are_unchanged():
     r = _read("About the team:\nOur stack is managed using Terraform, Ansible, Datadog.",
               "Our stack is managed using Terraform, Ansible, Datadog")
     assert r.final_class == "context" and not any(f["flag"] == "duty_names_tools" for f in r.flags)
+
+
+# ----- interp-v7: a background check is a step of the hiring process -----
+
+STEPS = ("Requirements:\n- 3+ years of IT support experience.\n- Successful completion of a background check.\n"
+         "- Must pass any and all required background checks.\n"
+         "- Upon conditional offer of employment, candidates are required to complete comprehensive criminal background checks.\n"
+         "- Ability to obtain a Public Trust clearance, which requires a background investigation.\n"
+         "- 2+ years of experience conducting background investigations.")
+
+
+@pytest.mark.parametrize("quote", [
+    "Successful completion of a background check",
+    "Must pass any and all required background checks",
+    "Upon conditional offer of employment, candidates are required to complete comprehensive criminal background checks",
+])
+def test_interp_v7_a_background_check_is_context(quote):
+    r = _read(STEPS, quote)
+    assert (r.final_class, r.interpretation_status) == ("context", "confirmed")
+    assert any(f["flag"] == "hiring_step" for f in r.flags)
+
+
+@pytest.mark.parametrize("quote,cls", [
+    # A clearance keeps its eligibility type and its check against the facts.
+    ("Ability to obtain a Public Trust clearance, which requires a background investigation", "negotiable"),
+    # Years of doing background investigations is experience asked of the candidate.
+    ("2+ years of experience conducting background investigations", "negotiable"),
+    ("3+ years of IT support experience", "negotiable"),
+])
+def test_interp_v7_other_lines_are_unchanged(quote, cls):
+    r = _read(STEPS, quote, years=2 if quote.startswith("2+") else 3 if quote.startswith("3+") else None)
+    assert r.final_class == cls and not any(f["flag"] == "hiring_step" for f in r.flags)
