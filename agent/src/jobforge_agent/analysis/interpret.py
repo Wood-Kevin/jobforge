@@ -227,13 +227,19 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
     # requirements (2026-10-26: 97 of its 477 lines on 20 postings), each one more "not in your profile".
     duty = (candidate and section == "responsibilities" and not types and not found_years
             and not cues.ASKS_OF_CANDIDATE.search(scope) and not cues.JOB_CONDITION.search(scope))
+    # interp-v6: a duty done with named tools keeps them as a nice-to-have (the posting uses them, it does not state
+    # them as required); set aside with the duty, an Azure administrator posting never asked for Azure (2026-10-27).
+    tools = duty and bool(cues.TOOL_USE.search(scope)) and bool(cues.TOOL_NAME.search(item.jd_quote))
+    if tools:
+        duty = False
+        flags.append({"flag": "duty_names_tools"})
     if duty:
         flags.append({"flag": "duty_by_section"})
     if not candidate or duty:
         final = "context"
     elif is_negated:
         final = "negated"
-    elif importance == "preferred":
+    elif importance == "preferred" or tools:
         final = "preferred"
     elif elig and not equivalence and not ability:
         final = "hard"
@@ -314,9 +320,10 @@ def interpret_item(seg: Segmented, item: ModelItem) -> Requirement:
     readings = [_read(seg, item, quote, s, e) for s, e in spans]
     flags_extra: list[dict] = []
     # The same words under Requirements and under a duties heading: the duty reading (interp-v4) does not make the
-    # location ambiguous; the line is asked of the candidate where it is listed as a requirement.
+    # location ambiguous; the line is asked of the candidate where it is listed as a requirement. Likewise a duty
+    # whose tools are kept (interp-v6): its class there is only a nice-to-have.
     sections = [r.section for r in readings]
-    asked = [r for r in readings if not any(f["flag"] == "duty_by_section" for f in r.flags)]
+    asked = [r for r in readings if not any(f["flag"] in ("duty_by_section", "duty_names_tools") for f in r.flags)]
     if asked and len(asked) < len(readings):
         readings = asked
         flags_extra.append({"flag": "also_listed_as_duty"})

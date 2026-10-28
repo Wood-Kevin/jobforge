@@ -140,6 +140,17 @@ JOB_CONDITION = re.compile(
     r"\b(remote|hybrid|on-?site|in[- ]office|offices?|u\.?s\.?|united states|based in|located|locations?|relocat\w*|travel\w*"
     r"|schedules?|shifts?|hours|time ?zones?|weekends?|holidays|on-?call|overnight|visas?|sponsor\w*|authoriz\w*|citizen\w*"
     r"|clearance|licen[cs]e\w*|lift\w*)\b")
+# A duty that names the tools it is done with (interp-v6): the tools are asked of the candidate even when the duty is
+# not ("investigate application behavior using Go, TypeScript, and SQL", "administer Azure Virtual Desktop"). The cue is
+# read on the normalized scope; the name on the model's quote, which keeps the posting's capitals (TOOL_NAME).
+TOOL_USE = re.compile(
+    r"\b(using|utilizing|utilising|leveraging|uses?|tools? (like|such as|including)"
+    r"|administ(er|ers|ering|ration|rator|rators))\b"
+    # "before using them": the object is something already named, not a tool ("findings produced by AI-assisted systems").
+    r"(?! (it|them|this|these|that|those)\b)")
+# A capitalized word that is not the quote's first: "Go", "TypeScript", "SQL", "Azure". Lowercase prose ("using clear,
+# structured communication") never counts.
+TOOL_NAME = re.compile(r"(?<=\s)[(\"']?[A-Z][A-Za-z0-9+#./-]*")
 EEO = re.compile(
     r"\b(regardless of|without regard to|discriminat\w*|equal (employment )?opportunit\w*|affirmative action|protected (veteran )?(class|status)"
     r"|e-?verify|reasonable accommodations?|veteran status|genetic information|sexual orientation|gender identity|national origin)\b")

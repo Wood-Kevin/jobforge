@@ -485,9 +485,12 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   **Addressed 2026-10-27 in code, not the prompt** (`interp-v4`, ARCHITECTURE 6.4): duties under a duties heading
   are context. With Luna's readings of the 20 postings, 91 lines set aside, all duties on review. Still open:
   Luna keeps attitude lines ("you show more than you tell") under Requirements (its split lines are merged since
-  `interp-v5`, ARCHITECTURE 6.4: 300 -> 269 lines on the 20); and a duty that names the tools it needs ("investigate
-  ... using Go, TypeScript and SQL") is set aside with them. Trigger: the person moves posting reading to ChatGPT
-  and finds REVIEW questions about attitude lines, or a job marked APPLY that asks for tools only in its duties.
+  `interp-v5`, ARCHITECTURE 6.4: 300 -> 269 lines on the 20). A duty that names its tools with a tool word
+  ("investigate ... using Go, TypeScript and SQL", "administer Azure Virtual Desktop") keeps them as a nice-to-have
+  since `interp-v6`; one that names them without one ("the Technical Support queue in Zendesk", "design and
+  implement AWS network architectures", "asset inventory in DCIM") is still set aside with them. Trigger: the
+  person moves posting reading to ChatGPT and finds REVIEW questions about attitude lines, or a job marked APPLY
+  that asks for tools only in duties worded without a tool word.
 - **A real cap was never observed:** the usage-limit codes and their shape come from the docs; the tests use a
   recorded event of that shape. Trigger: the first `inference_capped` line in agent.jsonl; check the stored error
   matches `CAP_CODES` and the wait (15 min doubling to 2 h) suits how fast the plan recovers.
