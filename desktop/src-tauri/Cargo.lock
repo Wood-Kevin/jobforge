@@ -1845,7 +1845,7 @@ dependencies = [
 
 [[package]]
 name = "jobforge"
-version = "0.3.16"
+version = "0.3.17"
 dependencies = [
  "serde",
  "serde_json",
