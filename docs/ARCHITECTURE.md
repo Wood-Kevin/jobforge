@@ -1035,7 +1035,19 @@ compares it to the model's:
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
   `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`,
-  `duty_names_tools`.
+  `duty_names_tools`, `hiring_step`.
+- **`interp-v7` (2026-10-27): a background check is a step of hiring, not a requirement.** A line whose quote names a
+  background check, investigation or screening (`cues.HIRING_STEP`) is `context`, flag `hiring_step`, unless it has
+  an eligibility type (a clearance's background investigation keeps its check against the facts) or names years
+  ("2+ years conducting background investigations" is experience). Read on the quote, not the sentence, so another
+  requirement in the same sentence keeps its class. Why: no profile fact answers it, so the matcher always said
+  "not in your profile" and it counted toward the unknowns that make a job STRETCH (Kevin: "Successful completion
+  of a background check shouldn't be in the apply logic"). Rejected: a profile fact ("can pass a background
+  check") with an eligibility type, which would ask everyone a question whose answer never changes a decision.
+  Not covered: drug screening and other pre-employment steps (none in the person's data). Measured (copy of the
+  person's data, 2026-10-27): 49 current jobs re-read, 1 row changed; the one assessed job with such a line
+  (Technical Support Engineer (L1), Luna matching) stays STRETCH, now for its 1 material gap instead of "2 of 6
+  requirements not shown in the profile"; 4 more such lines are in jobs whose text is not kept (never assessed).
 - **`interp-v6` (2026-10-27): a duty done with named tools keeps them.** A line that `interp-v4` would set aside as a
   duty is instead `preferred`, flag `duty_names_tools`, when its scope has a tool word (`cues.TOOL_USE`: using,
   utilizing, leveraging, use, "tools like", administer / administration / administrator; not "using them") and the
