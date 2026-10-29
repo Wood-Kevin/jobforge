@@ -235,8 +235,9 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
         flags.append({"flag": "duty_names_tools"})
     if duty:
         flags.append({"flag": "duty_by_section"})
-    # interp-v7: a background check is a step of the hiring process, context like a duty. A clearance's background
-    # investigation keeps its eligibility type, and a line with years asks for experience too.
+    # interp-v7: a background check (interp-v8: a LinkedIn profile) is a step of the hiring process, context like a
+    # duty. A clearance's background investigation keeps its eligibility type, and a line with years asks for
+    # experience too.
     step = bool(cues.HIRING_STEP.search(quote)) and not types and not found_years
     if step:
         flags.append({"flag": "hiring_step"})

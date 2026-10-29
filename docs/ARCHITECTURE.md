@@ -1036,6 +1036,14 @@ compares it to the model's:
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
   `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`,
   `duty_names_tools`, `hiring_step`.
+- **`interp-v8` (2026-10-28): a LinkedIn profile asked of applicants is a hiring step too.** `cues.HIRING_STEP` also
+  matches "LinkedIn profile(s)" / "LinkedIn account(s)" in the quote ("We are only accepting candidates with verified
+  LinkedIn profiles"), with the same exceptions as `interp-v7`. Why: like a background check, no profile item
+  answers it, and the window asked the person whether their profile covers it (Kevin: "This shouldn't be a
+  thing"). Rejected: any mention of LinkedIn, which would set aside the product as a skill ("sourcing candidates
+  with LinkedIn Recruiter"). Measured (copy of the person's data, 2026-10-28): 55 current jobs re-read, 1 row
+  changed; that job (Support Engineer, Engineering Operations) stays REVIEW (2 judgeable requirements, fewer than
+  3), with 3 unknowns instead of 4.
 - **`interp-v7` (2026-10-27): a background check is a step of hiring, not a requirement.** A line whose quote names a
   background check, investigation or screening (`cues.HIRING_STEP`) is `context`, flag `hiring_step`, unless it has
   an eligibility type (a clearance's background investigation keeps its check against the facts) or names years

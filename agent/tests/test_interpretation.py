@@ -331,3 +331,20 @@ def test_interp_v7_a_background_check_is_context(quote):
 def test_interp_v7_other_lines_are_unchanged(quote, cls):
     r = _read(STEPS, quote, years=2 if quote.startswith("2+") else 3 if quote.startswith("3+") else None)
     assert r.final_class == cls and not any(f["flag"] == "hiring_step" for f in r.flags)
+
+
+# ----- interp-v8: a LinkedIn profile asked of applicants is a hiring step too -----
+
+LINKEDIN = ("Requirements:\n- **We are only accepting candidates with verified LinkedIn profiles**\n"
+            "- Experience sourcing candidates with LinkedIn Recruiter.")
+
+
+def test_interp_v8_a_linkedin_profile_is_context():
+    r = _read(LINKEDIN, "We are only accepting candidates with verified LinkedIn profiles")
+    assert (r.final_class, r.interpretation_status) == ("context", "confirmed")
+    assert any(f["flag"] == "hiring_step" for f in r.flags)
+
+
+def test_interp_v8_linkedin_the_product_is_still_a_skill():
+    r = _read(LINKEDIN, "Experience sourcing candidates with LinkedIn Recruiter")
+    assert r.final_class == "negotiable" and not any(f["flag"] == "hiring_step" for f in r.flags)
