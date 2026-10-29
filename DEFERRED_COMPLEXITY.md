@@ -483,9 +483,11 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   duties from requirements, measured on the same 20 postings with both models (an E1 change: version bump, and
   the person's approval).
   **Addressed 2026-10-27 in code, not the prompt** (`interp-v4`, ARCHITECTURE 6.4): duties under a duties heading
-  are context. With Luna's readings of the 20 postings, 91 lines set aside, all duties on review. Still open:
-  Luna keeps attitude lines ("you show more than you tell") under Requirements (its split lines are merged since
-  `interp-v5`, ARCHITECTURE 6.4: 300 -> 269 lines on the 20). A duty that names its tools with a tool word
+  are context. With Luna's readings of the 20 postings, 91 lines set aside, all duties on review. Attitude lines
+  that start with a desire, interest, passion or a trait list are context since `interp-v8` (ARCHITECTURE 6.4: 7
+  rows on the person's data); still open are those worded otherwise ("you show more than you tell", "a commitment
+  to providing excellent service" mid-line). Its split lines are merged since `interp-v5` (ARCHITECTURE 6.4: 300 ->
+  269 lines on the 20). A duty that names its tools with a tool word
   ("investigate ... using Go, TypeScript and SQL", "administer Azure Virtual Desktop") keeps them as a nice-to-have
   since `interp-v6`; one that names them without one ("the Technical Support queue in Zendesk", "design and
   implement AWS network architectures", "asset inventory in DCIM") is still set aside with them. Trigger: the

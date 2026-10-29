@@ -260,11 +260,22 @@ if run analysis; then
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
           AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
           AND r.flags LIKE '%duty_names_tools%' GROUP BY 1, 2"
-  probe "Background checks set aside as hiring steps in current analyses (interp-v7: hiring_step), by class" \
+  probe "Background checks and LinkedIn profiles set aside as hiring steps in current analyses (interp-v7/v8: hiring_step), by class" \
     sql "SELECT r.final_class, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
           AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
           AND r.flags LIKE '%hiring_step%' GROUP BY 1"
+  probe "Lines no profile answers, set aside in current analyses (interp-v8: attitude, location_arrangement), by flag and class" \
+    sql "SELECT CASE WHEN r.flags LIKE '%\"attitude\"%' THEN 'attitude' ELSE 'location_arrangement' END, r.final_class, count(*)
+          FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND (r.flags LIKE '%\"attitude\"%' OR r.flags LIKE '%location_arrangement%') GROUP BY 1, 2"
+  probe "Kind-only disagreements checked as the code's kind in current analyses (interp-v8: model_type_without_cue), by type and status" \
+    sql "SELECT r.eligibility_type, r.interpretation_status, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
+          JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL
+          AND pa.id = (SELECT max(id) FROM posting_analyses WHERE job_id = j.id AND status = 'done')
+          AND r.flags LIKE '%model_type_without_cue%' GROUP BY 1, 2"
   probe "Merged split lines in current analyses (interp-v5: merged_split_line), by model config" \
     sql "SELECT pa.model_config_id, count(*) FROM requirements r JOIN posting_analyses pa ON pa.id = r.posting_analysis_id
           JOIN jobs j ON j.id = pa.job_id WHERE pa.raw_posting_id = j.current_raw_posting_id AND j.closed_at_ms IS NULL

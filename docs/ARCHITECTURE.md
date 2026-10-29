@@ -1035,7 +1035,48 @@ compares it to the model's:
   `subject_conflict_kept_for_eligibility`, `eligibility_in_context_section`,
   `disagreement_ignored_for_context`, `heading_joined_quote`, `ambiguous_location`,
   `quote_not_found`, `unextracted_eligibility`, `duty_by_section`, `also_listed_as_duty`, `merged_split_line`,
-  `duty_names_tools`, `hiring_step`.
+  `duty_names_tools`, `hiring_step`, `attitude`, `location_arrangement`, `model_type_without_cue`.
+- **`interp-v8` / `seg-v3` (2026-10-28): lines no profile answers stop asking.** From a review of every "Needs your
+  input" question on the person's data (Kevin: "This shouldn't be a thing", then "fix all of them"):
+  - *Hiring step:* `cues.HIRING_STEP` also matches "LinkedIn profile(s) / account(s)" ("We are only accepting
+    candidates with verified LinkedIn profiles"), as `interp-v7` does a background check. Not any mention of
+    LinkedIn: "sourcing candidates with LinkedIn Recruiter" is a skill.
+  - *Attitude* (`cues.ATTITUDE`, flag `attitude`, context): a quote that starts with a desire, interest, passion,
+    curiosity ("A desire to support students", "A strong interest in helping learners") or a trait list ("Empathy,
+    flexibility, patience; ..."). Not "Demonstrated passion for ..." (a track record), and not a line that names
+    something capitalized after its first word ("Interest in AI technologies such as Microsoft Copilot and
+    Claude": a profile can show those, as `interp-v6`'s duty tools). This is the attitude-line item in DEFERRED.
+  - *Conduct under an "Expectations" heading* (`seg-v3`): "Expectations during live (synchronous) sessions" is a
+    duties heading, so "Attend all scheduled meetings with your camera on" is a duty (`interp-v4`).
+  - *Location arrangement* (`interpret.location_arrangement`, flag `location_arrangement`, context, and no recall
+    row): "fully remote for candidates who reside outside the 30 mile radius of one of our offices" / "for
+    candidates who reside within a 30 mile radius ..., this role is hybrid". Where you live picks the work mode;
+    nobody is excluded. Not when the sentence excludes ("are not eligible", "only", `cues.EXCLUDES`).
+  - *Company and duty text in the recall scan:* "data residency" is not residency (a Workday administrator
+    posting's duty); a company describing itself (`cues.COMPANY_SELF`: "<name> is dedicated to ... clearance
+    levels", "is a proud participant in the ... Veterans (V3) program, demonstrating our commitment") raises no
+    recall row unless the sentence requires something (`cues.REQUIRED`).
+  - *Residency:* "a permanent address in one of our hub states: ..." is a residency cue, checked against the state
+    list (was matched as experience).
+  - *A disagreement on the kind of condition only* (flag `model_type_without_cue`): when the model and the code
+    both read a line as an eligibility condition and the quote shows only the code's kind ("based in India", model
+    `work_authorization`; weekend schedules, model `physical`), the code's kind is checked against the facts and the
+    row is `confirmed`, not `conflict`. A model reading of no condition against a cue is still a conflict. Why: every
+    such conflict in the fixtures and on the person's data (17 rows) was a model mistyping; as a conflict it made
+    eligibility UNKNOWN whatever the verified facts said, a question no answer settles. Rejected: keeping the
+    conflict and letting rules v2's check-both settle it, which only ever answers "met" (it needs both readings met)
+    and so left "based in India" a question for a person in Florida. This lets a verified fact fail such a row, so
+    it can now BLOCK (SKIP rule 1). Rules v2's check-both stays for analyses stored before `interp-v8`.
+  Measured (copy of the person's data, 2026-10-28, stored Luna answers reused by quote, eligibility re-checked by
+  code): 55 current jobs re-read, 32 rows changed, no model row left without a stored answer; 50 verdicts unchanged,
+  5 moved. Workday Systems Administrator REVIEW -> STRETCH (the "data residency" row); Technical Support Engineer
+  REVIEW -> STRETCH (weekend schedule now checked: the availability fact meets it); System Administrator I REVIEW
+  -> SKIP ("based in India"); IT Support Specialist, Tier 2 REVIEW -> SKIP ("must reside within reasonable commuting
+  distance of [the] El Dorado Hills, CA office", the person lives in Florida and does not relocate); Infrastructure
+  Engineer STRETCH -> APPLY (an attitude line, "Flexibility to adjust to the dynamic nature of a startup", was its
+  unknown). Still REVIEW: the Teaching Assistant job (1 judgeable requirement left), Support Engineer, Engineering
+  Operations (2), CSS Support Engineer L2 (2), Data Center Technician (a 75 lb lift the physical fact does not state),
+  HPC/AI Systems Administrator (remote US or hybrid in two states; travel four times a year).
 - **`interp-v7` (2026-10-27): a background check is a step of hiring, not a requirement.** A line whose quote names a
   background check, investigation or screening (`cues.HIRING_STEP`) is `context`, flag `hiring_step`, unless it has
   an eligibility type (a clearance's background investigation keeps its check against the facts) or names years
@@ -1361,7 +1402,9 @@ Rules **v2** (`verdict_rules/v2.yaml`, **active since 2026-10-23**, Kevin's deci
 conflict under both readings, the code's type and the model's, through the evaluated snapshot's facts
 (`store.write_recommendation` passes `alt_check`); it is answered only when verified facts meet both (a
 model type of `none` adds no condition), and still never blocks. Compare with
-`scripts/compare_verdict_rules.py`.
+`scripts/compare_verdict_rules.py`. Since `interp-v8` (6.4) E2 no longer stores a type-only conflict between two
+eligibility types: the code's type is checked and the row is confirmed, so it can block; v2's check-both applies to
+analyses stored before it and to a model reading of no condition.
 
 ### 6.6 Tests for interpretation and verdicts
 

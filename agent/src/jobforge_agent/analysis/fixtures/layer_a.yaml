@@ -170,11 +170,20 @@
 
 - id: elig_citizen_model_says_clearance
   area: eligibility
-  # Spike: gpt-oss and qwen-think read Company X's citizenship line as clearance.
+  # Spike: gpt-oss and qwen-think read Company X's citizenship line as clearance. interp-v8: both call it a condition
+  # and the wording shows only the code's kind, so the code's is checked (was a conflict, eligibility UNKNOWN).
   text: "Requirements:\n- Must be a US citizen."
   model: [{quote: "Must be a US citizen", importance: hard, eligibility_type: clearance}]
-  expect: {"Must be a US citizen": {final_class: hard, interpretation_status: conflict, eligibility_type: work_authorization,
-           model_eligibility_type: clearance}}
+  expect: {"Must be a US citizen": {final_class: hard, interpretation_status: confirmed, eligibility_type: work_authorization,
+           model_eligibility_type: clearance, flags: [model_type_without_cue], no_flags: [conflict]}}
+
+- id: elig_model_says_no_condition_is_still_a_conflict
+  area: eligibility
+  # interp-v8 changes only a disagreement on the kind of condition; "no condition" against a cue stays a conflict.
+  text: "Requirements:\n- Must be a US citizen."
+  model: [{quote: "Must be a US citizen", importance: required}]
+  expect: {"Must be a US citizen": {interpretation_status: conflict, eligibility_type: work_authorization,
+           flags: [conflict], no_flags: [model_type_without_cue]}}
 
 - id: elig_tssci_held
   area: eligibility
@@ -202,7 +211,7 @@
   model: [{quote: "Must reside within reasonable commuting distance of our Los Angeles office", importance: hard,
            eligibility_type: work_authorization}]
   expect: {"Must reside within reasonable commuting distance of our Los Angeles office": {final_class: hard,
-           interpretation_status: conflict, eligibility_type: residency}}
+           interpretation_status: confirmed, eligibility_type: residency, flags: [model_type_without_cue]}}
 
 - id: elig_sponsor
   area: eligibility
@@ -287,7 +296,7 @@
   model: [{quote: "Active-duty military service member approved to participate in the DoD SkillBridge program", importance: hard,
            eligibility_type: work_authorization}]
   expect: {"Active-duty military service member approved to participate in the DoD SkillBridge program":
-           {final_class: hard, eligibility_type: program_status, interpretation_status: conflict}}
+           {final_class: hard, eligibility_type: program_status, interpretation_status: confirmed, flags: [model_type_without_cue]}}
   recall: []
 
 - id: recall_covers_only_the_extracted_type

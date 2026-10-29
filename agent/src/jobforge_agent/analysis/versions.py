@@ -3,8 +3,12 @@ these; P1.6 implements the stages they name. Bump a label whenever its stage's b
 so new analyses are created instead of old ones being silently reinterpreted."""
 
 EXTRACTION_PROMPT_VERSION = "e1-v1"
-SEGMENTER_VERSION = "seg-v2"  # 2026-10-27: "Position Responsibilities", "Duties and Responsibilities", "Required:", "Required Skills and Qualifications"
-INTERPRETER_VERSION = "interp-v7"  # 2026-10-27: a background check is a step of the hiring process, context
+SEGMENTER_VERSION = "seg-v3"  # 2026-10-28: "Expectations during live sessions" and similar are duties headings
+# seg-v2 2026-10-27: "Position Responsibilities", "Duties and Responsibilities", "Required:", "Required Skills and Qualifications"
+INTERPRETER_VERSION = "interp-v8"  # 2026-10-28: a LinkedIn profile is a hiring step; attitudes and location
+# arrangements are context; "data residency" is not residency; "permanent address in" is; company self-descriptions
+# raise no recall row; a type-only disagreement goes to the code's type
+# interp-v7 2026-10-27: a background check is a step of the hiring process, context
 # interp-v6 2026-10-27: a duty done with named tools keeps them as a nice-to-have (interp-v5: split lines merged)
 # interp-v4 2026-10-27: a line under a duties heading that asks nothing of the candidate and states no condition is context
 # interp-v3 2026-10-24 (calibration E1-E2): availability type, zone/remote-region residency cues, "authorization to work"
