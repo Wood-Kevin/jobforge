@@ -35,9 +35,11 @@ ELIGIBILITY: list[tuple[str, re.Pattern]] = [(t, re.compile(p)) for t, p in [
                      r"|\boutside (of )?(normal |regular )?(business |working )?hours\b|\bafter[- ]hours\b"
                      r"|\b\d{1,2}(:\d\d)?\s*(a|p)\.?m?\.?\s*[-–]\s*\d{1,2}(:\d\d)?\s*(a|p)\b"
                      r"|\b(pacific|mountain|central|eastern)\b[^.;]{0,25}\b(business hours|working hours|hours|alignment|overlap)\b"),
-    ("residency", r"\breside\b|\bresiding\b|\bresidency\b|\bresident of\b|\bcommut(e|ing|able) distance\b|\bcommutable\b"
+    # interp-v8: "data residency" is where data is kept (a duty, a Workday administrator posting), and "a permanent
+    # address in one of our hub states" is where the candidate lives.
+    ("residency", r"\breside\b|\bresiding\b|\b(?<!data )residency\b|\bresident of\b|\bcommut(e|ing|able) distance\b|\bcommutable\b"
                   r"|\bmust (live|be located|be based)\b|\b(live|located|based) within\b|\bwithin \d+ miles\b"
-                  r"|\b(candidates|applicants) (located|based|residing|living) in\b"
+                  r"|\b(candidates|applicants) (located|based|residing|living) in\b|\bpermanent (home )?address (in|within)\b"
                   # interp-v2 (P1.7 profile run, Company L): "be local to the El Dorado Hills area" and
                   # "on-site a minimum of 3 days per week" were read as experience. "Local to" counts only
                   # for a person ("be local to") or a place ("local to the ... area/office"), not "data
@@ -156,6 +158,26 @@ TOOL_NAME = re.compile(r"(?<=\s)[(\"']?[A-Z][A-Za-z0-9+#./-]*")
 # requirement sharing the sentence keeps its class. interp-v8: a LinkedIn profile asked of applicants ("We are only
 # accepting candidates with verified LinkedIn profiles"); not LinkedIn the product ("LinkedIn Recruiter").
 HIRING_STEP = re.compile(r"\bbackground (checks?|investigations?|screen(ing|s)?)\b|\blinked ?in (profiles?|accounts?)\b")
+# interp-v8: an attitude or motivation, not something a profile shows ("A desire to support students", "A strong
+# interest in helping learners", "Empathy, flexibility, patience; passion for working with diverse learners"). Only at
+# the start of the quote: "Demonstrated passion for customer support" names a track record.
+ATTITUDE = re.compile(
+    r"^(a |an )?((strong|genuine|deep|real|true|keen) )?(desire|interest|passion|enthusiasm|eagerness|curiosity|love) (to|for|in|about)\b"
+    r"|^(empathy|patience|flexibility|enthusiasm|curiosity|humility|kindness)\b")
+# interp-v8: where you live chooses the work arrangement, it does not exclude anyone ("this role is fully remote for
+# candidates who reside outside the 30 mile radius of one of our offices"; "for candidates who reside within a 30 mile
+# radius ..., this role is hybrid"). Not when the sentence excludes ("are not eligible", "only").
+LOCATION_ARRANGEMENT = re.compile(
+    r"\bfor (candidates|applicants|those|employees|people) who (reside|live|are located|are based)\b[^.;]{0,30}"
+    r"\b(within|outside( of)?|beyond|more than|near)\b")
+ARRANGEMENT_MODE = re.compile(r"\b(remote|hybrid)\b")
+EXCLUDES = re.compile(r"\b(not (be )?(eligible|considered|open)|ineligible|cannot|can't|only)\b")
+# interp-v8: a company describing itself ("Acme Solutions is dedicated to ... mobilizing the right people, skills, clearance
+# levels", "... is a proud participant in the Virginia Values Veterans (V3) program ... transitioning service members"):
+# the recall scan reads no eligibility condition into it unless it requires something.
+COMPANY_SELF = re.compile(
+    r"^[\w&.,'()-]+( [\w&.,'()-]+){0,5} (is|are|has been) (a |an )?(proud|dedicated|committed|leading|trusted|premier)\b"
+    r"|\b(demonstrating|reflects?) our commitment\b")
 EEO = re.compile(
     r"\b(regardless of|without regard to|discriminat\w*|equal (employment )?opportunit\w*|affirmative action|protected (veteran )?(class|status)"
     r"|e-?verify|reasonable accommodations?|veteran status|genetic information|sexual orientation|gender identity|national origin)\b")

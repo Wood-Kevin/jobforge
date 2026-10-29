@@ -348,3 +348,90 @@ def test_interp_v8_a_linkedin_profile_is_context():
 def test_interp_v8_linkedin_the_product_is_still_a_skill():
     r = _read(LINKEDIN, "Experience sourcing candidates with LinkedIn Recruiter")
     assert r.final_class == "negotiable" and not any(f["flag"] == "hiring_step" for f in r.flags)
+
+
+# ----- interp-v8 / seg-v3: other lines no profile answers ("Needs your input" review, 2026-10-28) -----
+
+def _recall(text):
+    return [r for r in interpret(segment(text), []) if r.origin == "unextracted_eligibility"]
+
+
+def test_seg_v3_an_expectations_heading_lists_duties():
+    assert heading_label("Expectations during live (synchronous) sessions:") == "responsibilities"
+    r = _read("Expectations during live (synchronous) sessions:\n- Attend and proactively engage in the mandatory onboarding.\n"
+              "- Attend all scheduled meetings with your camera on, ensuring active engagement and professional presence.",
+              "Attend all scheduled meetings with your camera on, ensuring active engagement and professional presence")
+    assert r.final_class == "context" and any(f["flag"] == "duty_by_section" for f in r.flags)
+
+
+ATTITUDES = ("Your expertise\n- A desire to support students in upskilling their careers into data roles\n"
+             "- Empathy, flexibility, patience; passion for working with diverse learners who are new to content\n"
+             "- A strong interest in helping learners transition into data center operations careers\n"
+             "- Demonstrated passion for customer support, with a focus on addressing support tickets.\n"
+             "- Fluent in English; professional verbal and writing skills\n"
+             "- Interest in AI technologies such as Microsoft Copilot and Claude.")
+
+
+@pytest.mark.parametrize("quote", [
+    "A desire to support students in upskilling their careers into data roles",
+    "Empathy, flexibility, patience; passion for working with diverse learners who are new to content",
+    "A strong interest in helping learners transition into data center operations careers",
+])
+def test_interp_v8_an_attitude_is_context(quote):
+    r = _read(ATTITUDES, quote)
+    assert r.final_class == "context" and any(f["flag"] == "attitude" for f in r.flags)
+
+
+@pytest.mark.parametrize("quote", [
+    # A track record, not an attitude, and a skill a profile can show.
+    "Demonstrated passion for customer support, with a focus on addressing support tickets",
+    "Fluent in English; professional verbal and writing skills",
+    # Interest in named technologies: a profile can show them (as interp-v6's duty tools).
+    "Interest in AI technologies such as Microsoft Copilot and Claude",
+])
+def test_interp_v8_a_track_record_or_skill_is_not_an_attitude(quote):
+    r = _read(ATTITUDES, quote)
+    assert r.final_class == "negotiable" and not any(f["flag"] == "attitude" for f in r.flags)
+
+
+ARRANGEMENT = ("Requirements:\n- Work location: This role is fully remote for candidates who reside outside the 30 mile radius of "
+               "one of our offices.\n- For candidates who reside within a 30 mile radius of one of our offices, this role is hybrid "
+               "and would require 3 days a week in office.")
+
+
+def test_interp_v8_remote_or_hybrid_by_where_you_live_excludes_nobody():
+    assert _recall(ARRANGEMENT) == []
+    r = _read(ARRANGEMENT, "For candidates who reside within a 30 mile radius of one of our offices, this role is hybrid")
+    assert r.final_class == "context" and any(f["flag"] == "location_arrangement" for f in r.flags)
+
+
+def test_interp_v8_an_arrangement_that_excludes_is_still_a_condition():
+    text = "Requirements:\n- Candidates who reside outside the 30 mile radius of one of our offices are not eligible for this hybrid role."
+    assert [r.eligibility_type for r in _recall(text)] == ["residency"]
+
+
+@pytest.mark.parametrize("text", [
+    # Company self-description that names a clearance and a veterans program (Needs your input, 2026-10-28).
+    "About:\nAcme Solutions is dedicated to providing IT services to the federal government by mobilizing the right people, "
+    "skills, clearance levels, and technologies.",
+    "Benefits:\nAcme Solutions is a proud participant in the Virginia Values Veterans (V3) program, demonstrating our commitment "
+    "to hiring and supporting veterans, transitioning service members and military spouses.",
+    # Where data is kept is a duty, not where the candidate lives.
+    "Design solutions for regulated workloads, ensuring appropriate data boundaries, audit evidence, logging, data residency, "
+    "and separation of duties.",
+])
+def test_interp_v8_company_and_duty_text_raises_no_eligibility_question(text):
+    assert _recall(text) == []
+
+
+def test_interp_v8_a_company_sentence_that_requires_something_is_still_scanned():
+    text = "Requirements:\nAcme Solutions is committed to its federal clients, and an active Secret clearance is required."
+    assert [r.eligibility_type for r in _recall(text)] == ["clearance"]
+
+
+def test_interp_v8_a_permanent_address_in_listed_states_is_residency():
+    q = "Must have a permanent address in one of our hub states: California, Florida, New York, Ohio, or DC"
+    (r,) = [x for x in interpret(segment(f"Requirements:\n- {q}."), [ModelItem(q, q, "hard", "affirmative", "candidate",
+                                                                          "work_authorization", None)]) if x.origin == "model"]
+    assert (r.final_class, r.interpretation_status, r.eligibility_type) == ("hard", "confirmed", "residency")
+    assert any(f["flag"] == "model_type_without_cue" for f in r.flags)

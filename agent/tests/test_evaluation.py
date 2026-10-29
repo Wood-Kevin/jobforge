@@ -242,6 +242,12 @@ def test_rules_v2_checks_a_type_only_conflict_under_both_readings(env):
     server = FakeServer(("ok", e1), ("ok", e3(("R1", "direct", [p], None, None), ("R2", "direct", [p], None, None),
                                               ("R3", "direct", [p], None, None))))
     _, e = env.analyze(server)
+    # interp-v8 reads a kind-only disagreement as the code's kind, so it stores no conflict; analyses stored before it
+    # do, and rules v2 still has to settle them: the row is put back the way interp-v7 stored it.
+    rid, status = db.execute("SELECT id, interpretation_status FROM requirements WHERE eligibility_type = 'residency'").fetchone()
+    assert status == "confirmed"
+    db.execute("UPDATE requirements SET interpretation_status = 'conflict', flags = ? WHERE id = ?", (json.dumps([{
+        "flag": "conflict", "fields": [{"field": "eligibility_type", "model": "work_authorization", "cue": ["residency"]}]}]), rid))
     assert asyncio.run(e.run_once()) == "done"
     calls = server.chat_calls
     profile = store.filter_pipeline.active_profile(env.ev)

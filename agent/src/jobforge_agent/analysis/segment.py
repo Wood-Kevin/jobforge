@@ -38,7 +38,10 @@ _HEADINGS: list[tuple[str, str]] = [
     ("responsibilities", r"(key |core |primary |position |job |role )?responsibilities|(essential |key )?(duties|functions)( (and|&) responsibilities)?|what you('ll| will) do|what you('ll| will) be (doing|responsible for)"
                          r"|in this role,? you will|you will|the role|about the (role|job|position|opportunity)|about this (role|job|position)"
                          r"|an overview of this role|(job|role|position) (summary|overview|description)|overview|the opportunity"
-                         r"|your impact|day[- ]to[- ]day|(job )?description|what to expect|representative projects"),
+                         r"|your impact|day[- ]to[- ]day|(job )?description|what to expect|representative projects"
+                         # seg-v3: "Expectations during live (synchronous) sessions" lists what the job asks of you
+                         # day to day ("Attend all scheduled meetings with your camera on").
+                         r"|([\w-]+ )?expectations( (during|for|of) [\w ()&'-]+)?"),
     ("eeo", r"equal (employment )?opportunit(y|ies)( employer| statement)?|eeo( statement)?|.*equal opportunity.*"
             r"|diversity( and | & )(inclusion|belonging)|inclusion( and | & )privacy|accommodations?|our commitment to (diversity|inclusion)"),
     ("privacy", r".*privacy.*"),

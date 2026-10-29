@@ -171,8 +171,14 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
     model_type = None if item.eligibility_type == "none" else item.eligibility_type
     if types:
         elig = model_type if model_type in types else types[0]
-        if model_type not in types:
+        if model_type is None:
             conflicts.append({"field": "eligibility_type", "model": item.eligibility_type, "cue": types})
+        elif model_type not in types:
+            # interp-v8: both readings call it a condition and only the kind differs; the wording shows the code's kind
+            # and none of the model's, so the code's is checked ("based in India", model work_authorization). Before,
+            # the conflict made eligibility UNKNOWN whatever the facts said. A model reading of "no condition" is
+            # still a conflict.
+            flags.append({"flag": "model_type_without_cue", "model": model_type, "cue": types})
     else:
         elig = None
         if model_type:
@@ -241,7 +247,18 @@ def _read(seg: Segmented, item: ModelItem, quote: str, start: int, end: int, lea
     step = bool(cues.HIRING_STEP.search(quote)) and not types and not found_years
     if step:
         flags.append({"flag": "hiring_step"})
-    if not candidate or duty or step:
+    # interp-v8: an attitude ("a desire to support students") and a work arrangement chosen by where you live ("fully
+    # remote for candidates who reside outside the 30 mile radius") are context: no profile item or fact answers them.
+    # A named technology keeps the line ("Interest in AI technologies such as Microsoft Copilot and Claude"): a profile
+    # can show those, as with interp-v6's duty tools.
+    attitude = (bool(cues.ATTITUDE.search(quote)) and not types and not found_years
+                and not cues.TOOL_NAME.search(item.jd_quote))
+    if attitude:
+        flags.append({"flag": "attitude"})
+    arrangement = location_arrangement(sentence)
+    if arrangement:
+        flags.append({"flag": "location_arrangement"})
+    if not candidate or duty or step or attitude or arrangement:
         final = "context"
     elif is_negated:
         final = "negated"
@@ -356,6 +373,16 @@ def interpret_item(seg: Segmented, item: ModelItem) -> Requirement:
 RECALL_SKIPS = {"availability"}
 
 
+def location_arrangement(text: str) -> bool:
+    """interp-v8: where the candidate lives chooses remote or hybrid; nobody is excluded."""
+    return bool(cues.LOCATION_ARRANGEMENT.search(text) and cues.ARRANGEMENT_MODE.search(text) and not cues.EXCLUDES.search(text))
+
+
+def company_self(text: str) -> bool:
+    """interp-v8: the company describing itself, requiring nothing of the candidate."""
+    return bool(cues.COMPANY_SELF.search(text)) and not cues.REQUIRED.search(text)
+
+
 def recall_scan(seg: Segmented, extracted: list[Requirement]) -> list[Requirement]:
     """Check 7 (D15): every eligibility-cue sentence outside EEO/privacy text whose types
     no extracted requirement covers becomes an `unextracted_eligibility` row (unverifiable), so a
@@ -363,6 +390,8 @@ def recall_scan(seg: Segmented, extracted: list[Requirement]) -> list[Requiremen
     rows = []
     for s in seg.sentences:
         if s.heading or s.label in RECALL_EXCLUDED or cues.EEO.search(s.text) or cues.PRIVACY.search(s.text):
+            continue
+        if location_arrangement(s.text) or company_self(s.text):  # interp-v8
             continue
         types = [t for t in cues.eligibility_types(s.text) if t not in RECALL_SKIPS]
         if not types:
