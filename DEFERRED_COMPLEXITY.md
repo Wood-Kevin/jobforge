@@ -630,7 +630,9 @@ it" as one stated action (item 4, below). Each claim was checked against the cod
   running".
 - **6. "Needs your input" as a finishable task:** the menu count is RESOLVED (v0.3.12). Progress after answering is
   window-only and still open; "I don't have this" / "Not sure" answers change matching and wait for Evaluation
-  calibration 1.
+  calibration 1. Since 2026-10-29 each job there has "I'd skip it" (hides the job, no matching change). Next, agreed
+  with Kevin the same day: "I don't have this" built on the parked `absences` branch, counting the same posting line
+  as a gap on any job that has it (not a typed short name), on its own branch with a before/after for approval.
 - **7. Applications:** status filters, search, sort by last activity, inline status changes (the empty state now
   links to Jobs). The job page's "Your progress" (v0.3.12) changes status in place there, not in the list.
 - **9. Keyboard and labels:** chips and file buttons reachable by keyboard and a focus outline everywhere are

@@ -26,7 +26,8 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
     <div className="page">
       <PageHeader title={groups.data === null ? "Needs your input" : `${jobs.length} job${jobs.length === 1 ? "" : "s"} need${jobs.length === 1 ? "s" : ""} your input`}
         sub={<>These jobs can't be judged until you answer something. Use "Answer here" to add the experience in your own words or
-          declare a fact; once it's saved (and confirmed), the jobs it covers update.</>}
+          declare a fact; once it's saved (and confirmed), the jobs it covers update. If it asks for something you don't have
+          and you wouldn't apply, use "I'd skip it" to take the job off this page.</>}
         actions={<button onClick={onProfile}>Open your profile</button>} />
       <Card>
         <ErrorBox error={groups.error ?? schema.error ?? items.error} />
@@ -49,6 +50,7 @@ export default function Review({ onOpen, onProfile }: { onOpen: (id: number) => 
               <strong>{j.questions.length === 0 ? "only the shared questions above" : `${j.questions.length} open question${j.questions.length === 1 ? "" : "s"}`}</strong>
               {j.questions.length >= 6 && <span className="muted"> (many unknowns: maybe not worth completing)</span>}</summary>
             <ul className="compact">{j.questions.map((q, k) => <li key={k}>{badge(q)} {q.question} {answer(q)}</li>)}</ul>
+            <Skip jobId={j.job_id} />
           </details>))}
       </Card>
       {unsettled.length > 0 && <UnsettledCard jobs={unsettled} link={link} />}
@@ -74,13 +76,21 @@ function UnsettledCard({ jobs, link }: { jobs: Unsettled[]; link: (id: number, t
 }
 
 function UnsettledJob({ j, link }: { j: Unsettled; link: (id: number, title: string) => ReactNode }) {
-  const act = useAction();
   return (
     <li>{link(j.job_id, j.title)}<span className="muted"> · {j.company}</span>
       <ul className="compact">{j.lines.map((l, k) => (
         <li key={k}><Badge value={l.type ?? "eligibility"} /> "{l.quote}": {OUTCOME[l.outcome] ?? plain(l.outcome)}.</li>))}</ul>
-      <button className="small" disabled={act.busy} title="Hides the job and counts as your call on it"
-        onClick={() => act.run(() => api.setGoldenLabel(j.job_id, { recommendation: "SKIP", keep_details: true }))}>I'd skip it</button>
-      <ErrorBox error={act.error} />
+      <Skip jobId={j.job_id} />
     </li>);
+}
+
+// A way out when a question asks about something you don't have and you wouldn't apply anyway (Kevin,
+// 2026-10-29: "no option to dismiss a question if I don't have the skill"). It hides the job, not the
+// question: "I don't have this" as an answer changes matching and is an evaluation change of its own.
+function Skip({ jobId }: { jobId: number }) {
+  const act = useAction();
+  return (<>
+    <button className="small" disabled={act.busy} title="Hides the job and counts as your call on it"
+      onClick={() => act.run(() => api.setGoldenLabel(jobId, { recommendation: "SKIP", keep_details: true }))}>I'd skip it</button>
+    <ErrorBox error={act.error} /></>);
 }
