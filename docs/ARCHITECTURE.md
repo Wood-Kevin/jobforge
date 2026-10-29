@@ -585,7 +585,7 @@ split below is kept as documentation for any future server port (A13).
 | `filter_overrides` | id, job_id, created_at_ms, note | "Evaluate anyway". |
 | `resumes` | id, label, original_filename, original_bytes BLOB, mime, extracted_text, sha256, uploaded_at_ms | |
 | `experience_items` | id, kind, statement, attributes (JSON), start_date, end_date, years, status (verified/self_reported), source, verified_at_ms | `CHECK (status <> 'verified' OR verified_at_ms IS NOT NULL)`; writable only by the user-action connection (4.3). |
-| `profile_completeness` | id = 1, cert_list_complete, eligibility_facts_complete, updated_at_ms | Same write rule. |
+| `profile_completeness` | id = 1, cert_list_complete, eligibility_facts_complete, lacking (0012: JSON array of posting lines answered "I don't have this"), updated_at_ms | Same write rule. |
 | `inferred_claims` | id, statement, kind, rationale, evidence (JSON), proposed_by_evaluation_id, proposed_by_resume_id, proposed_fields (JSON), state, accepted_as_item_id | Evaluation inserts E3 guesses; the user connection inserts resume suggestions (a user command, P1.8c); only user actions change `state`. |
 | `profile_snapshots` | id, sha256, created_at_ms | **Insert-only by trigger.** |
 | `profile_snapshot_items` | snapshot_id FK, item_id, kind, statement, status, attributes (JSON) | PK (snapshot_id, item_id). **Insert-only.** New in rev 4: lets the DB check citations (below). |
@@ -647,7 +647,10 @@ split below is kept as documentation for any future server port (A13).
   match by guessing.
 - **Completeness:** `GET/PUT /v1/profile/completeness` (`cert_list_complete`,
   `eligibility_facts_complete`, both default off). A flag on means "not in my profile = I do not
-  have it", which lets P1.7 read a missing cert or fact as a gap instead of unknown.
+  have it", which lets P1.7 read a missing cert or fact as a gap instead of unknown. `lacking`
+  (migration 0012) holds the posting lines answered "I don't have this"; `POST
+  /v1/requirements/{id}/lacking` adds that requirement's full line (questions show it cut at 160
+  characters), and a PUT with the list removes one (Profile, "Lines you said you don't have").
 - **Inferred-claims inbox:** `GET /v1/inferred-claims?state=open|accepted|rejected`,
   `POST .../{id}/accept` (optional rewording; becomes a self-reported item with
   `source = inferred_claim:<id>`, never verified, never an eligibility fact) and `.../reject`.
@@ -1258,6 +1261,18 @@ compares it to the model's:
   as month intervals (start and end month both count; overlapping roles are not double-counted),
   undated items count their `years`; fewer than the minimum turns a model "direct" into a gap
   (`years_short_override`). basis: verified if any cited item is verified.
+  "I don't have this" (E4 `m2-v3`, 2026-10-29; Kevin: "There is no option to dismiss a question for
+  needs your input if I don't have the skill"): a requirement whose line is in `lacking` (same words,
+  ignoring case, spacing and end punctuation: `snapshot.line_key`) is a gap whatever the model said,
+  direct included, flag `absence_confirmed` by `you_said`, so it counts as evidenced (6.5). The lines
+  join the snapshot digest only when there are some (a profile without any keeps its snapshot) and are
+  never sent to the model, so an answer re-runs E4-E6 on the stored answer with no model call.
+  Rejected: a list of short names ("SQL") matched in any line, the parked `absences` branch, because a
+  short name reaches lines the person never saw (Kevin, 2026-10-25: "things you don't have is not a
+  realistic fix for users"); and taking the line out of the E3 request, which would change the request
+  body and cost a model call per job. Measured on a copy (2026-10-29, code only, stored answers): with
+  no lines, 54 of 54 verdicts unchanged; answering all 8 experience questions on the page "I don't have
+  this", 3 jobs REVIEW -> STRETCH, the page 4 -> 1 job (the one left waits on 4 reading conflicts).
 - **Reuse of a stored answer** (migration 0005, `store.prepare` / `stored_answer` / `claim_reusable`): each evaluation
   records `request_sha256`, the sha256 of the full E3 request body (system prompt, schema, user message, model id,
   parameters). A pending evaluation whose exact request was already answered by the same config is processed with
@@ -1378,7 +1393,8 @@ not intuition.
 - *A gap must be evidenced to count* (D7, found by the Codex adversarial review): a model gap
   counts toward STRETCH/WEAK only if it cites profile items (the shortfall or the adjacent
   experience; years shortfalls always do), comes from a failed fact check, or is a certification
-  absent from a cert list Kevin marked complete (`absence_confirmed`). A model that says
+  absent from a cert list Kevin marked complete or a line he answered "I don't have this"
+  (`absence_confirmed`). A model that says
   "candidate lacks it" and cites nothing is missing evidence: counted as unknown for fit, listed
   as `gap_unevidenced` in `fit_counts`. Before this, three such lines made a rule-2 SKIP.
 - *Preferred upgrade*: no upgrade rule is defined, so v1 applies none; preferred counts are

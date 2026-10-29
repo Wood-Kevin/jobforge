@@ -1,4 +1,4 @@
-"""E3: the model matches posting requirements to profile items (ARCHITECTURE 6.3, 6.4; prompt m2-v2).
+"""E3: the model matches posting requirements to profile items (ARCHITECTURE 6.3, 6.4; prompt m2-v2, E4 m2-v3).
 
 Input: the requirements E2 left for fit (negotiable or preferred, confirmed or conflict, no
 eligibility type: those are matched by code in facts.py) and the snapshot's non-eligibility

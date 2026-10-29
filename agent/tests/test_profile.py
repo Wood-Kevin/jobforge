@@ -4,6 +4,7 @@ import ast
 import hashlib
 import io
 import json
+import sqlite3
 import zipfile
 from pathlib import Path
 
@@ -220,6 +221,32 @@ def test_completeness_defaults_off_and_sets_partially(paths):
         assert (r["cert_list_complete"], r["eligibility_facts_complete"]) == (True, True)
         assert (await client.put("/v1/profile/completeness", headers=AUTH, json={"cert_list_complete": 1})).status_code == 422
         assert (await client.put("/v1/profile/completeness", headers=AUTH, json={})).status_code == 422
+    _run(paths, check)
+
+
+def test_i_dont_have_this_saves_the_postings_own_line_once_and_can_be_removed(paths):
+    """0012: the window names the requirement; the agent saves its full line (questions show it cut at 160
+    characters), once however often it is answered, and Profile removes it by replacing the list."""
+    async def check(client, runtime, _app):
+        # Setup only: a bare requirement row (no analysis behind it), so a raw connection without the FK check.
+        db = sqlite3.connect(paths.db)
+        db.execute("PRAGMA foreign_keys = OFF")
+        rid = db.execute("INSERT INTO requirements (posting_analysis_id, text, jd_quote, quote_found, final_class, interpretation_status) "
+                         "VALUES (1, 'sql', ?, 1, 'negotiable', 'confirmed') RETURNING id",
+                         ("Experience with SQL or PostgreSQL " + "x" * 200,)).fetchone()[0]
+        db.commit()
+        db.close()
+        r = await client.post(f"/v1/requirements/{rid}/lacking", headers=AUTH)
+        assert r.status_code == 200 and r.json()["lacking"] == ["Experience with SQL or PostgreSQL " + "x" * 200]
+        again = (await client.post(f"/v1/requirements/{rid}/lacking", headers=AUTH)).json()
+        assert len(again["lacking"]) == 1
+        assert (await client.post("/v1/requirements/999999/lacking", headers=AUTH)).status_code == 404
+        r = (await client.put("/v1/profile/completeness", headers=AUTH, json={"lacking": []})).json()
+        assert r["lacking"] == [] and r["cert_list_complete"] is False
+        assert (await client.put("/v1/profile/completeness", headers=AUTH, json={"lacking": "SQL"})).status_code == 422
+        events = runtime.reader.execute("SELECT ref FROM change_events WHERE type = 'profile_changed'").fetchall()
+        assert any(json.loads(e[0]) == {"what": "lacking_added", "requirement_id": rid} for e in events)
+        assert not any("SQL" in e[0] for e in events)  # ids only, never the line
     _run(paths, check)
 
 

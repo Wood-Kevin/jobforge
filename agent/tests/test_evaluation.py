@@ -413,6 +413,25 @@ def test_match_version_bump_reruns_e4_e6_without_the_model(env, monkeypatch):
     assert [r["match_prompt_version"] for r in evals(env.db)] == [MATCH_PROMPT_VERSION, "m1-vtest"]
 
 
+def test_i_dont_have_this_makes_the_line_a_gap_without_the_model(env):
+    """Kevin, 2026-10-29: a question about a skill he lacks had no answer but adding it. "I don't have this"
+    saves the posting's line (0012); the request body is unchanged, so the stored answer is reused, and E4
+    makes that line an evidenced gap even where the model said direct. Other lines keep the model's reading."""
+    server, e, _, _ = _done_once(env)
+    calls = server.chat_calls
+    env.user_tx(profile_items.add_lacking, "  experience with NETWORK monitoring tools. ", NOW)
+    assert asyncio.run(e.run_once()) == "done" and server.chat_calls == calls
+    first, second = evals(env.db)
+    assert second["request_sha256"] == first["request_sha256"]
+    got = matches(env.db, second["id"])
+    mon = got["Experience with network monitoring tools"]
+    assert (mon["match_type"], mon["basis"], mon["gap_materiality"], mon["citations"]) == ("gap", "none", "material", [])
+    assert {"flag": "absence_confirmed", "by": "you_said", "model": "direct"} in mon["validation_flags"]
+    before = matches(env.db, first["id"])
+    assert before["Experience with network monitoring tools"]["match_type"] == "direct"
+    assert {q: m["match_type"] for q, m in got.items() if q != "Experience with network monitoring tools"} ==         {q: m["match_type"] for q, m in before.items() if q != "Experience with network monitoring tools"}
+
+
 def test_changed_item_text_calls_the_model(env):
     server, e, role, skill = _done_once(env)
     server.answers.append(("ok", e3()))
@@ -609,7 +628,7 @@ def test_match_prompt_changes_require_a_version_bump():
     from test_verdict import req
     text, _ = match.user_message("T", [req(1, min_years=2)], [Item(5, "role", "NOC", "verified", {}, 1.5, "2024-01", None)])
     digest = hashlib.sha256((match.SYSTEM + json.dumps(match.SCHEMA, sort_keys=True) + text).encode()).hexdigest()[:16]
-    assert (MATCH_PROMPT_VERSION, digest) == ("m2-v2", "869eabb0afec6e56")
+    assert (MATCH_PROMPT_VERSION, digest) == ("m2-v3", "869eabb0afec6e56")
 
 
 def test_parse_rejects_bad_ids_and_kinds():

@@ -211,6 +211,19 @@ def test_years_short_by_1_of_5_is_minor_by_4_of_5_material():
     assert validate.materiality(req(1), None, RULES) == "material"
 
 
+def test_a_line_answered_i_dont_have_this_is_an_evidenced_gap_whatever_the_model_said():
+    """0012: the same line (any case, spacing or end punctuation) is a gap; closer wording is not."""
+    said = {"lacking": ["Experience with SQL or PostgreSQL"]}
+    for m in (_m("direct"), _m("transferable", bridge="queries"), _m("unknown", cited=()), None):
+        v = validate.model_match(req(1, quote="experience with  SQL or PostgreSQL."), m, SNAP, said, RULES, NOW)
+        assert (v.match_type, v.basis, v.citations, v.gap_materiality) == ("gap", "none", [], "material")
+        assert v.has_flag("absence_confirmed")
+    assert validate.model_match(req(1, "preferred", quote="Experience with SQL or PostgreSQL"), None, SNAP, said, RULES,
+                                NOW).gap_materiality == "minor"
+    assert validate.model_match(req(1, quote="Experience with SQL"), _m("direct"), SNAP, said, RULES, NOW).match_type == "direct"
+    assert validate.model_match(req(1, quote="Experience with SQL or PostgreSQL"), _m("direct"), SNAP, {}, RULES, NOW).match_type == "direct"
+
+
 def test_certification_absence_is_not_a_gap_unless_the_cert_list_is_complete():
     r = req(1, quote="CCNA certification required")
     v = validate.model_match(r, _m("gap", cited=(), detail="no CCNA in the profile"), SNAP, {}, RULES, NOW)

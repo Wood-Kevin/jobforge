@@ -442,8 +442,9 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   rejected (it cannot tell which roles count).
 - **Rejected and parked: "Things you don't have"** (branch `absences`, commit 505c68e, not merged). A profile list
   of absences applied in E4 (a new migration): accurate when filled in (Gemma 12 -> 21 of 25, in-sample), but Kevin:
-  "things you don't have is not a realistic fix for users" (nobody can list everything they lack). Could return as
-  an answer to a REVIEW question ("Do you have SQL?") rather than a list to fill in.
+  "things you don't have is not a realistic fix for users" (nobody can list everything they lack). Returned
+  2026-10-29 as an answer to a question ("I don't have this", migration 0012), matching the whole posting line
+  only, not short names; the branch stays unmerged.
 - **What:** with roles now carrying their resume lines (r1-v2), both Gemma and gpt-oss still credit some requirements
   the person confirmed they do not meet: deep SQL, operating cloud managed services, sprint planning (Gemma), audit
   evidence preparation (Gemma). On six requirements the person answered, Gemma was right on 2, gpt-oss on 4, with the
@@ -630,9 +631,9 @@ it" as one stated action (item 4, below). Each claim was checked against the cod
   running".
 - **6. "Needs your input" as a finishable task:** the menu count is RESOLVED (v0.3.12). Progress after answering is
   window-only and still open; "I don't have this" / "Not sure" answers change matching and wait for Evaluation
-  calibration 1. Since 2026-10-29 each job there has "I'd skip it" (hides the job, no matching change). Next, agreed
-  with Kevin the same day: "I don't have this" built on the parked `absences` branch, counting the same posting line
-  as a gap on any job that has it (not a typed short name), on its own branch with a before/after for approval.
+  calibration 1. 2026-10-29: each job there has "I'd skip it" (hides the job), and a skill question has "I don't
+  have this" (0012, E4 `m2-v3`: the same posting line is a gap on any job that has it; ARCHITECTURE 6.4 E4). Still
+  open: "Not sure".
 - **7. Applications:** status filters, search, sort by last activity, inline status changes (the empty state now
   links to Jobs). The job page's "Your progress" (v0.3.12) changes status in place there, not in the list.
 - **9. Keyboard and labels:** chips and file buttons reachable by keyboard and a focus outline everywhere are
