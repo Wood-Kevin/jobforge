@@ -2,7 +2,7 @@
 // inferred-claims inbox, and import of a reviewed profile file. Everything created here is
 // self-reported; "verified" only ever comes from the Confirm button (verify route; SPEC D2, Q6).
 import { useState, type ChangeEvent } from "react";
-import { api, type Claim, type Item, type Schema } from "../api";
+import { api, type Claim, type Completeness as CompletenessFlags, type Item, type Schema } from "../api";
 import { Badge, Card, ConfirmButton, ErrorBox, PageHeader, since, useAction, useLive } from "../ui";
 import { factSummary, fieldLabel, generatedStatement, optionLabel, ownWords, typeTitle } from "../facts";
 import { icons } from "../icons";
@@ -224,7 +224,7 @@ function FieldInput({ spec, value, onChange }: { spec: string; value: unknown; o
 
 // ----- completeness -----
 
-function Completeness({ c, reload }: { c: { cert_list_complete: boolean; eligibility_facts_complete: boolean } | null; reload: () => void }) {
+function Completeness({ c, reload }: { c: CompletenessFlags | null; reload: () => void }) {
   const act = useAction();
   if (!c) return null;
   const toggle = (k: "cert_list_complete" | "eligibility_facts_complete") => act.run(async () => { await api.setCompleteness({ [k]: !c[k] }); reload(); });
@@ -236,6 +236,13 @@ function Completeness({ c, reload }: { c: { cert_list_complete: boolean; eligibi
       <label className="check"><input type="checkbox" checked={c.eligibility_facts_complete} onChange={() => toggle("eligibility_facts_complete")} disabled={act.busy} />
         I've answered every fact that applies to me <div className="muted">No clearance, license or program listed means you don't have
         one.</div></label>
+      {c.lacking.length > 0 && (<>
+        <h3>Lines you said you don't have</h3>
+        <p className="muted">From "I don't have this" on Needs your input. JobForge counts each as a gap on any job with the same line.</p>
+        <ul className="items">{c.lacking.map((line) => <li key={line}>"{line}"{" "}
+          <button className="small" disabled={act.busy} onClick={() => act.run(async () => {
+            await api.setCompleteness({ lacking: c.lacking.filter((l) => l !== line) }); reload(); })}>Remove</button></li>)}</ul>
+      </>)}
       <ErrorBox error={act.error} />
     </Card>
   );

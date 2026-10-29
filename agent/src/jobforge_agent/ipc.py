@@ -290,6 +290,10 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
             return _bad_body()
         return _profile_call(lambda: runtime.profile_action("completeness_set", items.set_completeness, body, _now()))
 
+    @app.post("/v1/requirements/{requirement_id}/lacking")
+    async def lack_requirement(requirement_id: int):
+        return _profile_call(lambda: runtime.lack_requirement(requirement_id))
+
     @app.get("/v1/inferred-claims")
     async def list_claims(state: str | None = None):
         return _profile_call(lambda: runtime.profile_read(items.list_claims, state))

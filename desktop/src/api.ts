@@ -68,7 +68,7 @@ export type GoldenReport = { labels: number; target: [number, number]; provision
 
 export type Item = { id: number; kind: string; statement: string; attributes: Record<string, unknown>; start_date: string | null;
   end_date: string | null; years: number | null; status: "verified" | "self_reported"; source: string; verified_at_ms: number | null };
-export type Completeness = { cert_list_complete: boolean; eligibility_facts_complete: boolean; updated_at_ms: number | null };
+export type Completeness = { cert_list_complete: boolean; eligibility_facts_complete: boolean; lacking: string[]; updated_at_ms: number | null };
 export type Schema = { kinds: string[]; eligibility: Record<string, Record<string, { type: string; required: boolean }>>; multiple_allowed: string[]; application_statuses: string[] };
 export type Claim = { id: number; statement: string; kind: string; rationale: string | null; state: string; proposed_by_evaluation_id: number | null; created_at_ms: number;
   proposed_by_resume_id: number | null; proposed_fields: { start_date?: string; end_date?: string | null; attributes?: Record<string, string> };
@@ -135,6 +135,7 @@ export const api = {
   unverifyItem: (id: number) => agentCall<Item>("POST", `/v1/experience/${id}/unverify`),
   completeness: () => agentCall<Completeness>("GET", "/v1/profile/completeness"),
   setCompleteness: (fields: Partial<Completeness>) => agentCall<Completeness>("PUT", "/v1/profile/completeness", fields),
+  lackRequirement: (id: number) => agentCall<Completeness>("POST", `/v1/requirements/${id}/lacking`),
   schema: () => agentCall<Schema>("GET", "/v1/profile/schema"),
   claims: (state: "open" | "accepted" | "rejected") => agentCall<Claim[]>("GET", `/v1/inferred-claims?state=${state}`),
   acceptClaim: (id: number, edits: { statement?: string; kind?: string }) => agentCall<{ item_id: number }>("POST", `/v1/inferred-claims/${id}/accept`, edits),

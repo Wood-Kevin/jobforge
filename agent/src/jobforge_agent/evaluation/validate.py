@@ -11,6 +11,8 @@ again without it, so "covered only by an inferred claim" ends as unknown (6.6 la
 - Years: when the requirement names a minimum and the cited items state time, code computes the
   years they show (date intervals merged, so overlapping roles are not double-counted). Fewer than
   the minimum turns a model "direct"/"transferable" into a gap.
+- "I don't have this" (0012): a requirement whose line the person answered that way is a gap whatever
+  the model said, evidenced (flag `absence_confirmed`, by "you_said"), like a missing cert on a complete list.
 - Materiality: a gap on a preferred requirement is minor; on a negotiable one it is material
   unless it is a years shortfall within tolerance (verdict rules; v4: 1 year or 25%).
 - basis: verified if a cited item is verified, else self_reported; none without citations.
@@ -23,7 +25,7 @@ from datetime import datetime, timezone
 
 from jobforge_agent.evaluation.facts import FactCheck, Req
 from jobforge_agent.evaluation.match import item_id
-from jobforge_agent.evaluation.snapshot import Item, Snapshot
+from jobforge_agent.evaluation.snapshot import Item, Snapshot, line_key
 
 CERT = re.compile(r"\bcertif\w*|\bccn[ap]\b|\bcissp\b|\bcism\b|\bcisa\b|\bsecurity\s?\+|\bnetwork\s?\+|\bcysa\s?\+?|\bcomptia\b"
                   r"|\bgsec\b|\bgcih\b|\bceh\b|\boscp\b|\bitil\b|\bpmp\b|\brhcsa\b|\brhce\b|\bmcsa\b|\bjncia\b", re.I)
@@ -92,6 +94,12 @@ def _basis(items: list[Item]) -> str:
 def model_match(req: Req, m, snap: Snapshot, completeness: dict, rules: dict, now_ms: int,
                 rejected: frozenset[int] = frozenset()) -> Validated:
     """Validate one E3 match (`m` is a match.parse() item, or None if the model omitted it)."""
+    if any(line_key(req.jd_quote) == line_key(x) for x in completeness.get("lacking") or []):
+        # The person answered "I don't have this" to this line (0012). Their word outranks whatever the model
+        # read in their profile, direct included: they answered about the whole line, alternatives and all.
+        return Validated(req.id, "model", "gap", "none", gap_size={"detail": "You said you don't have this"},
+                         gap_materiality=materiality(req, None, rules),
+                         flags=[{"flag": "absence_confirmed", "by": "you_said", "model": m.match_type if m else None}])
     if m is None:
         return Validated(req.id, "model", "unknown", "none", flags=[{"flag": "model_omitted"}])
     flags: list[dict] = []

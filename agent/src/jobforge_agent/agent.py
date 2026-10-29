@@ -37,6 +37,7 @@ from jobforge_agent.inference import chatgpt_auth, steps
 from jobforge_agent.inference.chatgpt_auth import ChatGPTAuth
 from jobforge_agent.inference.client import InferenceClient, InferenceError, load_config
 from jobforge_agent.paths import Paths
+from jobforge_agent.profile import items as profile_items
 from jobforge_agent.profile import resumes as profile_resumes
 from jobforge_agent.profile import suggest as profile_suggest
 
@@ -411,6 +412,15 @@ class AgentRuntime:
         self.log.info("profile_changed", **event_ref)
         self.notify_events()
         return result
+
+    def lack_requirement(self, requirement_id: int) -> dict:
+        """"I don't have this" on a question (0012). The window names the requirement, not the line, so the
+        saved line is the posting's own words (questions show it cut at 160 characters). Logged by id only."""
+        assert self.reader is not None
+        row = self.reader.execute("SELECT jd_quote FROM requirements WHERE id = ?", (requirement_id,)).fetchone()
+        if row is None:
+            raise profile_items.NotFound(f"requirement {requirement_id}")
+        return self.profile_action("lacking_added", profile_items.add_lacking, row[0], now_ms(), ref={"requirement_id": requirement_id})
 
     def upload_resume(self, filename: str, label: str | None, data: bytes) -> dict:
         result = self.profile_action("resume_uploaded", profile_resumes.store, filename, label, data, now_ms())

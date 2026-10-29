@@ -4,8 +4,9 @@
 // put the employer's wording in your profile (item 55 began as "experience with AI tools" and was matched
 // to requirements it did not show). An eligibility question opens that fact's typed form, or offers to
 // confirm the fact you already declared. Saving adds a not-confirmed item; Confirm is your own click.
-// There is no "No" answer: recording an absence would change how matching treats the requirement, which
-// waits for Evaluation calibration 1 (DEFERRED_COMPLEXITY.md).
+// "I don't have this" (Kevin, 2026-10-29: "no option to dismiss a question ... if I don't have the skill") saves
+// the posting's line; JobForge then counts that line as a gap on every job that has it, the same words only
+// (migration 0012, E4 m2-v3). Undone from Profile, "Lines you said you don't have".
 // A line the model read as an eligibility condition but the code did not type (`unrecognized`) is not an
 // experience question (Company N, 2026-10-24): it offers the fact form instead (residency, hours and
 // availability, travel...; guessed from the wording, changeable) and says the job updates only once the
@@ -43,6 +44,7 @@ export function Answer({ q, schema, items }: { q: Question; schema: Schema | nul
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState("skill");
   const [saved, setSaved] = useState<number | null>(null);
+  const [lacked, setLacked] = useState(false);
   const fact = q.kind === "eligibility" && q.type ? items.find((i) => i.kind === "eligibility" && i.attributes.type === q.type) : undefined;
   const fields = q.kind === "eligibility" && q.type ? schema?.eligibility[q.type] : undefined;
   const confirm = (id: number) => act.run(async () => { await api.verifyItem(id, null); setSaved(null); setOpen(false); });
@@ -58,7 +60,14 @@ export function Answer({ q, schema, items }: { q: Question; schema: Schema | nul
     <div className="answer"><span className="muted">You said: {factSummary(fact.attributes.type as string, fact.attributes)}.</span>{" "}
       <button className="small primary" disabled={act.busy} onClick={() => confirm(fact.id)}>Confirm it</button>{" "}
       <button className="small" onClick={() => setOpen(true)}>Change it</button><ErrorBox error={act.error} /></div>);
-  if (!open) return <button className="small" onClick={() => setOpen(true)}>Answer here</button>;
+  if (lacked) return <div className="answer"><span className="muted">Saved: JobForge counts this as something you don't have, here and on
+    any job with the same line. This page updates when it's done. (Undo it in your profile.)</span></div>;
+  if (!open) return (<>
+    <button className="small" onClick={() => setOpen(true)}>Answer here</button>
+    {q.kind === "experience" && q.requirement_id !== undefined && <>{" "}
+      <button className="small" disabled={act.busy} title="Counts this line as a gap on this job and any job with the same line"
+        onClick={() => act.run(async () => { await api.lackRequirement(q.requirement_id!); setLacked(true); })}>I don't have this</button>
+      <ErrorBox error={act.error} /></>}</>);
   return (
     <div className="answer form">
       {q.kind === "experience" ? (<>

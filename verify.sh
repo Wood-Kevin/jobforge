@@ -291,6 +291,14 @@ if run evaluation; then
   section "EVALUATION — recommendations, SKIP evidence, citations, inference independence"
   probe "scripts/verify_evaluation.py (distribution, SKIP, citations, eligibility by code, inference-down windows)" \
     "$PY" "$ROOT/scripts/verify_evaluation.py" "$DATA"
+  # Counts only: the lines are the person's answers and this output gets pasted into evidence files.
+  probe "Lines answered \"I don't have this\" (0012: profile_completeness.lacking), count" \
+    sql "SELECT json_array_length(lacking) FROM profile_completeness"
+  probe "Gaps from those answers in each job's latest done evaluation (E4 m2-v3: absence_confirmed by you_said), by match version and what the model had said" \
+    sql "SELECT e.match_prompt_version, json_extract(f.value, '$.model'), count(*) FROM requirement_matches rm
+          JOIN evaluations e ON e.id = rm.evaluation_id, json_each(rm.validation_flags) f
+          WHERE e.id = (SELECT max(id) FROM evaluations WHERE job_id = e.job_id AND status = 'done')
+          AND json_extract(f.value, '$.by') = 'you_said' GROUP BY 1, 2"
 fi
 
 if run models; then

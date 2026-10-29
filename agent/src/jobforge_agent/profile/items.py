@@ -16,7 +16,9 @@ import json
 import re
 import sqlite3
 
-KINDS = ("role", "skill", "cert", "education", "achievement", "eligibility")
+from jobforge_agent.evaluation.snapshot import line_key
+
+KINDS =("role", "skill", "cert", "education", "achievement", "eligibility")
 ITEM_FIELDS = ("kind", "statement", "attributes", "start_date", "end_date", "years", "source")
 CONTENT_FIELDS = ("kind", "statement", "attributes", "start_date", "end_date", "years")
 _DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?$")
@@ -215,30 +217,63 @@ def unverify_item(conn: sqlite3.Connection, item_id: int) -> None:
 COMPLETENESS_FIELDS = ("cert_list_complete", "eligibility_facts_complete")
 
 
+LACKING_MAX, LACKING_MAX_CHARS = 500, 2000
+
+
 def get_completeness(conn: sqlite3.Connection) -> dict:
-    r = conn.execute("SELECT cert_list_complete, eligibility_facts_complete, updated_at_ms FROM profile_completeness WHERE id = 1").fetchone()
+    r = conn.execute("SELECT cert_list_complete, eligibility_facts_complete, updated_at_ms, lacking "
+                     "FROM profile_completeness WHERE id = 1").fetchone()
     if r is None:
-        return {"cert_list_complete": False, "eligibility_facts_complete": False, "updated_at_ms": None}
-    return {"cert_list_complete": bool(r[0]), "eligibility_facts_complete": bool(r[1]), "updated_at_ms": r[2]}
+        return {"cert_list_complete": False, "eligibility_facts_complete": False, "lacking": [], "updated_at_ms": None}
+    return {"cert_list_complete": bool(r[0]), "eligibility_facts_complete": bool(r[1]), "lacking": json.loads(r[3]),
+            "updated_at_ms": r[2]}
+
+
+def clean_lacking(value) -> list[str]:
+    """Posting lines the person said they don't have (0012): whitespace collapsed, lines that compare the
+    same (snapshot.line_key) kept once, in the order given, so the same answers make the same snapshot."""
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise ProfileInputError("lacking must be a list of posting lines")
+    seen: dict[str, str] = {}
+    for v in value:
+        line = " ".join(v.split())
+        if not line_key(line):
+            continue
+        if len(line) > LACKING_MAX_CHARS:
+            raise ProfileInputError(f"each line must be at most {LACKING_MAX_CHARS} characters")
+        seen.setdefault(line_key(line), line)
+    if len(seen) > LACKING_MAX:
+        raise ProfileInputError(f"at most {LACKING_MAX} lines")
+    return list(seen.values())
 
 
 def set_completeness(conn: sqlite3.Connection, fields: dict, now: int) -> dict:
     """A flag set means "if it is not in my profile, I do not have it": a missing cert can then be
-    read as a gap instead of unknown (P1.7). Unset (the default), absence stays unknown."""
-    unknown = set(fields) - set(COMPLETENESS_FIELDS)
+    read as a gap instead of unknown (P1.7). Unset (the default), absence stays unknown. `lacking`
+    replaces the list of posting lines answered "I don't have this" (0012; the window removes one this way)."""
+    unknown = set(fields) - set(COMPLETENESS_FIELDS) - {"lacking"}
     if unknown or not fields:
-        raise ProfileInputError(f"give one or more of {', '.join(COMPLETENESS_FIELDS)}")
-    for k, v in fields.items():
-        if not isinstance(v, bool):
+        raise ProfileInputError(f"give one or more of {', '.join(COMPLETENESS_FIELDS)}, lacking")
+    for k in COMPLETENESS_FIELDS:
+        if k in fields and not isinstance(fields[k], bool):
             raise ProfileInputError(f"{k} must be true or false")
     cur = get_completeness(conn)
     new = {k: fields.get(k, cur[k]) for k in COMPLETENESS_FIELDS}
+    lacking = clean_lacking(fields["lacking"]) if "lacking" in fields else cur["lacking"]
     conn.execute(
-        "INSERT INTO profile_completeness (id, cert_list_complete, eligibility_facts_complete, updated_at_ms) VALUES (1, ?, ?, ?) "
+        "INSERT INTO profile_completeness (id, cert_list_complete, eligibility_facts_complete, lacking, updated_at_ms) "
+        "VALUES (1, ?, ?, ?, ?) "
         "ON CONFLICT (id) DO UPDATE SET cert_list_complete = excluded.cert_list_complete, "
-        "eligibility_facts_complete = excluded.eligibility_facts_complete, updated_at_ms = excluded.updated_at_ms",
-        (int(new["cert_list_complete"]), int(new["eligibility_facts_complete"]), now))
+        "eligibility_facts_complete = excluded.eligibility_facts_complete, lacking = excluded.lacking, "
+        "updated_at_ms = excluded.updated_at_ms",
+        (int(new["cert_list_complete"]), int(new["eligibility_facts_complete"]), json.dumps(lacking), now))
     return get_completeness(conn)
+
+
+def add_lacking(conn: sqlite3.Connection, line: str, now: int) -> dict:
+    """"I don't have this" on a question (0012): adds the posting line, once. E4 then reads that line as
+    a gap on every job whose posting has it."""
+    return set_completeness(conn, {"lacking": [*get_completeness(conn)["lacking"], line]}, now)
 
 
 # ----- inferred-claims inbox -----

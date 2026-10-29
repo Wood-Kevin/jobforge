@@ -1,7 +1,8 @@
 """Profile snapshots (ARCHITECTURE 4.2): the exact profile an evaluation saw.
 
 A snapshot is content-addressed: the sha256 of every experience item (id, kind, statement,
-status, attributes, years, dates) plus the completeness flags. An unchanged profile maps to the
+status, attributes, years, dates) plus the completeness flags and the lines the person said they
+lack (0012, only when there are some). An unchanged profile maps to the
 same snapshot, so a no-op edit queues no model calls; any change, including a verify, is a new
 snapshot and new evaluations (D10). Snapshots and their items are insert-only (triggers), and
 `match_citations` can only name an item of the evaluated snapshot (FK): inferred claims are
@@ -45,9 +46,21 @@ def _current(conn: sqlite3.Connection) -> tuple[list[dict], dict]:
               "start_date": r[6], "end_date": r[7]}
              for r in conn.execute("SELECT id, kind, statement, status, attributes, years, start_date, end_date "
                                    "FROM experience_items ORDER BY id")]
-    c = conn.execute("SELECT cert_list_complete, eligibility_facts_complete FROM profile_completeness WHERE id = 1").fetchone()
+    c = conn.execute("SELECT cert_list_complete, eligibility_facts_complete, lacking FROM profile_completeness WHERE id = 1").fetchone()
     completeness = {"cert_list_complete": bool(c[0]) if c else False, "eligibility_facts_complete": bool(c[1]) if c else False}
+    # The lacking lines (0012) join the digest only when there are some, so a profile without any keeps its
+    # snapshot across the upgrade. Snapshots made before 0012 have no key: read with .get().
+    lacking = json.loads(c[2]) if c else []
+    if lacking:
+        completeness["lacking"] = lacking
     return items, completeness
+
+
+def line_key(line: str) -> str:
+    """How two posting lines are compared for "I don't have this" (0012): the same words, ignoring case,
+    spacing and the punctuation or bullet around them. Never closer wording: an answer reaches only the
+    line the person answered."""
+    return " ".join(line.split()).casefold().strip(" .;:,-*\u2022")
 
 
 def digest(items: list[dict], completeness: dict) -> str:
