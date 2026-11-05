@@ -38,15 +38,19 @@ export const PLAIN: Record<string, string> = {
 
 /** A fit value: STRETCH is also a recommendation, and "Stretch" in both places read as one thing (UX redesign
  * step 3). Verdict rules v4: a STRETCH from too many requirements the profile doesn't show (fit counts `unshown`)
- * has no gaps to speak of, so it says what it is. */
+ * has no gaps to speak of, so it says what it is; so does v5's STRETCH from more requirements resting on related
+ * experience than matching directly (fit counts `related`). */
 export function fitLabel(v: string | null | undefined, counts?: Record<string, unknown> | null): string {
   if (v === "STRETCH" && counts?.unshown) return "Some things not shown";
+  if (v === "STRETCH" && counts?.related) return "Mostly related experience";
   return v === "STRETCH" ? "One or two gaps" : plain(v);
 }
 
 export function fitText(v: string, counts?: Record<string, unknown> | null): string | undefined {
   if (v === "STRETCH" && counts?.unshown)
     return "Most of what JobForge could check matches, but several requirements aren't in your profile. If you have them, add them to your profile.";
+  if (v === "STRETCH" && counts?.related)
+    return "No important gaps found, but more requirements rest on related experience than match what you've done. Read the evidence before applying.";
   return FIT_TEXT[v];
 }
 

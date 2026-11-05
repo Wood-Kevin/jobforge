@@ -277,7 +277,7 @@ def _random_case(rng: random.Random):
     return reqs, matches, job
 
 
-@pytest.mark.parametrize("version", ["v1", "v2", "v3", "v4"])
+@pytest.mark.parametrize("version", ["v1", "v2", "v3", "v4", "v5"])
 def test_skip_only_from_positive_evidence(version):
     rng = random.Random(7)
     rules = assess.load_rules(version)
@@ -306,6 +306,7 @@ def test_skip_only_from_positive_evidence(version):
             if rule == 5:
                 assert a.opportunity == "LOW"
                 assert not a.fit_counts.get("unshown")  # v4: a STRETCH from unknowns is never skipped
+                assert not a.fit_counts.get("related")  # v5: nor one carried by related experience
     assert seen["SKIP"] > 50  # the generator actually reaches SKIP
 
 

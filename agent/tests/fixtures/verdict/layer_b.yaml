@@ -247,3 +247,38 @@
   rules: v4
   negotiable: {direct: 4, gap_material: 1, unknown: 3}
   expect: {fit: STRETCH, recommendation: STRETCH, rule: 6}
+
+# ----- rules v5 (2026-11-05): more transferable than direct makes a `related` STRETCH, never a SKIP -----
+# The bare-metal posting: 2 direct, 4 transferable, 2 unknown of 8 required, no gaps.
+
+- name: v4 mostly transferable with no gaps -> APPLY
+  rules: v4
+  negotiable: {direct: 2, transferable: 4, unknown: 2}
+  expect: {fit: COMPETITIVE, recommendation: APPLY, rule: 4}
+
+- name: v5 mostly transferable with no gaps -> STRETCH, not APPLY
+  rules: v5
+  negotiable: {direct: 2, transferable: 4, unknown: 2}
+  expect: {fit: STRETCH, recommendation: STRETCH, rule: 6, detail_contains: "rest on related experience"}
+
+- name: v5 mostly transferable and LOW opportunity -> STRETCH, never SKIP
+  rules: v5
+  negotiable: {direct: 2, transferable: 4, unknown: 2}
+  job: {work_mode: onsite, posted_days_ago: 60}
+  expect: {fit: STRETCH, opportunity: LOW, recommendation: STRETCH, rule: 6}
+
+- name: v5 as many direct as transferable stays APPLY
+  rules: v5
+  negotiable: {direct: 3, transferable: 3, unknown: 1}
+  expect: {fit: COMPETITIVE, recommendation: APPLY, rule: 4}
+
+- name: v5 every covered requirement direct stays STRONG
+  rules: v5
+  negotiable: {direct: 6, unknown: 1}
+  expect: {fit: STRONG, recommendation: APPLY, rule: 4}
+
+- name: v5 one material gap and LOW opportunity still -> SKIP (rule 5 unchanged)
+  rules: v5
+  negotiable: {direct: 1, transferable: 2, gap_material: 1}
+  job: {work_mode: onsite, posted_days_ago: 60}
+  expect: {fit: STRETCH, opportunity: LOW, recommendation: SKIP, rule: 5}

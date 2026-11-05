@@ -16,7 +16,8 @@ Recommendation, first rule that matches (each recorded as the decisive reason):
 1 BLOCKED -> SKIP; 2 WEAK -> SKIP; 3 UNKNOWN or INSUFFICIENT -> REVIEW (with questions);
 4 STRONG/COMPETITIVE -> APPLY; 5 STRETCH + LOW -> SKIP; 6 STRETCH -> STRETCH.
 SKIP therefore only comes from rules 1, 2 or 5 (property test, D7). Rules v4 add a STRETCH from too many
-unknowns (fit counts `unshown`), which rule 5 never skips.
+unknowns (fit counts `unshown`), and v5 one from more transferable than direct matches (`related`); rule 5 skips
+neither.
 """
 from __future__ import annotations
 
@@ -221,7 +222,14 @@ def fit(reqs: list[Req], matches: dict[int, Validated], rules: dict) -> tuple[st
     elif counts["transferable"] == 0 and len(unknown) <= fr["strong_max_unknown"]:
         label, why = "STRONG", "no material gaps, every covered requirement direct"
     elif len(unknown) <= fr["competitive_max_unknown"]:
-        label, why = "COMPETITIVE", "no material gaps"
+        if fr.get("transferable_over_direct") == "stretch" and counts["transferable"] > counts["direct"]:
+            # v5: a fit carried mostly by related experience is not an APPLY. Marked `related`, which rule 5
+            # never skips: related experience is not evidence of a gap (D7).
+            label, why = "STRETCH", (f"no material gaps, but {counts['transferable']} requirements rest on related "
+                                     f"experience and {counts['direct']} match directly")
+            counts["related"] = True
+        else:
+            label, why = "COMPETITIVE", "no material gaps"
     elif unshown_stretch:
         unshown = f"no material gaps, {len(unknown)} requirements not shown in the profile"
     else:
@@ -365,7 +373,7 @@ def recommend(elig: str, elig_reasons: list[dict], fit_label: str, fit_counts: d
             # Never hidden: an APPLY carried by self-reported items says so (6.5).
             detail += f"; {fit_counts['self_reported_covering']} covered only by self-reported items"
         return "APPLY", [{"rule": 4, "name": "apply", "detail": detail}]
-    if fit_label == "STRETCH" and opp == "LOW" and not fit_counts.get("unshown"):
+    if fit_label == "STRETCH" and opp == "LOW" and not fit_counts.get("unshown") and not fit_counts.get("related"):
         bad = ", ".join(f"{f['factor']} ({f['detail']})" for f in opp_factors if f["value"] == "unfavorable")
         return "SKIP", [{"rule": 5, "name": "stretch_low_value", "detail": f"stretch, low value: {bad}"}]
     return "STRETCH", [{"rule": 6, "name": "stretch", "detail": fit_counts["rule"]}]

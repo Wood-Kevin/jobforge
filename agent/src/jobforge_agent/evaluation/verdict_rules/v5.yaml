@@ -1,0 +1,35 @@
+# Verdict rules v5 (2026-11-05; Kevin, on a bare-metal infrastructure posting called APPLY: "this has to be the biggest
+# miss by far so far", "build v5"). One change from v4, everything else equal:
+#
+# - fit.transferable_over_direct: stretch. v1-v4 made a job with no material gaps and few unknowns COMPETITIVE (APPLY)
+#   however many of the covered requirements rested only on related experience. On that posting the match covered 4 of
+#   8 required lines as "transferable" and 2 as direct, while its own limits said the core (bare-metal fleets,
+#   colocation, hardware failures) was not shown. Now, when more requirements are transferable than direct, the fit is
+#   STRETCH, marked `related` in the fit counts: shown as "Mostly related experience", and never a SKIP (rule 5 skips
+#   only a STRETCH without the `unshown` or `related` mark), because related experience is not evidence of a gap (D7).
+#   STRONG is unchanged (it already needs no transferable at all).
+
+gap:
+  years_tolerance_abs: 1
+  years_tolerance_share: 0.25
+
+fit:
+  min_judgeable: 3
+  max_uncertain_share: 0.30
+  max_conflicts: 3
+  strong_max_unknown: 1
+  competitive_max_unknown: 2
+  max_stretch_gaps: 2
+  stretch_max_unknown: 2
+  many_unknown: stretch
+  transferable_over_direct: stretch
+
+opportunity:
+  low_min_unfavorable: 2
+  high_min_favorable: 3
+  unknown_min_unknown: 4
+  age_favorable_days: 7
+  age_unfavorable_days: 30
+
+eligibility:
+  type_only_conflict: check_both
