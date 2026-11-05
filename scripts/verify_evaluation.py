@@ -67,9 +67,15 @@ if secs:
           f"seconds median {s[len(s) // 2]} max {s[-1]}; "
           f"prompt tokens median {p[len(p) // 2]} max {p[-1]}")
 
-section("Recommendation distribution (latest evaluation per open job, active profile)")
+section("Recommendation distribution (latest evaluation per open job, active profile, active rule version)")
+# A new rule version adds rows beside the old ones on the same evaluations (recompute keeps both), so count only
+# the version the running agent last wrote, which is the installed app's VERDICT_RULE_VERSION.
+rule = q("SELECT verdict_rule_version FROM recommendations ORDER BY computed_at_ms DESC, id DESC LIMIT 1")
+rule = rule[0][0] if rule else None
+print("  active rule version (latest computed):", rule)
 recs = q(f"SELECT rc.*, j.id AS job_id, j.company, j.title FROM ({LATEST}) le JOIN recommendations rc ON rc.evaluation_id = le.id "
-         "JOIN jobs j ON j.id = le.job_id WHERE rc.search_profile_id = ? ORDER BY rc.id", pid)
+         "JOIN jobs j ON j.id = le.job_id WHERE rc.search_profile_id = ? AND rc.verdict_rule_version = ? ORDER BY rc.id", pid, rule)
+print("  open jobs with a done evaluation:", q(f"SELECT count(*) FROM ({LATEST})")[0][0], "; with a recommendation counted:", len(recs))
 print("  by recommendation:", dict(Counter(r["recommendation"] for r in recs)))
 print("  by eligibility:", dict(Counter(r["eligibility"] for r in recs)))
 print("  by fit:", dict(Counter(r["fit"] for r in recs)))
