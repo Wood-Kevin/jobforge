@@ -47,6 +47,11 @@ describe("fit labels", () => {
     expect(fitText("STRETCH", {})).toBe(FIT_TEXT.STRETCH);
     expect(fitLabel("STRONG", { unshown: true })).toBe("Strong fit");
   });
+  it("names a STRETCH carried by related experience apart from one with gaps (rules v5)", () => {
+    expect(fitLabel("STRETCH", { related: true })).toBe("Mostly related experience");
+    expect(fitText("STRETCH", { related: true })).toContain("related experience");
+    expect(fitLabel("COMPETITIVE", { related: true })).not.toBe("Mostly related experience");
+  });
 });
 
 describe("job row helpers", () => {

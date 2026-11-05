@@ -1320,6 +1320,14 @@ upgrade or break ties):
   unverifiable > 30% of extracted requirements, or conflicts > 3.
 - STRONG: 0 material gaps, every covered requirement direct, unknown <= 1.
 - COMPETITIVE: 0 material gaps, transferable allowed, unknown <= 2.
+  Rules v5 (`fit.transferable_over_direct: stretch`, 2026-11-05): when more covered requirements are transferable
+  than direct, the fit is a STRETCH marked `related` instead ("Mostly related experience" in the window). Found on
+  a bare-metal infrastructure posting called APPLY with 2 direct, 4 transferable and 2 unknown of 8 required: the
+  match's own transfer limits said the core (bare-metal fleets, colocation, hardware failures) was not shown.
+  Before/after on a copy of the real data (58 jobs): APPLY 14 -> 11, STRETCH 36 -> 39, nothing else moved; of
+  Kevin's 10 labelled jobs with a verdict (all SKIP), APPLY on a SKIP label 2 -> 1. Rejected: an E3 prompt
+  change to call such matches gaps (a full re-match on the ChatGPT plan, and the rule catches the case without it);
+  a check on the transfer-limits text (wording-dependent).
 - STRETCH: 1-2 material gaps (`max_stretch_gaps`), the rest covered. Rules v4 (`fit.many_unknown: stretch`,
   2026-10-25): once `min_judgeable` requirements are judged, too many unknowns make a STRETCH marked `unshown` in
   the fit counts instead of INSUFFICIENT ("Some things not shown" in the window), and three or more evidenced
@@ -1342,8 +1350,9 @@ words it, and a test pins those strings to `assess.py`.
 3. Eligibility UNKNOWN or fit INSUFFICIENT -> REVIEW, with the specific
    questions that would resolve it.
 4. Fit STRONG or COMPETITIVE -> APPLY.
-5. Fit STRETCH and opportunity LOW -> SKIP ("stretch, low value: <factors>"), except an `unshown` STRETCH (v4),
-   which is never skipped: SKIP still needs positive evidence (D7; property test runs v1-v4).
+5. Fit STRETCH and opportunity LOW -> SKIP ("stretch, low value: <factors>"), except an `unshown` STRETCH (v4)
+   or a `related` one (v5), which are never skipped: SKIP still needs positive evidence, and related experience is
+   not a gap (D7; property test runs v1-v5).
 6. Fit STRETCH -> STRETCH.
 
 Self-reported basis is never hidden: an APPLY carried by self-reported items
