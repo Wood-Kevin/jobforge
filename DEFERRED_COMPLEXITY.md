@@ -496,6 +496,14 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   labeled requirements: over-credits removed vs right credits wrongly removed. Then a NuExtract3 load-and-template check
   on Ollama 0.32 before any E1 comparison.
 - **Trigger:** Kevin asks for the measurement, or matching moves off ChatGPT.
+- **Granite Guardian measured 2026-11-04 (Mac, Q6_K, the 24 labels; document = the PROFILE section of each job's E3
+  request): not adopted.** With the claim "The candidate meets this requirement: <posting line>" it called all 24 lines
+  unsupported (thinking off; with thinking on, 22 of 24), including all 8 the person has: a whole posting line carries
+  details no profile states word for word. The setup was checked (a profile line copied as the claim: supported; an
+  invented one: unsupported). Best case, claims built by hand from each line's core term ("experience with SQL"): it cut
+  over-credits (ChatGPT 4 -> 2, Mac Gemma 7 -> 2, Mac Qwen 5 -> 1) but removed 3-4 right credits each, so right answers
+  went 17 -> 14, 15 -> 14 and 15 -> 15. It trades over-credit for under-credit; no net gain, and the core-term claims
+  would need another model call to write. Remaining candidate: NuExtract3 for posting reading (not measured).
 
 ## ChatGPT plan after Plus ends (2026-11-04)
 - **What:** Kevin cancelled Plus. Whether a Free account can use its plan in JobForge is not documented for open-source
