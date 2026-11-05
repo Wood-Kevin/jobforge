@@ -95,6 +95,7 @@ def test_allowed_writes_succeed(db, paths):
     user.execute("INSERT INTO filter_overrides (job_id, created_at_ms) VALUES (?, ?)", (ids["job"], NOW))
     user.execute("INSERT INTO posting_analyses (raw_posting_id, job_id, model_config_id, extraction_prompt_version, segmenter_version, "
                  "interpreter_version, created_at_ms) VALUES (?, ?, ?, 'e', 's', 'i', ?)", (ids["raw"], ids["job"], ids["model"], NOW))
+    user.execute("UPDATE posting_analyses SET model_config_id = ?", (ids["model"],))  # moving the local model (SPEC D19)
     user.execute("UPDATE posting_analyses SET status = 'superseded'")
     ev = open_connection(paths.db, "evaluation")
     ev.execute("INSERT INTO inferred_claims (statement, kind, created_at_ms) VALUES ('DNS troubleshooting', 'skill', ?)", (NOW,))

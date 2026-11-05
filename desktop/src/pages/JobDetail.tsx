@@ -380,6 +380,6 @@ function waiting(d: Detail): string {
 
 // Which AI judged the job (SPEC D18). The fallback case says why, so a weaker local verdict isn't taken for ChatGPT's.
 function judgedBy(j: { name: string; provider_kind: string; fallback: boolean }): string {
-  if (j.fallback) return "Judged on this PC while ChatGPT was unavailable. JobForge checks it again with ChatGPT once it answers.";
-  return j.provider_kind === "chatgpt" ? `Judged with ChatGPT (${j.name.replace(/ \(ChatGPT\)$/, "")}).` : "Judged on this PC.";
+  if (j.fallback) return "Judged by your local model while ChatGPT was unavailable. JobForge checks it again with ChatGPT once it answers.";
+  return j.provider_kind === "chatgpt" ? `Judged with ChatGPT (${j.name.replace(/ \(ChatGPT\)$/, "")}).` : "Judged by your local model.";
 }

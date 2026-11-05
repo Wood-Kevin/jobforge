@@ -50,11 +50,13 @@ def _tx(conn: sqlite3.Connection, fn):
     return result
 
 
-def move_pending(conn: sqlite3.Connection, from_id: int, to_id: int) -> int:
-    """Hand a cloud config's pending analyses to the fallback config while the cloud is out (SPEC D18: postings
-    never wait on a cap; the fallback's reading then stays). Where the fallback already has a row for the same
+def move_pending(conn: sqlite3.Connection, from_id: int, to_id: int, revive: bool = True) -> int:
+    """Hand a config's pending analyses to another: a cloud config's to the fallback while the cloud is out (SPEC D18:
+    postings never wait on a cap; the fallback's reading then stays), and the old local model's to the new one when the
+    person moves the local model (agent.use_local_model, SPEC D19). Where the receiving config already has a row for the same
     posting and versions, the pending one is superseded instead, and that row is queued again if it had failed
-    or was superseded (a done one is the reading). Returns how many rows were handed over."""
+    or was superseded (a done one is the reading); with `revive=False` (the user's connection, which may not reset
+    attempts) a failed one stays failed, as any failure on that model. Returns how many rows were handed over."""
     def go():
         moved = 0
         for aid, raw_id, ep, sv, iv in conn.execute(
@@ -67,10 +69,14 @@ def move_pending(conn: sqlite3.Connection, from_id: int, to_id: int) -> int:
             if other is None:
                 conn.execute("UPDATE posting_analyses SET model_config_id = ? WHERE id = ?", (to_id, aid))
             else:
-                # Superseded first: one pending analysis per job (unique index).
-                conn.execute("UPDATE posting_analyses SET status = 'superseded', "
-                             "last_error = 'cloud model out: the fallback model has this posting version' WHERE id = ?", (aid,))
-                if other[1] in ("failed", "superseded"):
+                # Superseded first: one pending analysis per job (unique index). The note only where the connection may
+                # write it (not the user's, which may set status alone).
+                if revive:
+                    conn.execute("UPDATE posting_analyses SET status = 'superseded', "
+                                 "last_error = 'handed to another model, which has this posting version' WHERE id = ?", (aid,))
+                else:
+                    conn.execute("UPDATE posting_analyses SET status = 'superseded' WHERE id = ?", (aid,))
+                if revive and other[1] in ("failed", "superseded"):
                     conn.execute("UPDATE posting_analyses SET status = 'pending', attempts = 0, last_error = NULL, "
                                  "lease_until_ms = NULL WHERE id = ?", (other[0],))
             moved += 1

@@ -22,7 +22,7 @@ export default function Setup({ onDone }: { onDone: () => void }) {
       body: <CompaniesCard compact /> },
     { title: "What you're looking for", done: st?.search_profile.done, hint: "Job titles, where you live, and pay.",
       body: <SearchFormCard onSaved={s.reload} /> },
-    { title: "AI model", done: st?.model.done, hint: "JobForge reads postings with a model on this PC. Check that LM Studio is running with it.",
+    { title: "AI model", done: st?.model.done, hint: "JobForge reads postings with a model on your own computer: this PC in LM Studio, or another computer of yours.",
       body: <ModelCard onReady={s.reload} /> },
     { title: "Your experience", done: st?.profile.done,
       hint: st?.profile.done ? `${st.profile.items} items and ${st.profile.facts} facts so far (${st.profile.facts_verified} facts confirmed). You can add more in Your profile.`

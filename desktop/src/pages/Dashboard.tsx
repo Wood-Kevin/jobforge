@@ -32,7 +32,8 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   const watched = enabled.length + (b?.enabled ?? 0);
   const counts: Record<string, number> = {};
   for (const j of recs.data?.jobs ?? []) counts[j.recommendation!.recommendation] = (counts[j.recommendation!.recommendation] ?? 0) + 1;
-  // The model on this PC is the fallback step's config; ChatGPT configs in use are reported separately (SPEC D18).
+  // The local model (this PC or another computer, SPEC D19) is the fallback step's config; ChatGPT configs in use are
+  // reported separately (SPEC D18).
   const local = models.data?.find((c) => c.steps.includes("fallback"));
   const gates = { ...(analysis.data?.inference ?? {}), ...(evaluation.data?.inference ?? {}) };
   const gate = local ? gates[String(local.id)] : Object.values(gates)[0];
@@ -49,12 +50,16 @@ export default function Dashboard({ sup, onSetup }: { sup: Supervisor | null; on
   for (const e of failed) problems.push(`A status check failed: ${e}`);
   if (sup && sup.state !== "running") problems.push("JobForge's background service is not running.");
   if (h?.discovery_paused) problems.push("Checking for new jobs is paused.");
-  if (gate && gate.up === false) problems.push(`The AI model isn't reachable (LM Studio closed or its server stopped). ${waitingAi} postings are waiting; they'll be read automatically when it's back.`);
+  if (gate && gate.up === false) problems.push(local?.provider_label === "Another computer"
+    ? `The AI model isn't reachable (the other computer is asleep, off Tailscale, or its model server stopped). ${waitingAi} postings are waiting; they'll be read automatically when it's back.`
+    : `The AI model isn't reachable (LM Studio closed or its server stopped). ${waitingAi} postings are waiting; they'll be read automatically when it's back.`);
   if (cloudOut) problems.push(cloudOut.out === "capped"
-    ? "Your ChatGPT plan is at its usage limit. JobForge is using the model on this PC meanwhile and checks those jobs again with ChatGPT afterwards."
-    : cloudOut.out === "signed_out" || cloudOut.out === "chatgpt_auth_rejected"
-      ? "JobForge is signed out of ChatGPT. Sign in again in Preferences; until then it uses the model on this PC."
-      : "ChatGPT isn't answering. JobForge is using the model on this PC meanwhile.");
+    ? "Your ChatGPT plan is at its usage limit. JobForge is using your local model meanwhile and checks those jobs again with ChatGPT afterwards."
+    : cloudOut.out === "not_eligible"
+      ? "ChatGPT says this account can't use its plan in JobForge. JobForge is using your local model and tries ChatGPT again later."
+      : cloudOut.out === "signed_out" || cloudOut.out === "chatgpt_auth_rejected"
+        ? "JobForge is signed out of ChatGPT. Sign in again in Preferences; until then it uses your local model."
+        : "ChatGPT isn't answering. JobForge is using your local model meanwhile.");
   if ((evaluation.data?.pending_waiting_for_disabled_config ?? 0) + (analysis.data?.pending_waiting_for_disabled_config ?? 0) > 0)
     problems.push("The AI model is turned off, so postings aren't being read. Turn it on in Preferences.");
   for (const e of enabled) {

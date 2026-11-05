@@ -1,7 +1,8 @@
 """The only code that talks to an inference server (ARCHITECTURE 6.8, 6.9).
 
 Providers are `model_configs` rows, and `provider_kind` picks the request format:
-- openai_compatible: `/v1/models`, `/v1/chat/completions` (LM Studio).
+- openai_compatible: `/v1/models`, `/v1/chat/completions` (LM Studio on this PC, or Ollama / LM Studio on another of the
+  person's computers over Tailscale: inference/configs.check_local_url).
 - chatgpt: the person's ChatGPT plan through Sign in with ChatGPT (SPEC D18): `/v1/models` answers `models[]`
   with `slug`, and calls go to the Responses API (`/v1/responses`, streamed, `store: false`) with the same
   messages and the same strict JSON schema, so prompts and E4-E6 do not change.
@@ -14,7 +15,11 @@ Every call sends an output limit. Failures are classified so the caller can deci
   16,384-token load); it does not truncate silently. Retrying cannot help.
 - capped (chatgpt): the plan's usage limit (`subscription_sharing_usage_limit_exceeded`,
   `subscription_sharing_usage_unavailable`) or HTTP 429. Like unavailable, no attempt is spent; the step
-  moves to its fallback config until the cap clears (inference/steps.py).
+  moves to its fallback config until the cap clears (inference/steps.py). An account that may not use its plan here
+  (HTTP 403 `subscription_sharing_user_not_eligible` / `subscription_sharing_route_not_supported`, OpenAI's
+  "Errors and recovery") is `capped` too, with detail `not_eligible: <code>`: like a cap it moves the step to the
+  fallback and spends no attempt, and unlike `unavailable` it is not probed back in (`/v1/models` may still
+  answer), so one real call tells again only after the cap backoff.
 For chatgpt, no sign-in or a refused token (HTTP 401) is `unavailable` with detail `signed_out` /
 `chatgpt_auth_rejected` (never `capped`), a 5xx is `unavailable`, and a stream that breaks or ends before
 its final event is `unavailable`.
@@ -34,6 +39,8 @@ from jobforge_agent.inference.chatgpt_auth import AuthError, ChatGPTAuth
 DEFAULT_TIMEOUT_S = 120.0
 PROBE_TIMEOUT_S = 5.0
 CAP_CODES = ("subscription_sharing_usage_limit_exceeded", "subscription_sharing_usage_unavailable")
+NOT_ELIGIBLE_CODES = ("subscription_sharing_user_not_eligible", "subscription_sharing_route_not_supported")
+NOT_ELIGIBLE = "not_eligible"  # detail prefix of a `capped` error; inference/steps.OUT shows it as its own reason
 
 
 @dataclass(frozen=True)
@@ -121,6 +128,9 @@ def _usage(u: dict | None) -> dict | None:
 
 
 def _chatgpt_error(status: int, text: str) -> InferenceError:
+    code = next((c for c in NOT_ELIGIBLE_CODES if c in text), None)
+    if code is not None:
+        return InferenceError("capped", f"{NOT_ELIGIBLE}: {code}")
     if status == 429 or any(c in text for c in CAP_CODES):
         return InferenceError("capped", f"HTTP {status}: {text[:300]}")
     if status == 401:
@@ -256,6 +266,8 @@ class InferenceClient:
         if final["type"] in ("response.failed", "error"):
             err = resp.get("error") or final.get("error") or final
             code = str(err.get("code") or err.get("type") or "")
+            if code in NOT_ELIGIBLE_CODES:
+                raise InferenceError("capped", f"{NOT_ELIGIBLE}: {code}")
             if code in CAP_CODES:
                 raise InferenceError("capped", code)
             raise InferenceError("http_error", f"response failed: {code} {str(err.get('message') or '')[:300]}")

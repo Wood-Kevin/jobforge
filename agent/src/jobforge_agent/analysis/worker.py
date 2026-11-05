@@ -27,7 +27,7 @@ from jobforge_agent.analysis import extract, store
 from jobforge_agent.analysis.interpret import interpret
 from jobforge_agent.analysis.segment import segment
 from jobforge_agent.inference import steps
-from jobforge_agent.inference.client import InferenceClient, InferenceError, ModelConfig, load_config
+from jobforge_agent.inference.client import NOT_ELIGIBLE, InferenceClient, InferenceError, ModelConfig, load_config
 
 IDLE_POLL_S = 10.0
 UP_RECHECK_S = 30.0
@@ -99,7 +99,8 @@ class HealthGate:
         if cfg.id not in steps.OUT and cfg.provider_kind != "openai_compatible":
             # The steps on this config now run on the fallback (verify.sh: D18 "cap falls back to local").
             self.log.warning("model_fallback", model_config_id=cfg.id, reason="capped" if capped else reason[:200])
-        steps.OUT[cfg.id] = "capped" if capped else reason[:200]
+        # A plan the account may not use here is waited out like a cap, but the window names it (client.NOT_ELIGIBLE).
+        steps.OUT[cfg.id] = (NOT_ELIGIBLE if reason.startswith(NOT_ELIGIBLE) else "capped") if capped else reason[:200]
         st.up, st.reason, st.capped = False, reason, capped
         st.next_check_ms = self.now_ms() + int(st.backoff_s * 1000)
 

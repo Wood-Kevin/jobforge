@@ -7,8 +7,11 @@ schema-valid, `finish_reason = stop`, at least one requirement, and every quote 
 """
 from __future__ import annotations
 
+import dataclasses
+import ipaddress
 import json
 import sqlite3
+import urllib.parse
 
 from jobforge_agent.analysis import extract
 from jobforge_agent.analysis.interpret import interpret
@@ -23,6 +26,11 @@ TEST_SNIPPET = ("Requirements:\n- Must be a US citizen.\n- 3+ years of Linux adm
 
 class ConfigError(Exception):
     pass
+
+
+# The test's own call never waits longer than this, whatever the config allows a real posting (another computer: 600 s):
+# the window waits 180 s for a test (host lib.rs), and the snippet is short (the Mac answered in 24 s, 2026-11-04).
+TEST_TIMEOUT_S = 150
 
 
 def listing(conn: sqlite3.Connection) -> list[dict]:
@@ -51,6 +59,8 @@ async def run_test(client: InferenceClient, cfg: ModelConfig) -> dict:
     if not report["listed"]:
         report["error"] = f"model not listed by {cfg.base_url}/models"
         return report
+    if cfg.timeout_s > TEST_TIMEOUT_S:
+        cfg = dataclasses.replace(cfg, params={**cfg.params, "timeout_s": TEST_TIMEOUT_S})
     try:
         result = await client.chat(cfg, extract.messages("Test posting", TEST_SNIPPET, cfg.structured_output_mode),
                                    extract.response_format(cfg.structured_output_mode))
@@ -89,6 +99,56 @@ def set_enabled(conn: sqlite3.Connection, config_id: int, enabled: bool) -> None
     if enabled and row[0] is None:
         raise ConfigError("run the config test first (POST /v1/model-configs/{id}/test)")
     conn.execute("UPDATE model_configs SET enabled = ? WHERE id = ?", (int(enabled), config_id))
+
+
+# Local configs (SPEC D19): a model on this PC or on another of the person's own computers. Prompts carry profile items
+# and resume text over plain HTTP, so the server must be this PC (loopback) or reached through Tailscale, which encrypts
+# between the person's devices: a 100.64.0.0/10 or fd7a:115c:a1e0::/48 address, or a MagicDNS name under .ts.net.
+# Rejected: any home-network address (plain text on the LAN, readable by anything on it) and public hosts.
+LOCAL_PARAMS = {"reasoning_effort": "none", "temperature": 0, "seed": 7, "max_tokens": 4000}
+# Another computer is slower than this PC's GPU (MacBook Air, 2026-11-04: up to 264 s to read a long posting).
+REMOTE_TIMEOUT_S = 600
+_TAILNET = (ipaddress.ip_network("100.64.0.0/10"), ipaddress.ip_network("fd7a:115c:a1e0::/48"))
+
+
+def check_local_url(base_url: str) -> tuple[str, bool]:
+    """(normalized base URL ending in /v1, is it this PC), or ConfigError saying why the address is not allowed."""
+    raw = base_url.strip()
+    if "://" not in raw:
+        raw = "http://" + raw
+    u = urllib.parse.urlsplit(raw)
+    if u.scheme not in ("http", "https") or not u.hostname or u.username or u.password or u.query or u.fragment:
+        raise ConfigError("enter the address as http://<computer>:<port>, for example http://100.101.102.103:11434")
+    host = u.hostname.lower()
+    try:
+        ip = ipaddress.ip_address(host)
+    except ValueError:
+        ip = None
+    loopback = host == "localhost" or (ip is not None and ip.is_loopback)
+    if not (loopback or (ip is not None and any(ip in n for n in _TAILNET)) or (ip is None and host.endswith(".ts.net"))):
+        raise ConfigError("JobForge sends your profile to the model, so the model must run on this PC or on one of your "
+                          "computers reached through Tailscale (an address starting with 100. or a name ending in .ts.net)")
+    path = u.path.rstrip("/") or "/v1"
+    return urllib.parse.urlunsplit((u.scheme, u.netloc.lower(), path, "", "")), loopback
+
+
+def upsert_local_config(conn: sqlite3.Connection, base_url: str, model_id: str) -> int:
+    """The config row for a local model at an address, created on first use (caller holds the transaction)."""
+    url, loopback = check_local_url(base_url)
+    model_id = model_id.strip()
+    if not model_id:
+        raise ConfigError("enter the model's name as the server lists it, for example qwen3.5:9b")
+    row = conn.execute("SELECT id FROM model_configs WHERE provider_kind = 'openai_compatible' AND base_url = ? AND model_id = ?",
+                       (url, model_id)).fetchone()
+    if row:
+        return row[0]
+    params = LOCAL_PARAMS if loopback else {**LOCAL_PARAMS, "timeout_s": REMOTE_TIMEOUT_S}
+    # Names are unique: host and port tell two servers on one computer apart.
+    return conn.execute(
+        "INSERT INTO model_configs (name, provider_label, provider_kind, base_url, model_id, params, structured_output_mode, "
+        "enabled) VALUES (?, ?, 'openai_compatible', ?, ?, ?, 'json_schema', 0) RETURNING id",
+        (f"{model_id} ({urllib.parse.urlsplit(url).netloc})", "This PC" if loopback else "Another computer", url, model_id,
+         json.dumps(params))).fetchone()[0]
 
 
 # ChatGPT configs (SPEC D18). The plan's models are reasoning models: a larger output limit than the local 4,000

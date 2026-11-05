@@ -1721,6 +1721,38 @@ above, this list is the current design:
   SKIP 5 -> 0. Posting reading through Luna on 20 postings: DEFERRED, "ChatGPT integration: what the first
   build leaves open". Not run live: the sign-in flow from the window, a real cap, and the sign-out drill.
 
+**Local model on another computer (SPEC D19, 2026-11-04).**
+- **Code.** `inference/configs.check_local_url` (loopback, `100.64.0.0/10`, `fd7a:115c:a1e0::/48`, `*.ts.net`; anything
+  else is refused with a plain reason) and `upsert_local_config` (one row per address and model, name `model (host:port)`,
+  `provider_label` "This PC" / "Another computer", 600 s wait off this PC); `agent.use_local_model` and
+  `POST /v1/model-configs/local` (test, turn on, then the fallback and every step not on ChatGPT move to it, and
+  postings queued on other local configs are handed over with `analysis/store.move_pending(revive=False)`); the
+  test call is capped at `configs.TEST_TIMEOUT_S` (150 s) because the window waits 180 s. Tests: `tests/test_local_model.py`.
+- **Grant.** The user connection may now set `posting_analyses.model_config_id` (the hand-over), still never `attempts`
+  or `last_error` (`tests/test_authorizer.py` pins both): a posting the new model already failed stays failed.
+- **"Not eligible".** `subscription_sharing_user_not_eligible` / `subscription_sharing_route_not_supported` (HTTP 403,
+  OpenAI "Errors and recovery") are `capped` with detail `not_eligible: <code>`, and `steps.OUT` shows `not_eligible`, so
+  the window names it. A cap rather than `unavailable`: `/v1/models` may still answer for an ineligible account, and an
+  `unavailable` config is probed back in after a short wait, which would spend a refused call each time.
+- **Measured on a copy (MacBook Air, Ollama 0.32.1 over Tailscale, app prompts, parsers and E4-E6).** Matching on the
+  17 labeled jobs (15 with text still kept; 24 of the 25 labels), each model sent the byte-identical request ChatGPT's
+  stored evaluation sent:
+
+  | Model | Right | Over-credit | Under-credit | Same recommendation as ChatGPT | Median s/job |
+  |---|---|---|---|---|---|
+  | GPT-5.6-Luna (stored) | 17/24 | 4 | 3 | - | about 40 |
+  | Gemma 4 12B (Q4_K_M, Mac) | 15/24 | 7 | 2 | 13/15 | 91 |
+  | Qwen 3.5 9B (Mac) | 15/24 | 5 | 4 | 12/15 | 50 |
+
+  Posting reading on the 20 postings of the 2026-10-26 check (15 with text still kept), against the stored PC Gemma
+  readings: lines 238 (PC Gemma) / 198 (Mac Gemma: it dropped whole groups, 16 of 29 "ability to" lines on one
+  posting) / 226 (Qwen); quotes found 238 / 197 / 225; lines in conflict (questions for the person) 18 / 22 / 34;
+  about 2 min / 1.5 min per posting on the Mac. Most of Qwen's "different" lines were the same line with or without a
+  final period. Chosen: Qwen 3.5 9B for reading, resume suggestions and the fallback; matching stays on ChatGPT.
+- **Not verified:** whether a ChatGPT Free account can use its plan in JobForge (OpenAI's help center: commercial apps
+  need Go, Plus or Pro, while "supported open-source tools remain available to all ChatGPT users"); DEFERRED, "ChatGPT
+  plan after Plus ends".
+
 ---
 
 ## 7. Packaging, installation and updates

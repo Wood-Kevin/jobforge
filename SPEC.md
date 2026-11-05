@@ -435,6 +435,44 @@ accepted, not owned.
   Qwen3.6's 17 of 25 and Gemma's 11 of 25, plus E1 on 20 postings against the stored readings. The person
   approves the result.
 
+### D19: The local model may run on another of the person's computers, reached only through Tailscale
+- **Status:** AGREED 2026-11-04 (Kevin: "follow your proposed order"; then "lets build that way": matching stays on
+  ChatGPT while the plan carries it, everything else on the other computer). Measurements: ARCHITECTURE 6.9 ("Local
+  model on another computer").
+- **Tier:** consequential (where profile text travels).
+- **Choice:**
+  - A local (`openai_compatible`) config may point at this PC (loopback) or at another of the person's computers
+    reached through Tailscale: a `100.64.0.0/10` or `fd7a:115c:a1e0::/48` address, or a name under `.ts.net`. The
+    agent refuses any other address (`inference/configs.check_local_url`), so a model on a plain home-network
+    address cannot be configured. Any OpenAI-compatible server works there (Ollama, LM Studio).
+  - The window's AI model card adds "Use a model on another computer" (address and model name). The agent tests
+    the model; when the test passes it becomes the local model: the fallback and every step not on ChatGPT move
+    to it, and steps on ChatGPT stay (`POST /v1/model-configs/local`).
+  - The same action hands postings queued on the old local model to the new one, so the old server is never woken
+    (LM Studio loads a model on demand). The user connection's grant on `posting_analyses` gains `model_config_id`
+    for this, never `attempts`: a posting the new model already failed stays failed. Rejected: the analysis worker
+    moving any queue that the reading step does not use (it would also move work deliberately queued elsewhere).
+  - A config on another computer waits up to 600 s per call (the MacBook Air took up to 264 s on a long posting);
+    the test call stays capped at 150 s for the window.
+  - ChatGPT's "not eligible" answer (`subscription_sharing_user_not_eligible`, `..._route_not_supported`, HTTP 403)
+    is handled like a cap: the step moves to the local model, no attempt is spent, and it is tried again after the
+    cap wait. It was a request error before, which would have failed jobs instead of falling back.
+- **Why:** this PC's GPU is wanted for other things (Kevin: "offload the local model to the mac air since it is just
+  sitting"), and the ChatGPT plan may end (cancelled 2026-11; OpenAI's help center says open-source tools "remain
+  available to all ChatGPT users", unverified for JobForge until the plan lapses). Tailscale encrypts traffic between
+  the person's devices; prompts carry profile items and resume text.
+- **Rejected alternatives and why:**
+  - Any home-network address: prompts would cross the LAN as plain text, readable by anything on it.
+  - Editing the existing local config's address in place: its stored readings and verdicts would then claim a model
+    that never made them. A new config per address and model keeps each row's model true.
+  - A per-step picker among several local configs: one machine holds one model at a time (the Air would swap), so
+    "the local model" stays one config; ChatGPT remains the per-step choice.
+- **Accuracy (2026-11-04, copy of the data, ARCHITECTURE 6.9):** on 24 labeled requirements (15 jobs), Qwen 3.5 9B on
+  the Mac was right on 15 (5 over-credits), Gemma 4 12B on the Mac 15 (7), ChatGPT (GPT-5.6-Luna) 17 (4). Posting
+  reading on 15 postings against the stored PC Gemma readings: Qwen kept 226 of 238 lines' worth (more lines flagged
+  as uncertain: 34 vs 18), the Mac's Gemma 198 (it dropped whole groups of lines). Qwen 3.5 9B chosen for reading,
+  resume suggestions and the fallback (Kevin: "lets build that way").
+
 ### D14: Stack
 - **Tier:** standard-practice.
 - **Choice:** Agent: Python 3.14, asyncio, httpx, stdlib sqlite3 (3.50.4
@@ -506,8 +544,10 @@ triggers and constraints that apply to every connection.
   suggestions) resume text go to OpenAI; eligibility facts never do, because they are matched by code.
   Shown in plain words before sign-in. OAuth tokens are DPAPI-encrypted in `auth\` (user-only DACL), never
   in the database, backups, logs or the webview. Model calls keep `trust_env=False`.
-- LM Studio on localhost, LAN serving off (verified not reachable on
-  Ethernet, Tailscale, VMware adapters, 2026-10-21).
+- The local model runs on this PC (LM Studio on localhost, LAN serving off; verified not reachable on
+  Ethernet, Tailscale, VMware adapters, 2026-10-21) or, per D19, on another of the person's computers reached
+  only through Tailscale: the agent refuses any other address, and that computer's model server must not
+  answer on its home-network address (`verify.sh models` probes it).
 - Per-user install, no admin; data outside the install directory.
 - Sources disabled until a terms/robots review is recorded; Crawl-delay,
   Retry-After, budgets honored; 401/403 stops polling.
@@ -607,6 +647,8 @@ PowerShell for process, registry and ACL probes.
 | D18: cap falls back to local | `uv run pytest tests/test_chatgpt.py -q` (a recorded usage-limit event, then the next claims and the recovery); live drill: sign out with matching on ChatGPT (`verify.sh models`). A real cap cannot be forced | `model_fallback` log line; new evaluations on the local config; none left pending on the cloud config; after the wait, `model_cloud_retry` and the fallback's jobs judged again on the cloud |
 | D18: tokens stay out of reach | `icacls <data root>\auth`; grep the database, backups and logs for the access-token prefix; `git ls-files` | One user entry; no matches |
 | D18: plan usage visible | `/v1/model-usage` (calls and tokens per day per config) | Numbers for today and the last 7 days |
+| D19: local model only on this PC or Tailscale | `uv run pytest tests/test_local_model.py -q`; `verify.sh models` (each local config's address, and a probe of that computer's model port on its home-network address) | Home-network and public addresses refused; every local config loopback or 100.64.0.0/10 / .ts.net; the home-network probe refused or timed out |
+| D19: "not eligible" falls back | `uv run pytest tests/test_local_model.py tests/test_chatgpt.py -q`; live: after the plan lapses, `agent.jsonl` | `inference_capped` with reason `not_eligible: ...`, then `model_fallback`; no evaluation failed for it |
 | Analysis independent of the profile | After a profile edit: `/v1/analysis/status` counts, `analysis_done` log lines | Counts and line count unchanged |
 | Interpretation report | `jobforge-agent golden --suite interpretation` | Per-area agreement numbers |
 | Golden-set agreement | `jobforge-agent golden` | False SKIP, false APPLY, REVIEW share, confusion table |
@@ -645,6 +687,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-11-04 | D19: the local model may run on another of the person's computers, reached only through Tailscale (address check, "Use a model on another computer" in the window, `POST /v1/model-configs/local`, queued postings handed to the reading step's model, 600 s wait off this PC, test call capped at 150 s). ChatGPT's "not eligible" answer is handled like a cap instead of a request error. Window wording "this PC" -> "your local model". Security posture line updated. Version 0.3.21 | Kevin: "off load the local model to the mac air"; "follow your proposed order"; "lets build that way" |
 | 2026-11-01 | Dependency updates (Dependabot PRs #12-#14): fastapi 0.159.1 -> 0.162.0, pypdf, pytest; tauri-plugin-single-instance 2.5.4 -> 2.5.5; CI action setup-uv 10.3.2 -> 10.3.3. No behavior change intended: FastAPI 0.160/0.162 breaking changes cover query/header/cookie/form parameter models and omitted boolean form fields, none of which the agent declares. Version 0.3.20 | Kevin: "merge all three, build and install" |
 | 2026-10-29 | Matching: "I don't have this" on a "Needs your input" skill question saves the posting's line (migration 0012, `profile_completeness.lacking`); E4 reads that line as an evidenced gap on any job whose posting has the same line (E4 `m2-v3`, prompt unchanged, stored answers reused). Removable from Profile. Before/after on a copy: no lines, 54 of 54 verdicts unchanged; all 8 page questions answered no, 3 jobs REVIEW -> STRETCH (ARCHITECTURE 6.4 E4). Version 0.3.19 | Kevin: "There is no option to dismiss a question for needs your input if I don't have the skill"; chose "same line, any job" over a typed short name |
 | 2026-10-29 | Window: each job on "Needs your input" has "I'd skip it" (hides the job and its copies, recorded as your call, as on the job page). No matching change ("I don't have this", the row above, is the answer that changes matching). Version 0.3.19 | Kevin: "There is no option to dismiss a question for needs your input if I don't have the skill" |

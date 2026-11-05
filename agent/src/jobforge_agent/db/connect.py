@@ -106,8 +106,10 @@ GRANTS: dict[str, dict[str, Grant]] = {
         "profile_snapshot_items": ins(),
         "model_configs": full(),
         "evaluations": ins(),
-        # "Evaluate anyway" queues analysis of an override (supersedes an older pending one).
-        "posting_analyses": _merge(ins(), upd("status")),
+        # "Evaluate anyway" queues analysis of an override (supersedes an older pending one). model_config_id: moving
+        # the local model hands queued postings to the new one (SPEC D19, analysis/store.move_pending with
+        # revive=False), so the old server is never woken for them. Never attempts: a user command does not reset tries.
+        "posting_analyses": _merge(ins(), upd("status", "model_config_id")),
         "filter_overrides": ins(),
         "applications": full(),
         "application_events": ins(),

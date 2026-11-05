@@ -333,6 +333,17 @@ def create_app(runtime: "AgentRuntime", endpoint: IpcEndpoint) -> FastAPI:
         report = await runtime.test_model_config(config_id)
         return report if report is not None else JSONResponse({"error": "unknown model config"}, status_code=404)
 
+    @app.post("/v1/model-configs/local")
+    async def use_local_model(request: Request):
+        body = await _body(request)
+        if not isinstance(body, dict) or not isinstance(body.get("base_url"), str) or not isinstance(body.get("model_id"), str):
+            return JSONResponse({"error": "expected {\"base_url\": \"http://<computer>:<port>\", \"model_id\": \"<model>\"}"},
+                                status_code=422)
+        try:
+            return await runtime.use_local_model(body["base_url"], body["model_id"])
+        except model_configs.ConfigError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=422)
+
     @app.post("/v1/model-configs/{config_id}/enable")
     async def enable_model_config(config_id: int):
         return _config_toggle(config_id, True)
