@@ -499,7 +499,11 @@ class AgentRuntime:
 
     def chatgpt_status(self) -> dict:
         assert self.reader is not None
+        # "Local model" per step in the window: the fallback, or for reading and resume suggestions its reading config.
+        fb = steps.configured(self.reader, steps.FALLBACK)
+        rd = model_configs.reading_config(self.reader, fb)
         return {**self.chatgpt_auth().status(), "steps": steps.listing(self.reader),
+                "local": {"e1": rd, "resume": rd, "e3": fb, "fallback": fb},
                 "configs": [c for c in model_configs.listing(self.reader) if c["provider_kind"] == "chatgpt"],
                 "default_model": chatgpt_auth.DEFAULT_MODEL}
 
@@ -544,35 +548,46 @@ class AgentRuntime:
 
     async def use_local_model(self, base_url: str, model_id: str) -> dict:
         """User action (SPEC D19): the local model at an address (this PC, or another of the person's computers through
-        Tailscale), tested and turned on; when the test passes it becomes the local model: the fallback and every step
-        on a local config move to it, and steps on ChatGPT stay. Raises ConfigError for an address that is not allowed.
-        Postings queued on the old local model are handed over by the analysis worker (analysis/worker.run_once)."""
+        Tailscale), as two configs over the same model, each tested and turned on: the plain one and the reading one
+        (configs.READING_PARAMS). When both pass, the model becomes the local model: posting reading and resume
+        suggestions move to the reading config unless they are on ChatGPT, the fallback (and matching, if local) to the
+        plain one. Postings queued on another local config are handed to the reading config. Raises ConfigError for an
+        address that is not allowed. `model_config_id` is the plain config (the window's local model)."""
         assert self.user is not None
         self.user.execute("BEGIN IMMEDIATE")
         try:
             config_id = model_configs.upsert_local_config(self.user, base_url, model_id)
+            reading_id = model_configs.upsert_local_config(self.user, base_url, model_id, reading=True)
             self.user.execute("COMMIT")
         except Exception:
             self.user.execute("ROLLBACK")
             raise
         report = await self.test_model_config(config_id)
+        if report and report["ok"]:
+            reading_report = await self.test_model_config(reading_id)
+            if not (reading_report and reading_report["ok"]):
+                report = {**(reading_report or {}), "ok": False}
         if not (report and report["ok"]):
             return {"model_config_id": config_id, "test": report, "steps": steps.listing(self.reader)}
         self.set_model_config_enabled(config_id, True)
+        self.set_model_config_enabled(reading_id, True)
         for s in steps.KEYS:
             current = steps.configured(self.user, s)
-            if current != config_id and (s == steps.FALLBACK or not steps.is_cloud(self.user, current)):
-                self.set_model_step(s, config_id)
-        # Postings queued on another local model go to this one, so the old server is never woken for them (LM Studio
-        # loads a model on demand). ChatGPT's queue is left to the fallback rules (D18).
+            if s != steps.FALLBACK and steps.is_cloud(self.user, current):
+                continue  # steps on ChatGPT stay
+            want = reading_id if s in ("e1", "resume") else config_id
+            if current != want:
+                self.set_model_step(s, want)
+        # Postings queued on another local config go to the reading one, so the old server is never woken for them (LM
+        # Studio loads a model on demand). ChatGPT's queue is left to the fallback rules (D18).
         if not steps.is_cloud(self.user, steps.configured(self.user, "e1")):
             for (old,) in self.user.execute("SELECT DISTINCT pa.model_config_id FROM posting_analyses pa JOIN model_configs mc "
                                             "ON mc.id = pa.model_config_id WHERE pa.status = 'pending' AND pa.model_config_id <> ? "
-                                            "AND mc.provider_kind = 'openai_compatible'", (config_id,)).fetchall():
-                moved = analysis_store.move_pending(self.user, old, config_id, revive=False)
-                self.log.info("analyses_moved_to_local_model", count=moved, from_config=old, to_config=config_id)
+                                            "AND mc.provider_kind = 'openai_compatible'", (reading_id,)).fetchall():
+                moved = analysis_store.move_pending(self.user, old, reading_id, revive=False)
+                self.log.info("analyses_moved_to_local_model", count=moved, from_config=old, to_config=reading_id)
         self.notify_events()
-        return {"model_config_id": config_id, "test": report, "steps": steps.listing(self.user)}
+        return {"model_config_id": config_id, "reading_config_id": reading_id, "test": report, "steps": steps.listing(self.user)}
 
     def set_model_step(self, step: str, config_id: int) -> dict:
         """User action. Raises LookupError (unknown config) or ValueError (unknown step, config not turned on).

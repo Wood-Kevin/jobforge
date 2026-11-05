@@ -483,6 +483,15 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   means TLS to that server (a certificate the agent pins) or an SSH tunnel, both more setup than Tailscale's.
 - **Trigger:** a user who cannot use Tailscale.
 
+## "Check" times out while the other computer is reading a posting (2026-11-05, SPEC D19)
+- **What:** Ollama answers one request at a time by default, so a model test waits behind a posting the agent is
+  reading (up to about 3 minutes on the MacBook Air) and can pass the 150 s test limit. Seen live on 0.3.22: the first
+  "use this model" timed out right after the agent started; run again, the test passed in 11-16 s.
+- **Why deferred:** a retry works, and raising the limit means a longer wait in the window for every real failure.
+  Options: pause the analysis worker during a test, or set `OLLAMA_NUM_PARALLEL=2` on the Mac (more memory).
+- **Trigger:** the timeout seen by the person in the window, or more than one in `agent.jsonl` (`model_config_tested`
+  with `timeout`).
+
 ## Smaller task-specific models (2026-11-04)
 - **What:** models built for the two jobs instead of general chat models (research 2026-11-04, sources in the session
   notes): for reading postings, NuExtract3 (4B, Apache-2.0, extraction-tuned with verbatim-string fields; ExtractBench

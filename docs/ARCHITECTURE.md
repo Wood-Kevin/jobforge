@@ -1749,6 +1749,20 @@ above, this list is the current design:
   posting) / 226 (Qwen); quotes found 238 / 197 / 225; lines in conflict (questions for the person) 18 / 22 / 34;
   about 2 min / 1.5 min per posting on the Mac. Most of Qwen's "different" lines were the same line with or without a
   final period. Chosen: Qwen 3.5 9B for reading, resume suggestions and the fallback; matching stays on ChatGPT.
+- **Tuning Qwen 3.5 9B (2026-11-04, copy of the data, same sets).** The Ollama build's Modelfile sets
+  `presence_penalty 1.5`, `temperature 1`, `top_k 20`, `top_p 0.95`; a request that sets only temperature keeps the
+  rest (at temperature 0 only the penalty acts). Loaded context 65,536; the longest E1 prompt 2,701 tokens (no cut).
+
+  | Variant | E1 lines / conflicts / same as stored | E3 right / over / under (24 labels) |
+  |---|---|---|
+  | Penalty 1.5 (default), `match_type` second | 226 / 34 / 129 | 15 / 5 / 4 |
+  | Penalty 0 | 232 / 24 / 151 (3 quotes not found vs 1) | 13 / 8 / 3 |
+  | Penalty 0, `match_type` last (schema reordered; the output followed it) | - | 10 / 12 / 2 |
+
+  Thinking on: `reasoning_effort` low and high gave identical output (Ollama only switches thinking on), about 15,000
+  characters of reasoning on the test snippet; not measured on the sets. Chosen (0.3.22): the reading config with
+  `presence_penalty: 0` for E1 and resume suggestions (resume suggestions not measured; they also quote verbatim), the
+  plain config for the fallback; the E3 schema unchanged.
 - **Not verified:** whether a ChatGPT Free account can use its plan in JobForge (OpenAI's help center: commercial apps
   need Go, Plus or Pro, while "supported open-source tools remain available to all ChatGPT users"); DEFERRED, "ChatGPT
   plan after Plus ends".

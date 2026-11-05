@@ -325,7 +325,8 @@ if run models; then
   probe "Fallback and recovery log lines (model_fallback, inference_capped incl. not_eligible, model_cloud_retry, model_cloud_back, chatgpt_*, analyses moved)" \
     bash -c "grep -hE 'model_fallback|inference_capped|model_cloud_retry|model_cloud_back|chatgpt_|analyses_moved_to_fallback|analyses_moved_to_local_model|resume_suggestions_fallback' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -20"
   probe "Local model configs and their addresses (SPEC D19: loopback, 100.64.0.0/10, fd7a:115c:a1e0::/48 or *.ts.net only)" \
-    sql "SELECT id, name, provider_label, base_url, enabled, json_extract(params, '$.timeout_s') AS timeout_s FROM model_configs
+    sql "SELECT id, name, provider_label, base_url, enabled, json_extract(params, '$.timeout_s') AS timeout_s,
+          json_extract(params, '$.presence_penalty') AS presence_penalty FROM model_configs
           WHERE provider_kind = 'openai_compatible' ORDER BY id"
   probe "Each other computer's model port on its home-network address (SPEC D19; tailscale status peer addresses, 3 s connect)" \
     "$PY" -c 'import json, socket, sqlite3, subprocess, sys, urllib.parse

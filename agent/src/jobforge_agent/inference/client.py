@@ -106,6 +106,10 @@ def request_body(config: ModelConfig, messages: list[dict], response_format: dic
             "temperature": p.get("temperature", 0)}
     if "seed" in p:
         body["seed"] = p["seed"]
+    # Sent only when the config sets it, so other bodies (and the E3 answers stored under their hash) are unchanged. The
+    # Ollama build of Qwen 3.5 carries presence_penalty 1.5, which applies unless a request overrides it (SPEC D19).
+    if "presence_penalty" in p:
+        body["presence_penalty"] = p["presence_penalty"]
     # Reasoning control is per config (spike P1.0b: off by default).
     if "reasoning_effort" in p:
         body["reasoning_effort"] = p["reasoning_effort"]
