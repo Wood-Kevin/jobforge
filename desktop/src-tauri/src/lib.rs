@@ -68,10 +68,11 @@ async fn agent_call(method: String, path: String, body: Option<serde_json::Value
     // resume for suggestions allows the model 300 s (agent profile/suggest.py TIMEOUT_S); adding
     // companies by name asks up to 10 names x 2 spellings of each board, queued behind that
     // board's own polls at its 2 s spacing (agent discovery/directory.py). Turning on a ChatGPT model tests it
-    // with one call on the plan (agent inference/configs.CHATGPT_PARAMS timeout_s 300).
+    // with one call on the plan (agent inference/configs.CHATGPT_PARAMS timeout_s 300); a test call itself is capped
+    // at 150 s (configs.TEST_TIMEOUT_S), so the local-model route (which tests the model it adds) fits in 330 s too.
     let timeout = if path.ends_with("/test") {
         Duration::from_secs(180)
-    } else if path.ends_with("/suggest-items") || path == "/v1/chatgpt/use-model" {
+    } else if path.ends_with("/suggest-items") || path == "/v1/chatgpt/use-model" || path == "/v1/model-configs/local" {
         Duration::from_secs(330)
     } else if path == "/v1/employers/add" {
         Duration::from_secs(150)

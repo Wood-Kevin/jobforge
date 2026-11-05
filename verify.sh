@@ -322,8 +322,40 @@ if run models; then
           WHERE pa.status = 'pending' AND mc.provider_kind = 'chatgpt'
           UNION ALL SELECT 'e3', count(*) FROM evaluations e JOIN model_configs mc ON mc.id = e.model_config_id
           WHERE e.status = 'pending' AND mc.provider_kind = 'chatgpt'"
-  probe "Fallback and recovery log lines (model_fallback, inference_capped, model_cloud_retry, model_cloud_back, chatgpt_*)" \
-    bash -c "grep -hE 'model_fallback|inference_capped|model_cloud_retry|model_cloud_back|chatgpt_|analyses_moved_to_fallback|resume_suggestions_fallback' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -20"
+  probe "Fallback and recovery log lines (model_fallback, inference_capped incl. not_eligible, model_cloud_retry, model_cloud_back, chatgpt_*, analyses moved)" \
+    bash -c "grep -hE 'model_fallback|inference_capped|model_cloud_retry|model_cloud_back|chatgpt_|analyses_moved_to_fallback|analyses_moved_to_local_model|resume_suggestions_fallback' '$DATA/logs/agent.jsonl' 2>/dev/null | tail -20"
+  probe "Local model configs and their addresses (SPEC D19: loopback, 100.64.0.0/10, fd7a:115c:a1e0::/48 or *.ts.net only)" \
+    sql "SELECT id, name, provider_label, base_url, enabled, json_extract(params, '$.timeout_s') AS timeout_s FROM model_configs
+          WHERE provider_kind = 'openai_compatible' ORDER BY id"
+  probe "Each other computer's model port on its home-network address (SPEC D19; tailscale status peer addresses, 3 s connect)" \
+    "$PY" -c 'import json, socket, sqlite3, subprocess, sys, urllib.parse
+c = sqlite3.connect("file:" + sys.argv[1] + "?mode=ro", uri=True)
+urls = [u for (u,) in c.execute("SELECT DISTINCT base_url FROM model_configs WHERE provider_kind = '"'"'openai_compatible'"'"'")]
+remote = [urllib.parse.urlsplit(u) for u in urls if urllib.parse.urlsplit(u).hostname not in ("127.0.0.1", "localhost", "::1")]
+if not remote:
+    print("(no local config on another computer)"); sys.exit()
+st = None
+for exe in ("tailscale", r"C:\Program Files\Tailscale\tailscale.exe"):
+    try:
+        st = json.loads(subprocess.run([exe, "status", "--json"], capture_output=True, text=True, timeout=15).stdout); break
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        print(exe, "status unavailable:", type(exc).__name__)
+if st is None:
+    sys.exit()
+for u in remote:
+    peer = next((p for p in (st.get("Peer") or {}).values()
+                 if u.hostname in (p.get("TailscaleIPs") or []) or (p.get("DNSName") or "").rstrip(".") == u.hostname), None)
+    if peer is None:
+        print(u.netloc, "not in tailscale status"); continue
+    lan = sorted({a.rsplit(":", 1)[0].strip("[]") for a in (peer.get("Addrs") or []) + ([peer["CurAddr"]] if peer.get("CurAddr") else [])})
+    for ip in lan:
+        s = socket.socket(socket.AF_INET6 if ":" in ip else socket.AF_INET); s.settimeout(3)
+        try:
+            s.connect((ip, u.port or 80)); print(peer.get("HostName"), f"{ip}:{u.port}", "connected")
+        except OSError as exc:
+            print(peer.get("HostName"), f"{ip}:{u.port}", type(exc).__name__, exc.errno)
+        finally:
+            s.close()' "$DB"
   if [[ -n "$PORT" ]]; then
     probe "Each config with its steps and the gate's view (out = falling back)" api /v1/model-configs
     probe "Model calls and tokens per day, config and step, 7 days" api /v1/model-usage

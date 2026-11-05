@@ -59,7 +59,7 @@ def set_step(conn: sqlite3.Connection, step: str, config_id: int) -> None:
     if not row[0]:
         raise ValueError("turn the model on (test it) before using it for a step")
     if step == FALLBACK and row[1] != "openai_compatible":
-        raise ValueError("the fallback must be a model on this PC")
+        raise ValueError("the fallback must be a local model (this PC or another of your computers), not ChatGPT")
     conn.execute("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
                  (KEYS[step], str(config_id)))
 

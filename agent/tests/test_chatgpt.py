@@ -150,6 +150,9 @@ def test_completed_stream_parses_and_usage_is_normalized(tmp_path):
     ("capped", None, "capped"),
     ("status", (429, "slow down"), "capped"),
     ("status", (403, '{"error": {"code": "subscription_sharing_usage_unavailable"}}'), "capped"),
+    # An account that may not use its plan here (OpenAI "Errors and recovery"): waited out like a cap (SPEC D19).
+    ("status", (403, '{"error": {"code": "subscription_sharing_user_not_eligible"}}'), "capped"),
+    ("status", (403, '{"error": {"code": "subscription_sharing_route_not_supported"}}'), "capped"),
     ("status", (401, '{"error": {"code": "invalid_api_key"}}'), "unavailable"),  # signed out, never capped
     ("status", (503, "busy"), "unavailable"),
     ("cut", None, "unavailable"),  # the stream ended before its final event

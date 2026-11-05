@@ -222,14 +222,18 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
   const cfgs = useLive(api.modelConfigs, [], ["model_config_tested", "model_config_enabled", "model_config_disabled"]);
   const act = useAction();
   const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
-  // The model on this PC: the fallback step's config (SPEC D18), which every step uses unless handed to ChatGPT.
+  const [addr, setAddr] = useState<string | null>(null);
+  const [model, setModel] = useState<string | null>(null);
+  // The local model: the fallback step's config (SPEC D18), which every step uses unless handed to ChatGPT. It runs on
+  // this PC or on another of the person's computers through Tailscale (SPEC D19).
   const c = (cfgs.data ?? []).find((x) => x.steps.includes("fallback")) ?? cfgs.data?.find((x) => x.provider_kind === "openai_compatible");
   if (!c) return <Card title="AI model"><ErrorBox error={cfgs.error} /><p className="muted">Loading...</p></Card>;
+  const elsewhere = c.provider_label === "Another computer";
   const check = () => act.run(async () => {
     setResult({ ok: true, text: "Checking... the first check loads the model and can take a minute." });
     const r = await api.testModelConfig(c.id);
     if (!r.ok) {
-      setResult({ ok: false, text: friendlyModelError(r.error ?? "", c.model_id) });
+      setResult({ ok: false, text: friendlyModelError(r.error ?? "", c) });
       return;
     }
     if (!c.enabled) await api.enableModelConfig(c.id);
@@ -237,12 +241,27 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
     cfgs.reload();
     onReady?.();
   });
+  const useOther = () => act.run(async () => {
+    setResult({ ok: true, text: "Checking... the first check loads the model and can take a minute." });
+    const r = await api.useLocalModel(addr ?? c.base_url, model ?? c.model_id);
+    if (!r.test.ok) {
+      setResult({ ok: false, text: friendlyModelError(r.test.error ?? "", { ...c, provider_label: "Another computer", model_id: model ?? c.model_id }) });
+      return;
+    }
+    setResult({ ok: true, text: `Working (answered in ${r.test.seconds ?? "?"} s). Reading postings, resume suggestions and the backup ` +
+      "for ChatGPT now use it; steps you gave ChatGPT stay there." });
+    setAddr(null);
+    setModel(null);
+    cfgs.reload();
+    onReady?.();
+  });
   return (
     <Card title="AI model">
-      <p className="muted">JobForge reads each posting with a model running on this PC in LM Studio ({c.model_id}). Unless you
-        choose ChatGPT in Preferences, nothing is sent anywhere else.</p>
+      <p className="muted">JobForge reads each posting with a model on your own computer: {elsewhere
+        ? <>another computer of yours ({hostOf(c.base_url)}), model {c.model_id}</> : <>this PC, in LM Studio ({c.model_id})</>}. Unless
+        you choose ChatGPT in Preferences, nothing is sent anywhere else.</p>
       {/* Setting up LM Studio, step by step (UX redesign step 5): open until the model works, then folded away. */}
-      <details className="checklist" open={!c.enabled}>
+      {!elsewhere && <details className="checklist" open={!c.enabled}>
         <summary>How to set up LM Studio</summary>
         <ol>
           <li>Install LM Studio from <a href="https://lmstudio.ai" onClick={(e) => { e.preventDefault(); act.run(() => openUrl("https://lmstudio.ai")); }}>lmstudio.ai</a> and open it.</li>
@@ -251,18 +270,40 @@ export function ModelCard({ onReady }: { onReady?: () => void }) {
           <li>Open the Developer tab and start the local server.</li>
           <li>Come back here and press {c.enabled ? "Check again" : "Check and turn on"}.</li>
         </ol>
-      </details>
+      </details>}
       <p>{c.enabled ? <span className="ok-text">Turned on{c.tested_at_ms ? `, last checked ${age(Math.round((Date.now() - c.tested_at_ms) / 1000))} ago` : ""}.</span>
         : <span className="warn">Not turned on yet.</span>}</p>
       <div className="row"><button className="primary" disabled={act.busy} onClick={check}>{c.enabled ? "Check again" : "Check and turn on"}</button>
         {c.enabled && <button disabled={act.busy} onClick={() => act.run(async () => { await api.disableModelConfig(c.id); cfgs.reload(); })}>Turn off</button>}</div>
+      {/* Another of the person's computers (SPEC D19): the agent accepts only this PC or a Tailscale address. */}
+      <details className="checklist">
+        <summary>Use a model on another computer</summary>
+        <p className="muted">Run Ollama or LM Studio on another computer of yours, and connect both computers to Tailscale. JobForge
+          sends your profile to the model, so it only accepts this PC or a Tailscale address (one starting with 100. or a name
+          ending in .ts.net), never a plain home-network address.</p>
+        <label>Address <input value={addr ?? c.base_url} placeholder="http://100.101.102.103:11434" onChange={(e) => setAddr(e.target.value)} /></label>
+        <label>Model <input value={model ?? c.model_id} placeholder="qwen3.5:9b" onChange={(e) => setModel(e.target.value)} /></label>
+        <div className="row"><button disabled={act.busy || (addr === null && model === null)} onClick={useOther}>Check and use this model</button></div>
+      </details>
       {result && <p className={result.ok ? "ok-text" : "error"}>{result.text}</p>}
       <ErrorBox error={act.error} />
     </Card>
   );
 }
 
-function friendlyModelError(err: string, model: string): string {
+function hostOf(url: string): string {
+  try { return new URL(url).host; } catch { return url; }
+}
+
+function friendlyModelError(err: string, c: { model_id: string; base_url: string; provider_label: string }): string {
+  const model = c.model_id;
+  if (c.provider_label === "Another computer") {
+    if (/unavailable|ConnectError|refused|not reachable|timeout/i.test(err))
+      return "The other computer is not answering. Check that it is awake and connected to Tailscale and that its model server " +
+        "(Ollama or LM Studio) is running, then check again.";
+    if (/not listed|not in|model_not_listed/i.test(err))
+      return `The other computer answers, but it has no model named ${model}. Use the name its server lists (for Ollama, as \`ollama list\` shows it).`;
+  }
   if (/unavailable|ConnectError|refused|not reachable/i.test(err))
     return "LM Studio is not answering. Open LM Studio, start its local server (Developer tab), then check again.";
   if (/not listed|not in|model_not_listed/i.test(err))
@@ -279,7 +320,7 @@ const STEP_LABELS: [ModelStep, string, string][] = [
   ["resume", "Resume suggestions", "Your resume's text, when you ask for suggestions"],
 ];
 
-/** Optional: the person's ChatGPT plan for some steps, with the model on this PC as the fallback. Sign-in happens
+/** Optional: the person's ChatGPT plan for some steps, with the local model as the fallback. Sign-in happens
  * in the system browser (the agent's loopback callback); this card only starts it and watches for the result. */
 export function ChatGPTCard() {
   const st = useLive(api.chatgpt, [], ["model_step_changed", "model_config_enabled", "model_config_disabled", "model_config_tested"]);
@@ -324,8 +365,8 @@ export function ChatGPTCard() {
   const setStep = (step: ModelStep, id: number) => act.run(async () => { await api.setModelStep(step, id); st.reload(); });
   return (
     <Card title="ChatGPT (optional)">
-      <p className="muted">Use your ChatGPT plan instead of the model on this PC: it judges jobs more accurately. It counts against your
-        plan's usage, and JobForge goes back to the model on this PC by itself while your plan is at its limit or ChatGPT can't be reached.</p>
+      <p className="muted">Use your ChatGPT plan instead of your local model: it judges jobs more accurately. It counts against your
+        plan's usage, and JobForge goes back to your local model by itself while your plan is at its limit or ChatGPT can't be reached.</p>
       {!s.signed_in ? (<>
         <details className="checklist" open>
           <summary>What is sent to OpenAI</summary>
@@ -340,8 +381,9 @@ export function ChatGPTCard() {
       </>) : (<>
         <div className="row"><span>Signed in{s.email ? <> as <strong>{s.email}</strong></> : ""}.</span><span className="spacer" />
           <ConfirmButton label="Sign out" disabled={act.busy} onConfirm={() => act.run(async () => { await api.chatgptSignOut(); setModels(null); st.reload(); })} /></div>
-        {out && <p className="warn">{out.out === "capped" ? "Your ChatGPT plan is at its usage limit" : "ChatGPT isn't answering right now"}:
-          JobForge is using the model on this PC until it answers again, then checks those jobs again with ChatGPT.</p>}
+        {out && <p className="warn">{out.out === "capped" ? "Your ChatGPT plan is at its usage limit"
+          : out.out === "not_eligible" ? "ChatGPT says this account can't use its plan in JobForge" : "ChatGPT isn't answering right now"}:
+          JobForge is using your local model until it answers again, then checks those jobs again with ChatGPT.</p>}
         <div className="row">
           <label>Model <select value={pick} onChange={(e) => setPick(e.target.value)}>
             {(models ?? []).map((m) => <option key={m.slug} value={m.slug}>{m.display_name}{m.slug === s.default_model ? " (suggested)" : ""}</option>)}
@@ -354,7 +396,7 @@ export function ChatGPTCard() {
           return (
             <tr key={k}><td>{label}<div className="muted">{what}</div></td>
               <td><label className="choice"><input type="radio" name={`step-${k}`} checked={!onCloud} disabled={act.busy || local === null}
-                onChange={() => local !== null && setStep(k, local)} />This PC</label>
+                onChange={() => local !== null && setStep(k, local)} />Local model</label>
                 <label className="choice"><input type="radio" name={`step-${k}`} checked={onCloud} disabled={act.busy || !cloud}
                   onChange={() => cloud && setStep(k, cloud.id)} />ChatGPT</label></td></tr>);
         })}</tbody></table>

@@ -81,8 +81,10 @@ export type ReviewGroup = { kind: string; type: string | null; example: string; 
 // differently, or only JobForge's scan found it): no fact you add settles it (views.py _reading_problem).
 export type ReadingProblem = { outcome: "met" | "fails" | "unanswered"; quote: string; status: string; origin: string };
 // steps: the model steps that use this config (e1 reading postings, e3 matching, resume, fallback; SPEC D18);
-// out: why the agent's health gate has it out of use right now ("capped", "signed_out", ...), or null.
+// out: why the agent's health gate has it out of use right now ("capped", "not_eligible", "signed_out", ...), or null.
+// provider_label: "This PC" or "Another computer" for a local model (SPEC D19), "ChatGPT" for the plan.
 export type ModelConfig = { id: number; name: string; model_id: string; base_url: string; provider_kind: "openai_compatible" | "chatgpt";
+  provider_label: string;
   enabled: boolean; tested_at_ms: number | null; steps: string[]; out: string | null };
 export type ModelStep = "e1" | "e3" | "resume" | "fallback";
 export type ChatGPTStatus = { signed_in: boolean; email: string | null; sign_in: { state: "idle" | "waiting" | "done" | "failed"; error: string | null };
@@ -158,6 +160,10 @@ export const api = {
   testModelConfig: (id: number) => agentCall<{ ok: boolean; error?: string; seconds?: number }>("POST", `/v1/model-configs/${id}/test`),
   enableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/enable`),
   disableModelConfig: (id: number) => agentCall<unknown>("POST", `/v1/model-configs/${id}/disable`),
+  // The local model at an address (this PC, or another computer through Tailscale; SPEC D19): tested, and when it
+  // passes, the fallback and every step not on ChatGPT move to it.
+  useLocalModel: (base_url: string, model_id: string) => agentCall<{ model_config_id: number; test: { ok: boolean; error?: string; seconds?: number };
+    steps: Record<ModelStep, number | null> }>("POST", "/v1/model-configs/local", { base_url, model_id }),
   chatgpt: () => agentCall<ChatGPTStatus>("GET", "/v1/chatgpt"),
   chatgptSignIn: () => agentCall<{ authorize_url: string }>("POST", "/v1/chatgpt/sign-in"),
   chatgptSignOut: () => agentCall<{ signed_out: boolean }>("POST", "/v1/chatgpt/sign-out"),

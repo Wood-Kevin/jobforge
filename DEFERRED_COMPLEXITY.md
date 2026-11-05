@@ -472,6 +472,39 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
 - **Rejected for now:** a free cloud API (Google AI Studio's unpaid tier may use and human-review prompts, and its terms
   say not to send personal information); a paid cloud tier remains an option for users without a strong machine.
 - **Trigger:** the second machine is available.
+- **RESOLVED 2026-11-04 (SPEC D19, version 0.3.21):** "Use a model on another computer" in the window; the address must
+  be this PC or a Tailscale address, so prompts never cross the LAN as plain HTTP; the comparison rerun on a MacBook Air
+  (ARCHITECTURE 6.9, "Local model on another computer"). Still open below: a home network without Tailscale, the
+  bigger-model machine, and task-specific models.
+
+## Local model on a home network without Tailscale (2026-11-04, SPEC D19)
+- **What:** someone the app is shared with may want a model on another computer without installing Tailscale.
+- **Why deferred:** a plain home-network address carries profile items and resume text unencrypted; doing it safely
+  means TLS to that server (a certificate the agent pins) or an SSH tunnel, both more setup than Tailscale's.
+- **Trigger:** a user who cannot use Tailscale.
+
+## Smaller task-specific models (2026-11-04)
+- **What:** models built for the two jobs instead of general chat models (research 2026-11-04, sources in the session
+  notes): for reading postings, NuExtract3 (4B, Apache-2.0, extraction-tuned with verbatim-string fields; ExtractBench
+  82.35 vs 49.42 for NuExtract 2.0 8B; Ollama `hf.co/numind/NuExtract3-GGUF:Q4_K_M`, 2.8 GB), or Schematron-8B (JSON
+  Schema in, 128K context); for over-credit, Granite Guardian 4.1 8B (Apache-2.0, groundedness judge, LLM-AggreFact
+  0.760; Ollama `granite4.1-guardian:8b`) as a yes/no second check after E3 says direct or transferable.
+- **Why deferred:** neither drops in. NuExtract uses its own template format, not JSON Schema, and is trained to fill
+  fields, not list and classify every requirement line. Granite Guardian answers only yes/no, so it cannot replace E3;
+  as a second pass it is a new step, a new prompt version and a verdict-rules question. Apple Silicon speeds unverified.
+- **Next measurement (cheap, no app change):** Granite Guardian over the stored Mac Gemma and Qwen E3 answers on the 24
+  labeled requirements: over-credits removed vs right credits wrongly removed. Then a NuExtract3 load-and-template check
+  on Ollama 0.32 before any E1 comparison.
+- **Trigger:** Kevin asks for the measurement, or matching moves off ChatGPT.
+
+## ChatGPT plan after Plus ends (2026-11-04)
+- **What:** Kevin cancelled Plus. Whether a Free account can use its plan in JobForge is not documented for open-source
+  apps (help center: commercial apps need Go, Plus or Pro; "supported open-source tools remain available to all ChatGPT
+  users"), and Free's usage allowance is unpublished and smaller.
+- **Why deferred:** only a live call can tell, and Plus runs to the end of the billing period.
+- **Trigger:** the first ChatGPT error after the period ends. Look in `agent.jsonl` for `inference_capped` with
+  `not_eligible` (Free cannot use it: matching stays on the local model; consider pointing model.e3 at it) or with a
+  usage-limit code (Free can, with a small allowance: watch how many jobs a week it carries in `/v1/model-usage`).
 
 ## ChatGPT integration: what the first build leaves open (2026-10-26, SPEC D18)
 - **Posting reading on ChatGPT is not ready (measured 2026-10-26):** E1 through GPT-5.6-Luna on 20 of the
