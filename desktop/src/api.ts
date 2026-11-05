@@ -88,7 +88,8 @@ export type ModelConfig = { id: number; name: string; model_id: string; base_url
   enabled: boolean; tested_at_ms: number | null; steps: string[]; out: string | null };
 export type ModelStep = "e1" | "e3" | "resume" | "fallback";
 export type ChatGPTStatus = { signed_in: boolean; email: string | null; sign_in: { state: "idle" | "waiting" | "done" | "failed"; error: string | null };
-  steps: Record<ModelStep, number | null>; configs: ModelConfig[]; default_model: string };
+  // local: the config "Local model" means for each step (reading and resume suggestions: the reading config; SPEC D19).
+  steps: Record<ModelStep, number | null>; local: Record<ModelStep, number | null>; configs: ModelConfig[]; default_model: string };
 export type ModelUsage = { days: number; rows: { day: string; model_config_id: number; step: "e1" | "e3"; calls: number; input_tokens: number; output_tokens: number }[] };
 export type ApplicationRow = { id: number; job_id: number; status: string; notes: string | null; title: string; company: string; job_closed: boolean; last_change_ms: number };
 

@@ -348,7 +348,6 @@ export function ChatGPTCard() {
   if (!s) return <Card title="ChatGPT (optional)"><ErrorBox error={st.error} /><p className="muted">Loading...</p></Card>;
   const cloud = s.configs.find((c) => c.enabled && c.model_id === pick) ?? s.configs.find((c) => c.enabled);
   const out = s.configs.find((c) => c.out && Object.values(s.steps).includes(c.id));
-  const local = s.steps.fallback;
   const signIn = () => act.run(async () => {
     setMsg(null);
     const r = await api.chatgptSignIn();
@@ -393,6 +392,7 @@ export function ChatGPTCard() {
         <table><tbody>{STEP_LABELS.map(([k, label, what]) => {
           const current = s.steps[k];
           const onCloud = s.configs.some((c) => c.id === current);
+          const local = s.local[k] ?? s.steps.fallback;  // reading and resume suggestions: the reading config (SPEC D19)
           return (
             <tr key={k}><td>{label}<div className="muted">{what}</div></td>
               <td><label className="choice"><input type="radio" name={`step-${k}`} checked={!onCloud} disabled={act.busy || local === null}

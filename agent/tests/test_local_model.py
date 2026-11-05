@@ -9,7 +9,7 @@ import pytest
 from conftest import NOW
 from jobforge_agent.analysis import store as analysis_store
 from jobforge_agent.inference import configs, steps
-from jobforge_agent.inference.client import load_config
+from jobforge_agent.inference.client import load_config, request_body
 from test_analysis import MODEL, SNIPPET_OK, FakeServer, _run_with_fake
 from test_chatgpt import FakeCloud, _cloud_config, _workers
 from test_evaluation import E1, e3, env, evals, profile_basic  # noqa: F401 (env is a fixture)
@@ -59,7 +59,7 @@ def test_a_config_per_address_and_model_with_the_longer_wait_off_this_pc(db):
 
 
 def test_the_test_call_waits_at_most_the_test_limit(db):
-    mac =configs.upsert_local_config(db, f"{MAC}:11434", MODEL)
+    mac = configs.upsert_local_config(db, f"{MAC}:11434", MODEL)
     seen = []
 
     class Client:
@@ -73,8 +73,18 @@ def test_the_test_call_waits_at_most_the_test_limit(db):
     assert seen == [configs.TEST_TIMEOUT_S] and report["ok"] is False  # the window waits 180 s for a test (host)
 
 
+def test_only_a_config_that_sets_presence_penalty_sends_it(db):
+    plain = load_config(db, configs.upsert_local_config(db, f"{MAC}:11434", MODEL))
+    reading = load_config(db, configs.upsert_local_config(db, f"{MAC}:11434", MODEL, reading=True))
+    msgs = [{"role": "user", "content": "x"}]
+    # The plain body is unchanged, so matching answers stored under its hash are still reused.
+    assert "presence_penalty" not in request_body(plain, msgs, None)
+    assert request_body(reading, msgs, None)["presence_penalty"] == 0
+    assert reading.name == f"{MODEL} ({MAC}:11434, reading)" and reading.timeout_s == configs.REMOTE_TIMEOUT_S
+
+
 def test_use_local_model_moves_the_local_steps_and_keeps_chatgpt(paths):
-    server = FakeServer(("ok", SNIPPET_OK))
+    server = FakeServer(("ok", SNIPPET_OK), ("ok", SNIPPET_OK))  # the plain config's test, then the reading config's
 
     async def check(client, runtime):
         cloud = _cloud_config(runtime.user)
@@ -86,12 +96,28 @@ def test_use_local_model_moves_the_local_steps_and_keeps_chatgpt(paths):
         r = (await client.post("/v1/model-configs/local", headers=AUTH,
                                json={"base_url": f"{MAC}:11434", "model_id": MODEL})).json()
         assert r["test"]["ok"] is True
-        mac = r["model_config_id"]
-        assert r["steps"] == {"e1": mac, "e3": cloud, "resume": mac, "fallback": mac}  # matching stays on ChatGPT
+        mac, reading = r["model_config_id"], r["reading_config_id"]
+        # Reading and resume suggestions on the reading config, the fallback on the plain one, matching stays on ChatGPT.
+        assert r["steps"] == {"e1": reading, "e3": cloud, "resume": reading, "fallback": mac}
         assert {q.url.host for q in server.requests} == {MAC}
-        cfg = [c for c in (await client.get("/v1/model-configs", headers=AUTH)).json() if c["id"] == mac][0]
-        assert cfg["enabled"] is True and cfg["base_url"] == f"http://{MAC}:11434/v1"
+        chats = [json.loads(q.content) for q in server.requests if q.url.path.endswith("/chat/completions")]
+        assert ["presence_penalty" in b for b in chats] == [False, True]
+        cfgs = {c["id"]: c for c in (await client.get("/v1/model-configs", headers=AUTH)).json()}
+        assert cfgs[mac]["enabled"] and cfgs[reading]["enabled"] and cfgs[mac]["base_url"] == f"http://{MAC}:11434/v1"
+        local = (await client.get("/v1/chatgpt", headers=AUTH)).json()["local"]
+        assert local == {"e1": reading, "resume": reading, "e3": mac, "fallback": mac}  # the window's "Local model"
     _run_with_fake(paths, FakeCloud(local=server), check)
+
+
+def test_matching_on_the_local_model_gets_the_plain_config(paths):
+    server = FakeServer(("ok", SNIPPET_OK), ("ok", SNIPPET_OK))
+
+    async def check(client, runtime):
+        r = (await client.post("/v1/model-configs/local", headers=AUTH,
+                               json={"base_url": f"{MAC}:11434", "model_id": MODEL})).json()
+        mac, reading = r["model_config_id"], r["reading_config_id"]
+        assert r["steps"] == {"e1": reading, "e3": mac, "resume": reading, "fallback": mac}
+    _run_with_fake(paths, server, check)
 
 
 def test_a_model_that_fails_its_test_changes_no_step(paths):

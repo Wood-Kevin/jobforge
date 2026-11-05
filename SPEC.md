@@ -452,6 +452,14 @@ accepted, not owned.
     (LM Studio loads a model on demand). The user connection's grant on `posting_analyses` gains `model_config_id`
     for this, never `attempts`: a posting the new model already failed stays failed. Rejected: the analysis worker
     moving any queue that the reading step does not use (it would also move work deliberately queued elsewhere).
+  - Each local model is two configs over the same server and model (2026-11-05, version 0.3.22): a reading config for
+    posting reading and resume suggestions with `presence_penalty: 0`, and the plain config for the fallback (and
+    matching, when local), which leaves the server's default. Qwen 3.5 9B's Ollama build defaults to 1.5, which works
+    against copying posting text word for word. Measured on a copy (ARCHITECTURE 6.9): reading 232 lines instead of
+    226, 24 in conflict instead of 34; matching with 0 over-credited more (13/24 right, 8 over-credits, vs 15 and 5),
+    so matching keeps the default. Rejected: one config per model with a per-step penalty rule (readings made under
+    different settings would share one config id); the E3 schema with `match_type` last (10/24, 12 over-credits).
+    Kevin: "build it, resume suggestions with reading".
   - A config on another computer waits up to 600 s per call (the MacBook Air took up to 264 s on a long posting);
     the test call stays capped at 150 s for the window.
   - ChatGPT's "not eligible" answer (`subscription_sharing_user_not_eligible`, `..._route_not_supported`, HTTP 403)
@@ -687,6 +695,7 @@ Optional for this project (no lane, Kevin 2026-10-21); not a completion gate.
 | 2026-10-21 | DRAFT rev 2: four categories, three assessments, requirement classes, match types, E0-E6 with interpretation checks, SKIP-requires-evidence, all postings retained | Kevin: middle ground between conservative screening and optimistic matching |
 | 2026-10-21 | DRAFT rev 3: continuous incremental discovery, change detection, supersession, two workers, dashboard and live refresh | Kevin: near-real-time discovery within responsible limits |
 | 2026-10-21 | P1.0 spikes (a) and (c) run; (b) stopped by Kevin before the first model call. Results in ARCHITECTURE Appendix A | Kevin: test before anything else |
+| 2026-11-05 | D19 tuning: a local model is a pair of configs; posting reading and resume suggestions use the reading one (`presence_penalty: 0`, sent only when a config sets it), the fallback the plain one; `/v1/chatgpt` reports `local` per step for the window's "Local model" choice. Measured on a copy: reading improved (232 lines vs 226, conflicts 24 vs 34); matching kept as is (penalty 0 and label-last schema both raised over-credits). Version 0.3.22 | Kevin: "lets see if we can tune qwen"; "also test the schema order change on matching"; "build it, resume suggestions with reading" |
 | 2026-11-04 | D19: the local model may run on another of the person's computers, reached only through Tailscale (address check, "Use a model on another computer" in the window, `POST /v1/model-configs/local`, queued postings handed to the reading step's model, 600 s wait off this PC, test call capped at 150 s). ChatGPT's "not eligible" answer is handled like a cap instead of a request error. Window wording "this PC" -> "your local model". Security posture line updated. Version 0.3.21 | Kevin: "off load the local model to the mac air"; "follow your proposed order"; "lets build that way" |
 | 2026-11-01 | Dependency updates (Dependabot PRs #12-#14): fastapi 0.159.1 -> 0.162.0, pypdf, pytest; tauri-plugin-single-instance 2.5.4 -> 2.5.5; CI action setup-uv 10.3.2 -> 10.3.3. No behavior change intended: FastAPI 0.160/0.162 breaking changes cover query/header/cookie/form parameter models and omitted boolean form fields, none of which the agent declares. Version 0.3.20 | Kevin: "merge all three, build and install" |
 | 2026-10-29 | Matching: "I don't have this" on a "Needs your input" skill question saves the posting's line (migration 0012, `profile_completeness.lacking`); E4 reads that line as an evidenced gap on any job whose posting has the same line (E4 `m2-v3`, prompt unchanged, stored answers reused). Removable from Profile. Before/after on a copy: no lines, 54 of 54 verdicts unchanged; all 8 page questions answered no, 3 jobs REVIEW -> STRETCH (ARCHITECTURE 6.4 E4). Version 0.3.19 | Kevin: "There is no option to dismiss a question for needs your input if I don't have the skill"; chose "same line, any job" over a typed short name |

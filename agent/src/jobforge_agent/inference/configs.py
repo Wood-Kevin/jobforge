@@ -132,23 +132,42 @@ def check_local_url(base_url: str) -> tuple[str, bool]:
     return urllib.parse.urlunsplit((u.scheme, u.netloc.lower(), path, "", "")), loopback
 
 
-def upsert_local_config(conn: sqlite3.Connection, base_url: str, model_id: str) -> int:
-    """The config row for a local model at an address, created on first use (caller holds the transaction)."""
+# The reading config of a local model (posting reading and resume suggestions copy text word for word): no presence
+# penalty. Measured 2026-11-04 on Qwen 3.5 9B (its Ollama build defaults to 1.5), 15 postings: 232 lines instead of 226,
+# 24 in conflict instead of 34, 151 instead of 129 the same as the stored reading. Matching keeps the server's default:
+# with 0 it over-credited more (8 instead of 5 on the 24 labels). ARCHITECTURE 6.9.
+READING_PARAMS = {"presence_penalty": 0}
+
+
+def upsert_local_config(conn: sqlite3.Connection, base_url: str, model_id: str, reading: bool = False) -> int:
+    """The config row for a local model at an address, created on first use (caller holds the transaction): the plain
+    one (fallback, matching) or, with `reading`, the one for posting reading and resume suggestions (READING_PARAMS)."""
     url, loopback = check_local_url(base_url)
     model_id = model_id.strip()
     if not model_id:
         raise ConfigError("enter the model's name as the server lists it, for example qwen3.5:9b")
-    row = conn.execute("SELECT id FROM model_configs WHERE provider_kind = 'openai_compatible' AND base_url = ? AND model_id = ?",
-                       (url, model_id)).fetchone()
+    # Names are unique: host and port tell two servers on one computer apart, and the reading config is named apart.
+    name = f"{model_id} ({urllib.parse.urlsplit(url).netloc}{', reading' if reading else ''})"
+    row = conn.execute("SELECT id FROM model_configs WHERE provider_kind = 'openai_compatible' AND name = ?", (name,)).fetchone()
     if row:
         return row[0]
     params = LOCAL_PARAMS if loopback else {**LOCAL_PARAMS, "timeout_s": REMOTE_TIMEOUT_S}
-    # Names are unique: host and port tell two servers on one computer apart.
+    if reading:
+        params = {**params, **READING_PARAMS}
     return conn.execute(
         "INSERT INTO model_configs (name, provider_label, provider_kind, base_url, model_id, params, structured_output_mode, "
         "enabled) VALUES (?, ?, 'openai_compatible', ?, ?, ?, 'json_schema', 0) RETURNING id",
-        (f"{model_id} ({urllib.parse.urlsplit(url).netloc})", "This PC" if loopback else "Another computer", url, model_id,
-         json.dumps(params))).fetchone()[0]
+        (name, "This PC" if loopback else "Another computer", url, model_id, json.dumps(params))).fetchone()[0]
+
+
+def reading_config(conn: sqlite3.Connection, config_id: int | None) -> int | None:
+    """The turned-on reading config of the same server and model as `config_id`, or `config_id` itself."""
+    if config_id is None:
+        return None
+    row = conn.execute("SELECT r.id FROM model_configs c JOIN model_configs r ON r.base_url = c.base_url AND r.model_id = c.model_id "
+                       "AND r.name = substr(c.name, 1, length(c.name) - 1) || ', reading)' AND r.enabled = 1 "
+                       "WHERE c.id = ? AND c.provider_kind = 'openai_compatible'", (config_id,)).fetchone()
+    return row[0] if row else config_id
 
 
 # ChatGPT configs (SPEC D18). The plan's models are reasoning models: a larger output limit than the local 4,000
