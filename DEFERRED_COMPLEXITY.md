@@ -503,7 +503,15 @@ Not an open-ended deferral: this is the next change to E3-E6, waiting only on tw
   invented one: unsupported). Best case, claims built by hand from each line's core term ("experience with SQL"): it cut
   over-credits (ChatGPT 4 -> 2, Mac Gemma 7 -> 2, Mac Qwen 5 -> 1) but removed 3-4 right credits each, so right answers
   went 17 -> 14, 15 -> 14 and 15 -> 15. It trades over-credit for under-credit; no net gain, and the core-term claims
-  would need another model call to write. Remaining candidate: NuExtract3 for posting reading (not measured).
+  would need another model call to write.
+- **NuExtract3 measured 2026-11-04 (Mac, Q4_K_M, the 15 of the 20 postings with text kept): not adopted.** Prompt
+  rendered from its own chat template (structured mode, thinking off; E1's schema as the template, `jd_quote` as
+  `verbatim-string`, E1's rules as instructions), answers through the app's parser and E2, against the stored PC Gemma
+  readings: 162 lines to 238 (Mac Qwen 226, Mac Gemma 198), on one posting 2 of 30; every quote found (162/162), but
+  some cut mid-sentence ("Typically requires a minimum of two years"); 98 fields left empty and filled with E1's
+  defaults; it never chose eligibility "none" on the test snippet (E2 corrected the final types: 12 eligibility lines
+  to 16 stored). About 30 s per posting (Mac Qwen about 90 s). Dropping lines makes jobs look better than they are,
+  the failure that ruled out the Mac's Gemma, so Qwen 3.5 9B stays.
 
 ## ChatGPT plan after Plus ends (2026-11-04)
 - **What:** Kevin cancelled Plus. Whether a Free account can use its plan in JobForge is not documented for open-source
